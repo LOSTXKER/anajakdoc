@@ -35,7 +35,8 @@ export async function createDocument(formData: FormData): Promise<ApiResponse<{ 
   
   const rawData = {
     transactionType: formData.get("transactionType") as string,
-    docType: formData.get("docType") as string,
+    // docType is now optional - defaults to RECEIPT for backward compatibility
+    docType: (formData.get("docType") as string) || undefined,
     docDate: formData.get("docDate") as string,
     dueDate: formData.get("dueDate") as string || undefined,
     subtotal: formData.get("subtotal") as string,

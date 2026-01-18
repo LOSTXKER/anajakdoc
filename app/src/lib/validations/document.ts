@@ -3,7 +3,8 @@ import { TransactionType, DocType, PaymentMethod, DocumentStatus } from ".prisma
 
 export const createDocumentSchema = z.object({
   transactionType: z.nativeEnum(TransactionType).default(TransactionType.EXPENSE),
-  docType: z.nativeEnum(DocType).default(DocType.RECEIPT),
+  // docType is now optional - actual doc types are in SubDocument
+  docType: z.nativeEnum(DocType).optional().default(DocType.RECEIPT),
   docDate: z.coerce.date(),
   dueDate: z.coerce.date().optional(),
   subtotal: z.coerce.number().min(0),
