@@ -4,7 +4,7 @@ import { ExpenseGroupList } from "@/components/expense-groups/expense-group-list
 import prisma from "@/lib/prisma";
 
 async function getExpenseGroups(orgId: string) {
-  return prisma.expenseGroup.findMany({
+  const groups = await prisma.expenseGroup.findMany({
     where: { organizationId: orgId },
     include: {
       documents: {
@@ -21,6 +21,18 @@ async function getExpenseGroups(orgId: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // Serialize Decimal to number
+  return groups.map(group => ({
+    ...group,
+    totalAmount: group.totalAmount.toNumber(),
+    createdAt: group.createdAt.toISOString(),
+    updatedAt: group.updatedAt.toISOString(),
+    documents: group.documents.map(doc => ({
+      ...doc,
+      totalAmount: doc.totalAmount.toNumber(),
+    })),
+  }));
 }
 
 export default async function ExpenseGroupsPage() {

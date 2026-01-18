@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -19,21 +18,28 @@ import {
 import { Plus, Loader2, FolderOpen, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createExpenseGroup, deleteExpenseGroup } from "@/server/actions/expense-group";
-import type { ExpenseGroup, Document } from ".prisma/client";
 import Link from "next/link";
 
-interface GroupWithDocs extends ExpenseGroup {
+// Serialized types (Decimal -> number, Date -> string)
+interface SerializedExpenseGroup {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  totalAmount: number;
+  createdAt: string;
+  updatedAt: string;
   documents: {
     id: string;
     docNumber: string;
-    totalAmount: { toNumber(): number };
+    totalAmount: number;
     status: string;
   }[];
   _count: { documents: number };
 }
 
 interface ExpenseGroupListProps {
-  groups: GroupWithDocs[];
+  groups: SerializedExpenseGroup[];
 }
 
 export function ExpenseGroupList({ groups }: ExpenseGroupListProps) {
@@ -129,7 +135,7 @@ export function ExpenseGroupList({ groups }: ExpenseGroupListProps) {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {groups.map((group) => {
             const total = group.documents.reduce(
-              (sum, doc) => sum + doc.totalAmount.toNumber(),
+              (sum, doc) => sum + doc.totalAmount,
               0
             );
 
@@ -185,7 +191,7 @@ export function ExpenseGroupList({ groups }: ExpenseGroupListProps) {
                             <span>{doc.docNumber}</span>
                           </div>
                           <span className="text-muted-foreground">
-                            ฿{doc.totalAmount.toNumber().toLocaleString()}
+                            ฿{doc.totalAmount.toLocaleString()}
                           </span>
                         </Link>
                       ))}
