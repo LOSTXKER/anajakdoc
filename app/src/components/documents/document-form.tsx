@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createDocument, updateDocument } from "@/server/actions/document";
+import { checkSoftDuplicate, type DuplicateWarning } from "@/server/actions/file";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ContactForm } from "@/components/settings/contact-form";
+import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
 import type { Category, CostCenter, Contact, Document, DocType } from ".prisma/client";
 import Link from "next/link";
 
@@ -104,6 +106,20 @@ export function DocumentForm({
   const [subtotal, setSubtotal] = useState(document?.subtotal?.toString() || "");
   const [vatAmount, setVatAmount] = useState(document?.vatAmount?.toString() || "0");
   const [whtAmount, setWhtAmount] = useState(document?.whtAmount?.toString() || "0");
+  const [docDate, setDocDate] = useState(
+    document?.docDate?.toISOString().split("T")[0] || new Date().toISOString().split("T")[0]
+  );
+
+  // Duplicate detection
+  const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateWarning[]>([]);
+
+  // Calculate total - defined first for use in duplicate check
+  const calculateTotal = useCallback(() => {
+    const sub = parseFloat(subtotal) || 0;
+    const vat = parseFloat(vatAmount) || 0;
+    const wht = parseFloat(whtAmount) || 0;
+    return (sub + vat - wht).toFixed(2);
+  }, [subtotal, vatAmount, whtAmount]);
 
   // Contact created handler
   function handleContactCreated(newContact: { id: string; name: string }) {
@@ -115,12 +131,39 @@ export function DocumentForm({
     setShowAddContact(false);
   }
 
-  const calculateTotal = () => {
-    const sub = parseFloat(subtotal) || 0;
-    const vat = parseFloat(vatAmount) || 0;
-    const wht = parseFloat(whtAmount) || 0;
-    return (sub + vat - wht).toFixed(2);
-  };
+  // Debounced duplicate check
+  useEffect(() => {
+    const total = parseFloat(calculateTotal());
+    if (total <= 0) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const warning = await checkSoftDuplicate(
+          total,
+          selectedContactId || null,
+          new Date(docDate),
+          document?.id
+        );
+        
+        if (warning) {
+          setDuplicateWarnings(prev => {
+            const exists = prev.some(w => w.documentId === warning.documentId);
+            if (exists) return prev;
+            return [...prev, warning];
+          });
+        }
+      } catch (error) {
+        console.error("Error checking duplicates:", error);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [calculateTotal, selectedContactId, docDate, document?.id]);
+
+  // Dismiss warning
+  function dismissWarning(index: number) {
+    setDuplicateWarnings(prev => prev.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -164,6 +207,9 @@ export function DocumentForm({
           {error}
         </div>
       )}
+
+      {/* Duplicate Warnings */}
+      <DuplicateWarningAlert warnings={duplicateWarnings} onDismiss={dismissWarning} />
 
       {/* Step 1: Document Type */}
       <Card>
@@ -222,7 +268,8 @@ export function DocumentForm({
                   name="docDate"
                   type="date"
                   className="pl-10"
-                  defaultValue={document?.docDate?.toISOString().split("T")[0] || new Date().toISOString().split("T")[0]}
+                  value={docDate}
+                  onChange={(e) => setDocDate(e.target.value)}
                   required
                 />
               </div>
@@ -235,6 +282,26 @@ export function DocumentForm({
                 placeholder="เช่น INV-2024-001"
                 defaultValue={document?.externalRef || ""}
               />
+            </div>
+          </div>
+
+          {/* Due Date */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">วันครบกำหนดชำระ</Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="dueDate"
+                  name="dueDate"
+                  type="date"
+                  className="pl-10"
+                  defaultValue={document?.dueDate?.toISOString().split("T")[0] || ""}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                ระบุวันครบกำหนดเพื่อติดตามการชำระเงิน
+              </p>
             </div>
           </div>
 

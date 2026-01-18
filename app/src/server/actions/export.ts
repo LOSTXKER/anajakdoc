@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
 import type { ApiResponse } from "@/types";
 
 export async function exportDocumentsToExcel(
@@ -263,9 +264,51 @@ export async function exportDocuments(
       },
     };
   } else {
-    // ZIP export - for now just return success
+    // ZIP export with files
     fileName = `export_${timestamp}.zip`;
     
+    const zip = new JSZip();
+    
+    // Create Excel summary
+    const workbook = XLSX.utils.book_new();
+    const summaryData = documents.map((doc) => ({
+      "เลขที่เอกสาร": doc.docNumber,
+      "วันที่": new Date(doc.docDate).toLocaleDateString("th-TH"),
+      "ประเภท": doc.transactionType === "EXPENSE" ? "รายจ่าย" : "รายรับ",
+      "หมวดหมู่": doc.category?.name || "-",
+      "คู่ค้า": doc.contact?.name || "-",
+      "รายละเอียด": doc.description || "-",
+      "ยอดรวม": doc.totalAmount.toNumber(),
+      "สถานะ": doc.status,
+      "จำนวนไฟล์": doc.files.length,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "สรุปเอกสาร");
+    const excelBuffer = XLSX.write(workbook, { type: "arraybuffer", bookType: "xlsx" });
+    zip.file("summary.xlsx", excelBuffer);
+    
+    // Add files for each document
+    for (const doc of documents) {
+      const folderName = `${doc.docNumber}`;
+      
+      for (const file of doc.files) {
+        try {
+          // Fetch file from URL
+          const response = await fetch(file.fileUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            zip.file(`${folderName}/${file.fileName}`, arrayBuffer);
+          }
+        } catch (error) {
+          console.error(`Error fetching file ${file.fileName}:`, error);
+        }
+      }
+    }
+    
+    // Generate ZIP
+    const zipBuffer = await zip.generateAsync({ type: "base64" });
+    
+    // Save export history
     await prisma.exportHistory.create({
       data: {
         organizationId: session.currentOrganization.id,
@@ -277,9 +320,23 @@ export async function exportDocuments(
       },
     });
 
+    // Update document status
+    await prisma.document.updateMany({
+      where: {
+        id: { in: documentIds },
+        status: "READY_TO_EXPORT",
+      },
+      data: {
+        status: "EXPORTED",
+        exportedAt: new Date(),
+      },
+    });
+
     return {
       success: true,
-      message: "ZIP export is not yet implemented",
+      data: {
+        downloadUrl: `data:application/zip;base64,${zipBuffer}`,
+      },
     };
   }
 }

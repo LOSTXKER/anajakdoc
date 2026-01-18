@@ -11,6 +11,19 @@ import {
   BarChart3,
   PieChart,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 interface ReportData {
   monthlyData: { month: number; expense: number; income: number }[];
@@ -36,19 +49,32 @@ const monthNames = [
   "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
 ];
 
-const colors = [
-  "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-red-500",
-  "bg-purple-500", "bg-pink-500", "bg-indigo-500", "bg-orange-500",
-];
+const CHART_COLORS = ["#3b82f6", "#22c55e", "#eab308", "#ef4444", "#a855f7", "#ec4899", "#6366f1", "#f97316"];
 
 export function ReportsDashboard({ data }: ReportsDashboardProps) {
   const netProfit = data.totals.incomeTotal - data.totals.expenseTotal;
-  const maxMonthlyValue = Math.max(
-    ...data.monthlyData.flatMap((m) => [m.expense, m.income]),
-    1
-  );
-  const maxCategoryAmount = Math.max(...data.categoryBreakdown.map((c) => c.amount), 1);
   const totalCategoryAmount = data.categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);
+
+  // Transform monthly data for Recharts
+  const chartData = Array.from({ length: 12 }, (_, i) => {
+    const month = i + 1;
+    const monthData = data.monthlyData.find((m) => m.month === month) || {
+      expense: 0,
+      income: 0,
+    };
+    return {
+      name: monthNames[i],
+      expense: monthData.expense,
+      income: monthData.income,
+    };
+  });
+
+  // Transform category data for pie chart
+  const pieData = data.categoryBreakdown.slice(0, 8).map((cat, index) => ({
+    name: cat.name,
+    value: cat.amount,
+    color: CHART_COLORS[index % CHART_COLORS.length],
+  }));
 
   return (
     <div className="space-y-6">
@@ -156,114 +182,114 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
           <CardDescription>ปี {data.year + 543}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {/* Legend */}
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded bg-red-500" />
-                <span>รายจ่าย</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded bg-green-500" />
-                <span>รายรับ</span>
-              </div>
-            </div>
-
-            {/* Chart */}
-            <div className="space-y-3">
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
-                const monthData = data.monthlyData.find((m) => m.month === month) || {
-                  month,
-                  expense: 0,
-                  income: 0,
-                };
-                const expenseWidth = (monthData.expense / maxMonthlyValue) * 100;
-                const incomeWidth = (monthData.income / maxMonthlyValue) * 100;
-
-                return (
-                  <div key={month} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="w-12 text-muted-foreground">{monthNames[month - 1]}</span>
-                      <div className="flex-1 mx-4 space-y-1">
-                        <div className="h-4 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-red-500 rounded-full transition-all"
-                            style={{ width: `${expenseWidth}%` }}
-                          />
-                        </div>
-                        <div className="h-4 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 rounded-full transition-all"
-                            style={{ width: `${incomeWidth}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="w-32 text-right text-xs space-y-1">
-                        <p className="text-red-600">฿{monthData.expense.toLocaleString()}</p>
-                        <p className="text-green-600">฿{monthData.income.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="h-[400px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                  tickFormatter={(value) => `฿${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--background))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Legend />
+                <Bar 
+                  dataKey="expense" 
+                  name="รายจ่าย" 
+                  fill="#ef4444" 
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar 
+                  dataKey="income" 
+                  name="รายรับ" 
+                  fill="#22c55e" 
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Category Breakdown */}
+        {/* Category Breakdown - Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />
               ค่าใช้จ่ายตามหมวดหมู่
             </CardTitle>
-            <CardDescription>Top 10 หมวดหมู่</CardDescription>
+            <CardDescription>Top 8 หมวดหมู่</CardDescription>
           </CardHeader>
           <CardContent>
             {data.categoryBreakdown.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">ไม่มีข้อมูล</p>
             ) : (
               <div className="space-y-4">
-                {data.categoryBreakdown.slice(0, 10).map((cat, index) => {
-                  const percentage = totalCategoryAmount > 0
-                    ? (cat.amount / totalCategoryAmount) * 100
-                    : 0;
-                  
-                  return (
-                    <div key={cat.name} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className={`h-3 w-3 rounded ${colors[index % colors.length]}`} />
-                          <span className="truncate max-w-[150px]">{cat.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {cat.count}
-                          </Badge>
-                        </div>
-                        <span className="font-medium">
-                          ฿{cat.amount.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${colors[index % colors.length]}`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RePieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--background))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                        }}
+                      />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Legend */}
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {pieData.map((item, index) => (
+                    <div key={item.name} className="flex items-center gap-2">
+                      <div 
+                        className="h-3 w-3 rounded-full shrink-0" 
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="truncate">{item.name}</span>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Cost Center Breakdown */}
+        {/* Cost Center Breakdown - List */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-5 w-5" />
+              <BarChart3 className="h-5 w-5" />
               ค่าใช้จ่ายตามศูนย์ต้นทุน
             </CardTitle>
             <CardDescription>Top 10 ศูนย์ต้นทุน</CardDescription>
@@ -283,7 +309,10 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                     <div key={cc.name} className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
-                          <div className={`h-3 w-3 rounded ${colors[(index + 4) % colors.length]}`} />
+                          <div 
+                            className="h-3 w-3 rounded" 
+                            style={{ backgroundColor: CHART_COLORS[(index + 4) % CHART_COLORS.length] }}
+                          />
                           <span className="truncate max-w-[150px]">{cc.name}</span>
                           <Badge variant="secondary" className="text-xs">
                             {cc.count}
@@ -295,8 +324,11 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${colors[(index + 4) % colors.length]}`}
-                          style={{ width: `${percentage}%` }}
+                          className="h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${percentage}%`,
+                            backgroundColor: CHART_COLORS[(index + 4) % CHART_COLORS.length]
+                          }}
                         />
                       </div>
                     </div>

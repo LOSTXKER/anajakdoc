@@ -6,6 +6,92 @@ import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
+export type DuplicateWarning = {
+  type: "exact" | "soft";
+  documentId: string;
+  docNumber: string;
+  message: string;
+};
+
+// Check for duplicate files by checksum (client-side hash)
+export async function checkDuplicateFile(
+  checksum: string
+): Promise<DuplicateWarning | null> {
+  const session = await requireOrganization();
+
+  const existingFile = await prisma.documentFile.findFirst({
+    where: {
+      document: { organizationId: session.currentOrganization.id },
+      checksum,
+    },
+    include: {
+      document: {
+        select: { id: true, docNumber: true },
+      },
+    },
+  });
+
+  if (existingFile) {
+    return {
+      type: "exact",
+      documentId: existingFile.document.id,
+      docNumber: existingFile.document.docNumber,
+      message: `ไฟล์นี้อาจซ้ำกับเอกสาร ${existingFile.document.docNumber}`,
+    };
+  }
+
+  return null;
+}
+
+// Check for soft duplicate (same amount + contact + date)
+export async function checkSoftDuplicate(
+  totalAmount: number,
+  contactId: string | null,
+  docDate: Date,
+  excludeDocId?: string
+): Promise<DuplicateWarning | null> {
+  const session = await requireOrganization();
+
+  // Check within 3 days of the doc date
+  const dateStart = new Date(docDate);
+  dateStart.setDate(dateStart.getDate() - 3);
+  const dateEnd = new Date(docDate);
+  dateEnd.setDate(dateEnd.getDate() + 3);
+
+  const where: Record<string, unknown> = {
+    organizationId: session.currentOrganization.id,
+    totalAmount,
+    docDate: {
+      gte: dateStart,
+      lte: dateEnd,
+    },
+  };
+
+  if (contactId) {
+    where.contactId = contactId;
+  }
+
+  if (excludeDocId) {
+    where.id = { not: excludeDocId };
+  }
+
+  const existingDoc = await prisma.document.findFirst({
+    where,
+    select: { id: true, docNumber: true, docDate: true },
+  });
+
+  if (existingDoc) {
+    return {
+      type: "soft",
+      documentId: existingDoc.id,
+      docNumber: existingDoc.docNumber,
+      message: `พบเอกสาร ${existingDoc.docNumber} ที่มียอดและวันที่ใกล้เคียงกัน`,
+    };
+  }
+
+  return null;
+}
+
 export async function uploadDocumentFiles(
   documentId: string,
   formData: FormData

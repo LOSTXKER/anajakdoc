@@ -83,7 +83,15 @@ export function ExportPanel({ documents, history }: ExportPanelProps) {
         setSelectedIds([]);
         // Download file
         if (result.data?.downloadUrl) {
-          window.open(result.data.downloadUrl, "_blank");
+          // Create a link and trigger download
+          const link = document.createElement("a");
+          link.href = result.data.downloadUrl;
+          link.download = format === "ZIP" 
+            ? `export_${new Date().toISOString().slice(0,10)}.zip`
+            : `export_${new Date().toISOString().slice(0,10)}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
       } else {
         toast.error(result.error || "เกิดข้อผิดพลาด");

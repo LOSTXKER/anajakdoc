@@ -13,7 +13,9 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  Wallet
+  Wallet,
+  CalendarClock,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
@@ -22,6 +24,10 @@ async function getDashboardStats(orgId: string) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  // Due date tracking: 7 days from now
+  const dueSoon = new Date();
+  dueSoon.setDate(dueSoon.getDate() + 7);
 
   const [
     totalDocs,
@@ -31,6 +37,8 @@ async function getDashboardStats(orgId: string) {
     recentDocs,
     monthlyExpense,
     monthlyIncome,
+    overdueDocs,
+    dueSoonDocs,
   ] = await Promise.all([
     prisma.document.count({ where: { organizationId: orgId } }),
     prisma.document.count({ where: { organizationId: orgId, status: "DRAFT" } }),
@@ -65,6 +73,32 @@ async function getDashboardStats(orgId: string) {
       },
       _sum: { totalAmount: true },
     }),
+    // Overdue documents
+    prisma.document.findMany({
+      where: {
+        organizationId: orgId,
+        dueDate: { lt: now },
+        status: { notIn: ["BOOKED", "VOID", "REJECTED", "EXPORTED"] },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      include: {
+        contact: { select: { name: true } },
+      },
+    }),
+    // Due within 7 days
+    prisma.document.findMany({
+      where: {
+        organizationId: orgId,
+        dueDate: { gte: now, lte: dueSoon },
+        status: { notIn: ["BOOKED", "VOID", "REJECTED", "EXPORTED"] },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      include: {
+        contact: { select: { name: true } },
+      },
+    }),
   ]);
 
   return {
@@ -75,6 +109,8 @@ async function getDashboardStats(orgId: string) {
     recentDocs,
     monthlyExpense: monthlyExpense._sum.totalAmount?.toNumber() || 0,
     monthlyIncome: monthlyIncome._sum.totalAmount?.toNumber() || 0,
+    overdueDocs,
+    dueSoonDocs,
   };
 }
 
@@ -186,6 +222,83 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Due Date Alerts */}
+        {(stats.overdueDocs.length > 0 || stats.dueSoonDocs.length > 0) && (
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Overdue Documents */}
+            {stats.overdueDocs.length > 0 && (
+              <Card className="border-red-200 bg-red-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2 text-red-700">
+                    <AlertTriangle className="h-5 w-5" />
+                    เกินกำหนดชำระ ({stats.overdueDocs.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {stats.overdueDocs.map((doc) => {
+                    const daysOverdue = Math.floor((new Date().getTime() - new Date(doc.dueDate!).getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Link
+                        key={doc.id}
+                        href={`/documents/${doc.id}`}
+                        className="flex items-center justify-between p-2 rounded-md bg-white/80 border border-red-200 hover:bg-white transition-colors"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{doc.docNumber}</p>
+                          <p className="text-xs text-muted-foreground">{doc.contact?.name || "ไม่ระบุ"}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-sm text-red-600">
+                            ฿{doc.totalAmount.toNumber().toLocaleString()}
+                          </p>
+                          <p className="text-xs text-red-500">เกิน {daysOverdue} วัน</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Due Soon Documents */}
+            {stats.dueSoonDocs.length > 0 && (
+              <Card className="border-amber-200 bg-amber-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2 text-amber-700">
+                    <CalendarClock className="h-5 w-5" />
+                    ใกล้ครบกำหนด ({stats.dueSoonDocs.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {stats.dueSoonDocs.map((doc) => {
+                    const daysUntilDue = Math.ceil((new Date(doc.dueDate!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Link
+                        key={doc.id}
+                        href={`/documents/${doc.id}`}
+                        className="flex items-center justify-between p-2 rounded-md bg-white/80 border border-amber-200 hover:bg-white transition-colors"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{doc.docNumber}</p>
+                          <p className="text-xs text-muted-foreground">{doc.contact?.name || "ไม่ระบุ"}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-sm">
+                            ฿{doc.totalAmount.toNumber().toLocaleString()}
+                          </p>
+                          <p className="text-xs text-amber-600">
+                            {daysUntilDue === 0 ? "วันนี้" : `อีก ${daysUntilDue} วัน`}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Quick Actions */}
