@@ -31,18 +31,46 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportDocuments } from "@/server/actions/export";
-import type { Document, Category, CostCenter, Contact, ExportHistory } from ".prisma/client";
+import type { Category, CostCenter, Contact, ExportType } from ".prisma/client";
 
-interface DocumentWithRelations extends Document {
+// Serialized types (Decimal -> number, Date -> string)
+interface SerializedDocument {
+  id: string;
+  organizationId: string;
+  docNumber: string;
+  transactionType: string;
+  docType: string;
+  docDate: string;
+  dueDate: string | null;
+  subtotal: number;
+  vatAmount: number;
+  whtAmount: number;
+  totalAmount: number;
+  vatRate: number | null;
+  whtRate: number | null;
+  status: string;
+  description: string | null;
   category: Category | null;
   costCenter: CostCenter | null;
   contact: Contact | null;
   submittedBy: { name: string | null };
 }
 
+interface SerializedExportHistory {
+  id: string;
+  organizationId: string;
+  exportType: ExportType;
+  fileName: string;
+  fileUrl: string | null;
+  documentIds: string[];
+  documentCount: number;
+  exportedById: string;
+  createdAt: string;
+}
+
 interface ExportPanelProps {
-  documents: DocumentWithRelations[];
-  history: ExportHistory[];
+  documents: SerializedDocument[];
+  history: SerializedExportHistory[];
 }
 
 const formatOptions = [
@@ -206,7 +234,7 @@ export function ExportPanel({ documents, history }: ExportPanelProps) {
                       {doc.contact?.name || "-"}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      ฿{doc.totalAmount.toNumber().toLocaleString()}
+                      ฿{doc.totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                     </TableCell>
                   </TableRow>
                 ))}

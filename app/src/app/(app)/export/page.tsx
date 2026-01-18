@@ -5,7 +5,7 @@ import { ExportPanel } from "@/components/export/export-panel";
 import prisma from "@/lib/prisma";
 
 async function getExportableDocuments(orgId: string) {
-  return prisma.document.findMany({
+  const docs = await prisma.document.findMany({
     where: {
       organizationId: orgId,
       status: "READY_TO_EXPORT",
@@ -20,14 +20,39 @@ async function getExportableDocuments(orgId: string) {
     },
     orderBy: { docDate: "desc" },
   });
+
+  // Serialize Decimal to number and Date to string
+  return docs.map(doc => ({
+    ...doc,
+    subtotal: doc.subtotal.toNumber(),
+    vatAmount: doc.vatAmount.toNumber(),
+    whtAmount: doc.whtAmount.toNumber(),
+    totalAmount: doc.totalAmount.toNumber(),
+    vatRate: doc.vatRate?.toNumber() ?? null,
+    whtRate: doc.whtRate?.toNumber() ?? null,
+    docDate: doc.docDate.toISOString(),
+    dueDate: doc.dueDate?.toISOString() ?? null,
+    submittedAt: doc.submittedAt?.toISOString() ?? null,
+    reviewedAt: doc.reviewedAt?.toISOString() ?? null,
+    exportedAt: doc.exportedAt?.toISOString() ?? null,
+    bookedAt: doc.bookedAt?.toISOString() ?? null,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+  }));
 }
 
 async function getExportHistory(orgId: string) {
-  return prisma.exportHistory.findMany({
+  const history = await prisma.exportHistory.findMany({
     where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 10,
   });
+
+  // Serialize Date to string
+  return history.map(h => ({
+    ...h,
+    createdAt: h.createdAt.toISOString(),
+  }));
 }
 
 export default async function ExportPage() {
