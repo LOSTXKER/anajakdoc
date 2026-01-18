@@ -921,8 +921,8 @@ export function DocumentBoxForm({
           <Card className="sticky top-20">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Upload className="h-5 w-5 text-primary" />
-                เอกสารที่ต้องมี
+                <Package className="h-5 w-5 text-primary" />
+                กล่องเอกสาร
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
