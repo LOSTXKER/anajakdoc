@@ -18,11 +18,11 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import type { DocumentWithRelations } from "@/types";
-import type { Category, CostCenter, Contact, DocType, TransactionType, PaymentMethod } from ".prisma/client";
+import type { SerializedDocument } from "@/types";
+import type { Category, CostCenter, Contact, DocType, TransactionType } from ".prisma/client";
 
 interface DocumentEditFormProps {
-  document: DocumentWithRelations;
+  document: SerializedDocument;
   categories: Category[];
   costCenters: CostCenter[];
   contacts: Contact[];
@@ -158,7 +158,7 @@ export function DocumentEditForm({
                   id="docDate"
                   name="docDate"
                   type="date"
-                  defaultValue={new Date(document.docDate).toISOString().split("T")[0]}
+                  defaultValue={document.docDate.split("T")[0]}
                   required
                 />
               </div>

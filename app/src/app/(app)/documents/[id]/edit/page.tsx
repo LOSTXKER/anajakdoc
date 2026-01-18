@@ -4,6 +4,7 @@ import { getDocument } from "@/server/actions/document";
 import { getMasterData } from "@/server/queries/master-data";
 import { AppHeader } from "@/components/layout/app-header";
 import { DocumentEditForm } from "@/components/documents/document-edit-form";
+import { serializeDocument } from "@/lib/utils";
 
 interface EditDocumentPageProps {
   params: Promise<{
@@ -12,7 +13,7 @@ interface EditDocumentPageProps {
 }
 
 export default async function EditDocumentPage({ params }: EditDocumentPageProps) {
-  const session = await requireOrganization();
+  await requireOrganization();
   const { id } = await params;
   
   const [document, masterData] = await Promise.all([
@@ -29,17 +30,20 @@ export default async function EditDocumentPage({ params }: EditDocumentPageProps
     notFound();
   }
 
+  // Serialize document for Client Component
+  const serializedDocument = serializeDocument(document);
+
   return (
     <>
       <AppHeader 
-        title={`แก้ไข ${document.docNumber}`}
+        title={`แก้ไข ${serializedDocument.docNumber}`}
         description="แก้ไขรายละเอียดเอกสาร"
         showCreateButton={false}
       />
       
       <div className="p-6">
         <DocumentEditForm 
-          document={document}
+          document={serializedDocument}
           categories={masterData.categories}
           costCenters={masterData.costCenters}
           contacts={masterData.contacts}
