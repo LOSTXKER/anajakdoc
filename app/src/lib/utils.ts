@@ -6,7 +6,9 @@ import type {
   SubDocumentWithFiles,
   SerializedSubDocument,
   WHTTrackingWithContact,
-  SerializedWHTTracking
+  SerializedWHTTracking,
+  WHTStatus,
+  WHTTrackingType
 } from "@/types"
 
 export function cn(...inputs: ClassValue[]) {
@@ -96,4 +98,26 @@ export function serializeDocument(doc: DocumentWithRelations): SerializedDocumen
 // Serialize multiple documents
 export function serializeDocuments(docs: DocumentWithRelations[]): SerializedDocument[] {
   return docs.map(serializeDocument);
+}
+
+// Get WHT Status label
+export function getWHTStatusLabel(status: WHTStatus): string {
+  const labels: Record<WHTStatus, string> = {
+    PENDING: "รอดำเนินการ",
+    ISSUED: "ออกเอกสารแล้ว",
+    SENT: "ส่งแล้ว",
+    CONFIRMED: "ยืนยันรับแล้ว",
+    RECEIVED: "ได้รับแล้ว",
+    CANCELLED: "ยกเลิก",
+  };
+  return labels[status] || status;
+}
+
+// Get WHT Tracking Type label
+export function getWHTTrackingTypeLabel(type: WHTTrackingType): string {
+  const labels: Record<WHTTrackingType, string> = {
+    OUTGOING: "ต้องส่งออก",
+    INCOMING: "รอรับเข้า",
+  };
+  return labels[type] || type;
 }
