@@ -21,6 +21,12 @@ export async function getNotifications(
 ): Promise<NotificationData[]> {
   const session = await requireOrganization();
   
+  // Check if notification model exists (may not be synced yet)
+  if (!prisma.notification) {
+    console.warn("Notification model not available yet");
+    return [];
+  }
+  
   const notifications = await prisma.notification.findMany({
     where: {
       userId: session.id,
@@ -45,6 +51,8 @@ export async function getNotifications(
 export async function getUnreadCount(): Promise<number> {
   const session = await requireOrganization();
   
+  if (!prisma.notification) return 0;
+  
   return prisma.notification.count({
     where: {
       userId: session.id,
@@ -56,6 +64,8 @@ export async function getUnreadCount(): Promise<number> {
 
 export async function markAsRead(notificationId: string): Promise<ApiResponse> {
   const session = await requireOrganization();
+  
+  if (!prisma.notification) return { success: false, error: "ระบบแจ้งเตือนยังไม่พร้อม" };
   
   const notification = await prisma.notification.findFirst({
     where: {
@@ -79,6 +89,8 @@ export async function markAsRead(notificationId: string): Promise<ApiResponse> {
 export async function markAllAsRead(): Promise<ApiResponse> {
   const session = await requireOrganization();
   
+  if (!prisma.notification) return { success: true };
+  
   await prisma.notification.updateMany({
     where: {
       userId: session.id,
@@ -100,6 +112,8 @@ export async function createNotification(
   message: string,
   data?: Record<string, unknown>
 ): Promise<void> {
+  if (!prisma.notification) return;
+  
   await prisma.notification.create({
     data: {
       organizationId,
@@ -120,6 +134,8 @@ export async function notifyAccountingTeam(
   message: string,
   data?: Record<string, unknown>
 ): Promise<void> {
+  if (!prisma.notification) return;
+  
   const accountingMembers = await prisma.organizationMember.findMany({
     where: {
       organizationId,
@@ -128,6 +144,8 @@ export async function notifyAccountingTeam(
     },
     select: { userId: true },
   });
+
+  if (accountingMembers.length === 0) return;
 
   await prisma.notification.createMany({
     data: accountingMembers.map(member => ({
