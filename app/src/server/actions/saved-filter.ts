@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Prisma } from ".prisma/client";
 import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
 import type { ApiResponse } from "@/types";
@@ -51,7 +52,7 @@ export async function createSavedFilter(
       organizationId: session.currentOrganization.id,
       userId: session.id,
       name: name.trim(),
-      filters,
+      filters: filters as Prisma.InputJsonValue,
     },
   });
 
@@ -103,7 +104,7 @@ export async function updateSavedFilter(
     where: { id },
     data: {
       name: data.name?.trim(),
-      filters: data.filters,
+      filters: data.filters as Prisma.InputJsonValue | undefined,
       isDefault: data.isDefault,
     },
   });

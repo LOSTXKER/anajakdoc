@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { createDocumentSchema, updateDocumentSchema } from "@/lib/validations/document";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { ApiResponse, DocumentFilters, PaginatedResponse, DocumentWithRelations } from "@/types";
 import { DocumentStatus } from ".prisma/client";
 import { createNotification, notifyAccountingTeam } from "./notification";
@@ -402,6 +403,17 @@ export async function getDocuments(
       where,
       include: {
         files: true,
+        subDocuments: {
+          include: {
+            files: { orderBy: { pageOrder: "asc" } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
+        whtTrackings: {
+          include: {
+            contact: true,
+          },
+        },
         contact: true,
         costCenter: true,
         category: true,
@@ -420,7 +432,7 @@ export async function getDocuments(
           orderBy: { createdAt: "desc" },
         },
         _count: {
-          select: { files: true, comments: true },
+          select: { files: true, subDocuments: true, comments: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -451,6 +463,17 @@ export async function getDocument(documentId: string): Promise<DocumentWithRelat
     },
     include: {
       files: { orderBy: { pageOrder: "asc" } },
+      subDocuments: {
+        include: {
+          files: { orderBy: { pageOrder: "asc" } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      whtTrackings: {
+        include: {
+          contact: true,
+        },
+      },
       contact: true,
       costCenter: true,
       category: true,

@@ -200,7 +200,7 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                   tickFormatter={(value) => `฿${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip 
-                  formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                  formatter={(value) => [`฿${(value as number)?.toLocaleString() ?? 0}`, ""]}
                   contentStyle={{
                     backgroundColor: "hsl(var(--background))",
                     border: "1px solid hsl(var(--border))",
@@ -258,7 +258,7 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value: number) => [`฿${value.toLocaleString()}`, ""]}
+                        formatter={(value) => [`฿${(value as number)?.toLocaleString() ?? 0}`, ""]}
                         contentStyle={{
                           backgroundColor: "hsl(var(--background))",
                           border: "1px solid hsl(var(--border))",

@@ -284,7 +284,7 @@ export async function exportDocuments(
     }));
     const worksheet = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, worksheet, "สรุปเอกสาร");
-    const excelBuffer = XLSX.write(workbook, { type: "arraybuffer", bookType: "xlsx" });
+    const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     zip.file("summary.xlsx", excelBuffer);
     
     // Add files for each document

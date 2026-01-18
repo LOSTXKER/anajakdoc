@@ -38,8 +38,11 @@ const notificationIcons: Record<NotificationType, typeof FileText> = {
   DOCUMENT_APPROVED: CheckCircle,
   DOCUMENT_REJECTED: XCircle,
   DOCUMENT_NEED_INFO: AlertCircle,
+  SUBDOC_ADDED: FileText,
   DUE_DATE_REMINDER: Calendar,
   DUE_DATE_OVERDUE: Calendar,
+  WHT_PENDING: AlertCircle,
+  WHT_OVERDUE: AlertCircle,
   COMMENT_ADDED: MessageSquare,
   MEMBER_INVITED: UserPlus,
 };
@@ -49,8 +52,11 @@ const notificationColors: Record<NotificationType, string> = {
   DOCUMENT_APPROVED: "text-green-500",
   DOCUMENT_REJECTED: "text-red-500",
   DOCUMENT_NEED_INFO: "text-orange-500",
+  SUBDOC_ADDED: "text-blue-400",
   DUE_DATE_REMINDER: "text-yellow-500",
   DUE_DATE_OVERDUE: "text-red-500",
+  WHT_PENDING: "text-orange-500",
+  WHT_OVERDUE: "text-red-500",
   COMMENT_ADDED: "text-purple-500",
   MEMBER_INVITED: "text-cyan-500",
 };

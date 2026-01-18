@@ -46,10 +46,13 @@ export function ContactForm({
 
       if (result.success) {
         toast.success(contact ? "แก้ไขผู้ติดต่อเรียบร้อย" : "สร้างผู้ติดต่อเรียบร้อย");
-        if (onSuccess && result.data) {
-          onSuccess(result.data);
-        } else if (onSuccess && contact) {
-          onSuccess({ id: contact.id, name: formData.get("name") as string });
+        if (onSuccess) {
+          const resultWithData = result as { data?: { id: string; name: string } };
+          if (resultWithData.data?.id && resultWithData.data?.name) {
+            onSuccess(resultWithData.data);
+          } else if (contact) {
+            onSuccess({ id: contact.id, name: formData.get("name") as string });
+          }
         }
       } else {
         toast.error(result.error || "เกิดข้อผิดพลาด");

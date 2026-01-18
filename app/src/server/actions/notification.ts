@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Prisma } from ".prisma/client";
 import { requireOrganization } from "@/server/auth";
 import type { ApiResponse } from "@/types";
 import type { NotificationType } from ".prisma/client";
@@ -121,7 +122,7 @@ export async function createNotification(
       type,
       title,
       message,
-      data: data || null,
+      data: data ? (data as Prisma.InputJsonValue) : Prisma.JsonNull,
     },
   });
 }
@@ -154,7 +155,7 @@ export async function notifyAccountingTeam(
       type,
       title,
       message,
-      data: data || null,
+      data: data ? (data as Prisma.InputJsonValue) : Prisma.JsonNull,
     })),
   });
 }

@@ -3,6 +3,7 @@ import { getDocuments } from "@/server/actions/document";
 import { AppHeader } from "@/components/layout/app-header";
 import { DocumentList } from "@/components/documents/document-list";
 import { redirect } from "next/navigation";
+import { serializeDocuments } from "@/lib/utils";
 
 export default async function InboxPage() {
   const session = await requireOrganization();
@@ -16,6 +17,12 @@ export default async function InboxPage() {
     status: ["PENDING_REVIEW", "NEED_INFO"],
   });
 
+  // Serialize documents for client component
+  const serializedDocuments = {
+    ...documents,
+    items: serializeDocuments(documents.items),
+  };
+
   return (
     <>
       <AppHeader 
@@ -26,7 +33,7 @@ export default async function InboxPage() {
       
       <div className="p-6">
         <DocumentList 
-          documents={documents} 
+          documents={serializedDocuments} 
           userRole={session.currentOrganization.role}
         />
       </div>
