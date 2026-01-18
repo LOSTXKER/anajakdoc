@@ -870,8 +870,8 @@ export function DocumentBoxForm({
             </CardContent>
           </Card>
 
-          {/* SubDocuments (View/Edit mode only) */}
-          {mode !== "create" && document && (
+          {/* SubDocuments (View/Edit mode only - hide if empty and not editing) */}
+          {mode !== "create" && document && (document.subDocuments?.length > 0 || isEditing) && (
             <Card>
               <CardContent className="pt-6">
                 <SubDocumentList
@@ -884,8 +884,8 @@ export function DocumentBoxForm({
             </Card>
           )}
 
-          {/* WHT Tracking (View/Edit mode only) */}
-          {mode !== "create" && document && (document.hasWht || (document.whtTrackings && document.whtTrackings.length > 0)) && (
+          {/* WHT Tracking (View/Edit mode only - only show if has WHT or editing) */}
+          {mode !== "create" && document && ((document.whtTrackings && document.whtTrackings.length > 0) || (document.hasWht && isEditing)) && (
             <Card>
               <CardContent className="pt-6">
                 <WHTTrackingList
