@@ -251,10 +251,20 @@ model Document {
   whtType         String?         @map("wht_type")
   
   // Status
-  status          DocumentStatus  @default(DRAFT)
+  status          DocumentStatus  @default(IN_PROGRESS)
   paymentStatus   PaymentStatus?  @map("payment_status")
   paymentMethod   PaymentMethod?  @map("payment_method")
-  isComplete      Boolean         @default(false) @map("is_complete") // เอกสารครบหรือยัง
+  
+  // Checklist Status (แทน workflow status เดิม)
+  isPaid              Boolean     @default(false) @map("is_paid")              // จ่ายเงิน/รับเงินแล้ว
+  hasPaymentProof     Boolean     @default(false) @map("has_payment_proof")    // มีหลักฐานการจ่าย/รับ
+  hasTaxInvoice       Boolean     @default(false) @map("has_tax_invoice")      // มีใบกำกับภาษี
+  hasInvoice          Boolean     @default(false) @map("has_invoice")          // มีใบแจ้งหนี้ (สำหรับรายรับ)
+  whtIssued           Boolean     @default(false) @map("wht_issued")           // ออกหนังสือ WHT แล้ว (EXPENSE)
+  whtSent             Boolean     @default(false) @map("wht_sent")             // ส่งหนังสือ WHT แล้ว (EXPENSE)
+  whtReceived         Boolean     @default(false) @map("wht_received")         // ได้รับหนังสือ WHT แล้ว (INCOME)
+  completionPercent   Int         @default(0) @map("completion_percent")       // % ความสมบูรณ์
+  isComplete          Boolean     @default(false) @map("is_complete")          // เอกสารครบ 100%
   
   // References
   externalRef     String?         @map("external_ref")
@@ -319,14 +329,18 @@ enum TransactionType {
 }
 
 enum DocumentStatus {
-  DRAFT           // แบบร่าง - เอกสารยังไม่ครบ
-  PENDING_REVIEW  // รอตรวจ
-  NEED_INFO       // ขอข้อมูลเพิ่ม
-  READY_TO_EXPORT // พร้อม Export
+  IN_PROGRESS     // กำลังดำเนินการ (เอกสารยังไม่ครบ)
+  COMPLETE        // เอกสารครบ 100%
   EXPORTED        // Export แล้ว
   BOOKED          // บันทึกบัญชีแล้ว
-  REJECTED        // ปฏิเสธ
   VOID            // ยกเลิก
+  
+  // Legacy values - kept for backward compatibility
+  DRAFT           // แบบร่าง (mapped to IN_PROGRESS)
+  PENDING_REVIEW  // รอตรวจ (mapped to IN_PROGRESS)
+  NEED_INFO       // ขอข้อมูลเพิ่ม (mapped to IN_PROGRESS)
+  READY_TO_EXPORT // พร้อม Export (mapped to COMPLETE)
+  REJECTED        // ปฏิเสธ (mapped to VOID)
 }
 
 enum PaymentStatus {

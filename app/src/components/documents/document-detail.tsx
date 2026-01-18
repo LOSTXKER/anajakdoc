@@ -51,16 +51,30 @@ interface DocumentDetailProps {
   userRole: MemberRole;
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  DRAFT: { label: "แบบร่าง", color: "bg-gray-100 text-gray-700", icon: Clock },
-  PENDING_REVIEW: { label: "รอตรวจ", color: "bg-blue-100 text-blue-700", icon: Clock },
-  NEED_INFO: { label: "ขอข้อมูลเพิ่ม", color: "bg-orange-100 text-orange-700", icon: AlertCircle },
-  READY_TO_EXPORT: { label: "พร้อม Export", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  EXPORTED: { label: "Export แล้ว", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 },
-  BOOKED: { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700", icon: CheckCircle2 },
-  REJECTED: { label: "ปฏิเสธ", color: "bg-red-100 text-red-700", icon: XCircle },
-  VOID: { label: "ยกเลิก", color: "bg-gray-100 text-gray-500", icon: XCircle },
-};
+// Get status display based on completion percent
+function getStatusDisplay(doc: SerializedDocument) {
+  const percent = doc.completionPercent || 0;
+  const isExported = doc.status === "EXPORTED";
+  const isBooked = doc.status === "BOOKED";
+  const isVoid = doc.status === "VOID" || doc.status === "REJECTED";
+
+  if (isVoid) {
+    return { label: "ยกเลิก", color: "bg-gray-100 text-gray-500", icon: XCircle };
+  }
+  if (isBooked) {
+    return { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700", icon: CheckCircle2 };
+  }
+  if (isExported) {
+    return { label: "Export แล้ว", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 };
+  }
+  if (percent === 100 || doc.isComplete) {
+    return { label: "เอกสารครบ", color: "bg-green-100 text-green-700", icon: CheckCircle2 };
+  }
+  if (percent >= 50) {
+    return { label: `${percent}%`, color: "bg-yellow-100 text-yellow-700", icon: Clock };
+  }
+  return { label: `${percent}%`, color: "bg-orange-100 text-orange-700", icon: AlertCircle };
+}
 
 const docTypeLabels: Record<string, string> = {
   SLIP: "สลิปโอนเงิน",
@@ -173,7 +187,8 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
     });
   };
 
-  const StatusIcon = statusConfig[document.status]?.icon || Clock;
+  const statusDisplay = getStatusDisplay(document);
+  const StatusIcon = statusDisplay.icon;
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -225,9 +240,9 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
                     </p>
                   </div>
                 </div>
-                <Badge className={statusConfig[document.status]?.color || ""}>
+                <Badge className={statusDisplay.color}>
                   <StatusIcon className="mr-1 h-3 w-3" />
-                  {statusConfig[document.status]?.label || document.status}
+                  {statusDisplay.label}
                 </Badge>
               </div>
 

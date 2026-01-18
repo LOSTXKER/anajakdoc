@@ -58,6 +58,8 @@ import {
 import { toast } from "sonner";
 import { ContactForm } from "@/components/settings/contact-form";
 import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
+import { DocumentChecklist } from "@/components/documents/document-checklist";
+import { getDocumentChecklist, calculateCompletionPercent, getStatusLabel, getStatusColor } from "@/lib/checklist";
 import type { Category, CostCenter, Contact, Document } from ".prisma/client";
 import type { SubDocType, SerializedDocument, MemberRole } from "@/types";
 import Link from "next/link";
@@ -97,16 +99,30 @@ const paymentMethods = [
   { value: "OTHER", label: "อื่นๆ" },
 ];
 
-const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  DRAFT: { label: "แบบร่าง", color: "bg-gray-100 text-gray-700", icon: Clock },
-  PENDING_REVIEW: { label: "รอตรวจ", color: "bg-blue-100 text-blue-700", icon: Clock },
-  NEED_INFO: { label: "ขอข้อมูลเพิ่ม", color: "bg-orange-100 text-orange-700", icon: AlertCircle },
-  READY_TO_EXPORT: { label: "พร้อม Export", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  EXPORTED: { label: "Export แล้ว", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 },
-  BOOKED: { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700", icon: CheckCircle2 },
-  REJECTED: { label: "ปฏิเสธ", color: "bg-red-100 text-red-700", icon: XCircle },
-  VOID: { label: "ยกเลิก", color: "bg-gray-100 text-gray-500", icon: XCircle },
-};
+// Get status display based on completion percent
+function getStatusDisplay(doc: SerializedDocument) {
+  const percent = doc.completionPercent || 0;
+  const isExported = doc.status === "EXPORTED";
+  const isBooked = doc.status === "BOOKED";
+  const isVoid = doc.status === "VOID" || doc.status === "REJECTED";
+
+  if (isVoid) {
+    return { label: "ยกเลิก", color: "bg-gray-100 text-gray-500", icon: XCircle };
+  }
+  if (isBooked) {
+    return { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700", icon: CheckCircle2 };
+  }
+  if (isExported) {
+    return { label: "Export แล้ว", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 };
+  }
+  if (percent === 100 || doc.isComplete) {
+    return { label: "เอกสารครบ", color: "bg-green-100 text-green-700", icon: CheckCircle2 };
+  }
+  if (percent >= 50) {
+    return { label: `${percent}%`, color: "bg-yellow-100 text-yellow-700", icon: Clock };
+  }
+  return { label: `${percent}%`, color: "bg-orange-100 text-orange-700", icon: AlertCircle };
+}
 
 interface RequiredDoc {
   type: SubDocType;
@@ -497,7 +513,8 @@ export function DocumentBoxForm({
     return amount.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const StatusIcon = document ? statusConfig[document.status]?.icon || Clock : Clock;
+  const statusDisplay = document ? getStatusDisplay(document) : null;
+  const StatusIcon = statusDisplay?.icon || Clock;
 
   return (
     <form action={handleSubmit} className="space-y-6 max-w-5xl">
@@ -547,10 +564,10 @@ export function DocumentBoxForm({
                   <h2 className="font-semibold">
                     {mode === "create" ? "สร้างกล่อง" : document?.docNumber}
                   </h2>
-                  {document && (
-                    <Badge className={statusConfig[document.status]?.color || ""}>
+                  {document && statusDisplay && (
+                    <Badge className={statusDisplay.color}>
                       <StatusIcon className="mr-1 h-3 w-3" />
-                      {statusConfig[document.status]?.label || document.status}
+                      {statusDisplay.label}
                     </Badge>
                   )}
                 </div>
@@ -927,154 +944,154 @@ export function DocumentBoxForm({
           )}
         </div>
 
-        {/* Right Column - Required Documents */}
+        {/* Right Column - Checklist / Required Documents */}
         <div className="space-y-6">
           <Card className="sticky top-20">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" />
-                กล่องเอกสาร
+                {mode === "create" ? "กล่องเอกสาร" : "สถานะการดำเนินการ"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {requiredDocs.map((doc) => {
-                const isUploaded = uploadedDocTypes.has(doc.type);
-                const files = mode === "create" 
-                  ? uploadedFiles.filter(f => f.docType === doc.type)
-                  : document?.subDocuments?.filter(d => d.docType === doc.type) || [];
-                const Icon = doc.icon;
-
-                return (
-                  <div
-                    key={doc.type}
-                    className={`rounded-lg border p-3 transition-colors ${
-                      isUploaded 
-                        ? "border-green-200 bg-green-50" 
-                        : doc.required 
-                          ? "border-orange-200 bg-orange-50" 
-                          : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2">
-                        <div className={`p-1.5 rounded ${
-                          isUploaded ? "bg-green-100" : doc.required ? "bg-orange-100" : "bg-muted"
-                        }`}>
-                          <Icon className={`h-4 w-4 ${
-                            isUploaded ? "text-green-600" : doc.required ? "text-orange-600" : "text-muted-foreground"
-                          }`} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{doc.label}</span>
-                            {doc.required && !isUploaded && (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 text-orange-600 border-orange-200">
-                                จำเป็น
-                              </Badge>
-                            )}
-                            {isUploaded && (
-                              <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">{doc.description}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Files from subDocuments (view/edit mode) */}
-                    {mode !== "create" && Array.isArray(files) && files.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {files.flatMap((subDoc: { files?: Array<{ id: string; fileName: string; fileUrl: string; mimeType: string }> }) => 
-                          subDoc.files?.map((file) => (
-                            <a
-                              key={file.id}
-                              href={file.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-xs bg-background rounded p-1.5 hover:bg-muted/50 transition-colors"
-                            >
-                              {file.mimeType?.startsWith("image/") ? (
-                                <Image
-                                  src={file.fileUrl}
-                                  alt={file.fileName}
-                                  width={24}
-                                  height={24}
-                                  className="rounded object-cover"
-                                />
-                              ) : (
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              <span className="flex-1 truncate text-blue-600 hover:underline">{file.fileName}</span>
-                            </a>
-                          )) || []
-                        )}
-                      </div>
-                    )}
-
-                    {/* Uploaded files in create mode */}
-                    {mode === "create" && uploadedFiles.filter(f => f.docType === doc.type).length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {uploadedFiles.filter(f => f.docType === doc.type).map((file, idx) => {
-                          const fileIndex = uploadedFiles.findIndex(f => f === file);
-                          return (
-                            <div key={idx} className="flex items-center gap-2 text-xs bg-background rounded p-1.5">
-                              {file.file.type.startsWith("image/") ? (
-                                <Image
-                                  src={file.preview}
-                                  alt={file.file.name}
-                                  width={24}
-                                  height={24}
-                                  className="rounded object-cover"
-                                />
-                              ) : (
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              <span className="flex-1 truncate">{file.file.name}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeFile(fileIndex)}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Upload button - always show for existing documents */}
-                    <label className="mt-2 flex items-center justify-center gap-2 py-2 px-3 rounded border-2 border-dashed cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {isUploaded ? "เพิ่มไฟล์" : "อัปโหลด"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,application/pdf"
-                        multiple
-                        onChange={(e) => handleFileSelect(e, doc.type)}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
+            <CardContent>
+              {/* For view/edit mode - use checklist */}
+              {mode !== "create" && document && (() => {
+                const checklistData = {
+                  isPaid: document.isPaid || false,
+                  hasPaymentProof: document.hasPaymentProof || false,
+                  hasTaxInvoice: document.hasTaxInvoice || false,
+                  hasInvoice: document.hasInvoice || false,
+                  whtIssued: document.whtIssued || false,
+                  whtSent: document.whtSent || false,
+                  whtReceived: document.whtReceived || false,
+                };
+                const checklistItems = getDocumentChecklist(
+                  transactionType,
+                  calculations.hasVat || document.hasValidVat || false,
+                  calculations.hasWht || document.hasWht || false,
+                  checklistData,
+                  uploadedDocTypes
                 );
-              })}
+                const completionPercent = document.completionPercent || calculateCompletionPercent(checklistItems);
+                
+                return (
+                  <DocumentChecklist
+                    documentId={document.id}
+                    items={checklistItems}
+                    completionPercent={completionPercent}
+                    canEdit={true}
+                  />
+                );
+              })()}
 
-              {/* Summary */}
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">เอกสารจำเป็น</span>
-                  <span className={`font-medium ${
-                    requiredDocs.filter(d => d.required).every(d => uploadedDocTypes.has(d.type))
-                      ? "text-green-600"
-                      : "text-orange-600"
-                  }`}>
-                    {requiredDocs.filter(d => d.required && uploadedDocTypes.has(d.type)).length}/
-                    {requiredDocs.filter(d => d.required).length}
-                  </span>
+              {/* For create mode - show required docs with upload */}
+              {mode === "create" && (
+                <div className="space-y-4">
+                  {requiredDocs.map((doc) => {
+                    const isUploaded = uploadedDocTypes.has(doc.type);
+                    const Icon = doc.icon;
+
+                    return (
+                      <div
+                        key={doc.type}
+                        className={`rounded-lg border p-3 transition-colors ${
+                          isUploaded 
+                            ? "border-green-200 bg-green-50" 
+                            : doc.required 
+                              ? "border-orange-200 bg-orange-50" 
+                              : "border-border"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className={`p-1.5 rounded ${
+                            isUploaded ? "bg-green-100" : doc.required ? "bg-orange-100" : "bg-muted"
+                          }`}>
+                            <Icon className={`h-4 w-4 ${
+                              isUploaded ? "text-green-600" : doc.required ? "text-orange-600" : "text-muted-foreground"
+                            }`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{doc.label}</span>
+                              {doc.required && !isUploaded && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 text-orange-600 border-orange-200">
+                                  จำเป็น
+                                </Badge>
+                              )}
+                              {isUploaded && (
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{doc.description}</p>
+
+                            {/* Uploaded files */}
+                            {uploadedFiles.filter(f => f.docType === doc.type).length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {uploadedFiles.filter(f => f.docType === doc.type).map((file, idx) => {
+                                  const fileIndex = uploadedFiles.findIndex(f => f === file);
+                                  return (
+                                    <div key={idx} className="flex items-center gap-2 text-xs bg-background rounded p-1.5">
+                                      {file.file.type.startsWith("image/") ? (
+                                        <Image
+                                          src={file.preview}
+                                          alt={file.file.name}
+                                          width={24}
+                                          height={24}
+                                          className="rounded object-cover"
+                                        />
+                                      ) : (
+                                        <FileText className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                      <span className="flex-1 truncate">{file.file.name}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeFile(fileIndex)}
+                                        className="text-muted-foreground hover:text-destructive"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Upload button */}
+                            <label className="mt-2 flex items-center justify-center gap-2 py-2 px-3 rounded border-2 border-dashed cursor-pointer hover:bg-muted/50 transition-colors">
+                              <Upload className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {isUploaded ? "เพิ่มไฟล์" : "อัปโหลด"}
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,application/pdf"
+                                multiple
+                                onChange={(e) => handleFileSelect(e, doc.type)}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Summary */}
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">เอกสารจำเป็น</span>
+                      <span className={`font-medium ${
+                        requiredDocs.filter(d => d.required).every(d => uploadedDocTypes.has(d.type))
+                          ? "text-green-600"
+                          : "text-orange-600"
+                      }`}>
+                        {requiredDocs.filter(d => d.required && uploadedDocTypes.has(d.type)).length}/
+                        {requiredDocs.filter(d => d.required).length}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>

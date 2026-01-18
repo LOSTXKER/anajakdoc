@@ -31,16 +31,27 @@ interface DocumentListProps {
   showBulkActions?: boolean;
 }
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; color: string }> = {
-  DRAFT: { label: "แบบร่าง", variant: "secondary", color: "bg-gray-100 text-gray-700" },
-  PENDING_REVIEW: { label: "รอตรวจ", variant: "default", color: "bg-blue-100 text-blue-700" },
-  NEED_INFO: { label: "ขอข้อมูลเพิ่ม", variant: "destructive", color: "bg-orange-100 text-orange-700" },
-  READY_TO_EXPORT: { label: "พร้อม Export", variant: "outline", color: "bg-green-100 text-green-700" },
-  EXPORTED: { label: "Export แล้ว", variant: "outline", color: "bg-purple-100 text-purple-700" },
-  BOOKED: { label: "บันทึกแล้ว", variant: "outline", color: "bg-teal-100 text-teal-700" },
-  REJECTED: { label: "ปฏิเสธ", variant: "destructive", color: "bg-red-100 text-red-700" },
-  VOID: { label: "ยกเลิก", variant: "secondary", color: "bg-gray-100 text-gray-500" },
-};
+// Get status label and color based on completion percent
+function getStatusDisplay(doc: SerializedDocument) {
+  const percent = doc.completionPercent || 0;
+  const isExported = doc.status === "EXPORTED";
+  const isBooked = doc.status === "BOOKED";
+  const isVoid = doc.status === "VOID" || doc.status === "REJECTED";
+
+  if (isVoid) {
+    return { label: "ยกเลิก", color: "bg-gray-100 text-gray-500" };
+  }
+  if (isBooked) {
+    return { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700" };
+  }
+  if (isExported) {
+    return { label: "Export แล้ว", color: "bg-purple-100 text-purple-700" };
+  }
+  if (percent === 100 || doc.isComplete) {
+    return { label: "เอกสารครบ", color: "bg-green-100 text-green-700" };
+  }
+  return { label: `${percent}%`, color: percent >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-orange-100 text-orange-700" };
+}
 
 const docTypeLabels: Record<string, string> = {
   SLIP: "สลิปโอนเงิน",
@@ -201,9 +212,14 @@ export function DocumentList({ documents, userRole = "STAFF", showBulkActions = 
                         {doc.submittedBy.name || doc.submittedBy.email}
                       </span>
                     </div>
-                    <Badge className={statusConfig[doc.status]?.color || ""}>
-                      {statusConfig[doc.status]?.label || doc.status}
-                    </Badge>
+                    {(() => {
+                      const status = getStatusDisplay(doc);
+                      return (
+                        <Badge className={status.color}>
+                          {status.label}
+                        </Badge>
+                      );
+                    })()}
                   </div>
 
                   {/* Date */}

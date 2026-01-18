@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import type { SubDocType } from ".prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
+import { recalculateDocumentChecklist } from "./document";
 
 // Create SubDocument
 export async function createSubDocument(
@@ -342,6 +343,9 @@ export async function createSubDocumentWithFile(
         },
       },
     });
+
+    // Recalculate checklist
+    await recalculateDocumentChecklist(documentId);
 
     revalidatePath(`/documents/${documentId}`);
     revalidatePath("/documents");
