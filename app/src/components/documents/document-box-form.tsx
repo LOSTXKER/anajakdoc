@@ -57,7 +57,6 @@ import {
 import { toast } from "sonner";
 import { ContactForm } from "@/components/settings/contact-form";
 import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
-import { SubDocumentList } from "./subdocument-list";
 import { WHTTrackingList } from "@/components/wht/wht-tracking-list";
 import type { Category, CostCenter, Contact, Document } from ".prisma/client";
 import type { SubDocType, SerializedDocument, MemberRole } from "@/types";
@@ -870,22 +869,8 @@ export function DocumentBoxForm({
             </CardContent>
           </Card>
 
-          {/* SubDocuments (View/Edit mode only - hide if empty and not editing) */}
-          {mode !== "create" && document && (document.subDocuments?.length > 0 || isEditing) && (
-            <Card>
-              <CardContent className="pt-6">
-                <SubDocumentList
-                  documentId={document.id}
-                  transactionType={transactionType}
-                  subDocuments={document.subDocuments || []}
-                  canEdit={canEdit && isEditing}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* WHT Tracking (View/Edit mode only - only show if has WHT or editing) */}
-          {mode !== "create" && document && ((document.whtTrackings && document.whtTrackings.length > 0) || (document.hasWht && isEditing)) && (
+          {/* WHT Tracking (View/Edit mode only) */}
+          {mode !== "create" && document && (document.hasWht || (document.whtTrackings && document.whtTrackings.length > 0)) && (
             <Card>
               <CardContent className="pt-6">
                 <WHTTrackingList
@@ -985,10 +970,33 @@ export function DocumentBoxForm({
                       </div>
                     </div>
 
-                    {/* Files in view mode */}
-                    {mode !== "create" && files.length > 0 && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        {files.length} ไฟล์
+                    {/* Files from subDocuments (view/edit mode) */}
+                    {mode !== "create" && Array.isArray(files) && files.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {files.flatMap((subDoc: { files?: Array<{ id: string; fileName: string; fileUrl: string; mimeType: string }> }) => 
+                          subDoc.files?.map((file) => (
+                            <a
+                              key={file.id}
+                              href={file.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-xs bg-background rounded p-1.5 hover:bg-muted/50 transition-colors"
+                            >
+                              {file.mimeType?.startsWith("image/") ? (
+                                <Image
+                                  src={file.fileUrl}
+                                  alt={file.fileName}
+                                  width={24}
+                                  height={24}
+                                  className="rounded object-cover"
+                                />
+                              ) : (
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <span className="flex-1 truncate text-blue-600 hover:underline">{file.fileName}</span>
+                            </a>
+                          )) || []
+                        )}
                       </div>
                     )}
 
