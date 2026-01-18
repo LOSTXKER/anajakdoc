@@ -3,6 +3,7 @@ import { requireOrganization } from "@/server/auth";
 import { getDocument } from "@/server/actions/document";
 import { AppHeader } from "@/components/layout/app-header";
 import { DocumentDetail } from "@/components/documents/document-detail";
+import { serializeDocument } from "@/lib/utils";
 
 interface DocumentPageProps {
   params: Promise<{
@@ -20,6 +21,8 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     notFound();
   }
 
+  const serializedDocument = serializeDocument(document);
+
   return (
     <>
       <AppHeader 
@@ -29,7 +32,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
       />
       
       <div className="p-6">
-        <DocumentDetail document={document} userRole={session.currentOrganization.role} />
+        <DocumentDetail document={serializedDocument} userRole={session.currentOrganization.role} />
       </div>
     </>
   );

@@ -39,10 +39,10 @@ import {
   File,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { DocumentWithRelations, MemberRole } from "@/types";
+import type { SerializedDocument, MemberRole } from "@/types";
 
 interface DocumentDetailProps {
-  document: DocumentWithRelations;
+  document: SerializedDocument;
   userRole: MemberRole;
 }
 
@@ -125,7 +125,7 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
   const [reviewComment, setReviewComment] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | "need_info" | null>(null);
-  const [selectedFile, setSelectedFile] = useState<DocumentWithRelations["files"][0] | null>(null);
+  const [selectedFile, setSelectedFile] = useState<SerializedDocument["files"][0] | null>(null);
 
   const canEdit = document.status === "DRAFT" || document.status === "NEED_INFO";
   const canSubmit = document.status === "DRAFT";
@@ -230,11 +230,11 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                 <p className="text-sm text-muted-foreground mb-1">ยอดรวมสุทธิ</p>
                 <p className="text-3xl font-bold text-primary">
-                  ฿{document.totalAmount.toString()}
+                  ฿{document.totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                 </p>
-                {(document.vatAmount && parseFloat(document.vatAmount.toString()) > 0) && (
+                {document.vatAmount > 0 && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    รวม VAT ฿{document.vatAmount.toString()}
+                    รวม VAT ฿{document.vatAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                   </p>
                 )}
               </div>

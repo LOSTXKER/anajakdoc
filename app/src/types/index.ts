@@ -40,6 +40,27 @@ export type DocumentWithRelations = Document & {
   };
 };
 
+// Serialized version for Client Components (Decimal -> number)
+export type SerializedDocument = Omit<
+  DocumentWithRelations,
+  "subtotal" | "vatAmount" | "whtAmount" | "totalAmount" | "vatRate" | "whtRate" | "docDate" | "dueDate" | "submittedAt" | "reviewedAt" | "exportedAt" | "bookedAt" | "createdAt" | "updatedAt"
+> & {
+  subtotal: number;
+  vatAmount: number;
+  whtAmount: number;
+  totalAmount: number;
+  vatRate: number;
+  whtRate: number | null;
+  docDate: string;
+  dueDate: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  exportedAt: string | null;
+  bookedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type OrganizationWithMember = Organization & {
   members: {
     role: MemberRole;
