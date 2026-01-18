@@ -374,6 +374,10 @@ model SubDocument {
   vatAmount   Decimal?      @map("vat_amount") @db.Decimal(15, 2)
   notes       String?
   
+  // Status for slot
+  slotStatus  SlotStatus    @default(PENDING) @map("slot_status")
+  naReason    String?       @map("na_reason") // เหตุผลที่ไม่มีเอกสาร
+  
   // OCR
   ocrStatus   OcrStatus     @default(NONE) @map("ocr_status")
   ocrResult   Json?         @map("ocr_result")
@@ -415,6 +419,12 @@ enum OcrStatus {
   PROCESSING  // กำลัง OCR
   COMPLETED   // OCR เสร็จ
   FAILED      // OCR ผิดพลาด
+}
+
+enum SlotStatus {
+  PENDING         // รอเอกสาร
+  COMPLETED       // มีแล้ว (มีไฟล์)
+  NOT_APPLICABLE  // ไม่มี/N/A (ระบุเหตุผล)
 }
 
 // ============================================

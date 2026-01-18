@@ -58,8 +58,8 @@ import {
 import { toast } from "sonner";
 import { ContactForm } from "@/components/settings/contact-form";
 import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
-import { DocumentChecklist } from "@/components/documents/document-checklist";
-import { getDocumentChecklist, calculateCompletionPercent, getStatusLabel, getStatusColor } from "@/lib/checklist";
+import { ProgressTimeline, getExpenseTimelineSteps, getIncomeTimelineSteps } from "@/components/documents/progress-timeline";
+import { DocumentSlot, type SlotStatus } from "@/components/documents/document-slot";
 import type { Category, CostCenter, Contact, Document } from ".prisma/client";
 import type { SubDocType, SerializedDocument, MemberRole } from "@/types";
 import Link from "next/link";
@@ -944,49 +944,138 @@ export function DocumentBoxForm({
           )}
         </div>
 
-        {/* Right Column - Checklist / Required Documents */}
+        {/* Right Column - Document Slots with Timeline */}
         <div className="space-y-6">
           <Card className="sticky top-20">
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" />
-                {mode === "create" ? "กล่องเอกสาร" : "สถานะการดำเนินการ"}
+                กล่องเอกสาร
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {/* For view/edit mode - use checklist */}
+            <CardContent className="space-y-6">
+              {/* Progress Timeline (for view/edit mode) */}
               {mode !== "create" && document && (() => {
-                const checklistData = {
-                  isPaid: document.isPaid || false,
-                  hasPaymentProof: document.hasPaymentProof || false,
-                  hasTaxInvoice: document.hasTaxInvoice || false,
-                  hasInvoice: document.hasInvoice || false,
-                  whtIssued: document.whtIssued || false,
-                  whtSent: document.whtSent || false,
-                  whtReceived: document.whtReceived || false,
-                };
-                const checklistItems = getDocumentChecklist(
-                  transactionType,
-                  calculations.hasVat || document.hasValidVat || false,
-                  calculations.hasWht || document.hasWht || false,
-                  checklistData,
-                  uploadedDocTypes
-                );
-                const completionPercent = document.completionPercent || calculateCompletionPercent(checklistItems);
+                const hasVat = calculations.hasVat || document.hasValidVat || false;
+                const hasWht = calculations.hasWht || document.hasWht || false;
                 
+                const timelineSteps = transactionType === "EXPENSE"
+                  ? getExpenseTimelineSteps(
+                      document.isPaid || false,
+                      document.hasPaymentProof || uploadedDocTypes.has("SLIP"),
+                      document.hasTaxInvoice || uploadedDocTypes.has("TAX_INVOICE"),
+                      hasVat,
+                      hasWht,
+                      document.whtIssued || uploadedDocTypes.has("WHT_CERT_SENT"),
+                      document.whtSent || false
+                    )
+                  : getIncomeTimelineSteps(
+                      document.hasInvoice || uploadedDocTypes.has("INVOICE"),
+                      document.hasTaxInvoice || uploadedDocTypes.has("TAX_INVOICE"),
+                      hasVat,
+                      document.isPaid || false,
+                      hasWht,
+                      document.whtReceived || uploadedDocTypes.has("WHT_CERT_RECEIVED")
+                    );
+
                 return (
-                  <DocumentChecklist
-                    documentId={document.id}
-                    items={checklistItems}
-                    completionPercent={completionPercent}
-                    canEdit={true}
+                  <ProgressTimeline
+                    steps={timelineSteps}
+                    completionPercent={document.completionPercent || 0}
                   />
+                );
+              })()}
+
+              {/* Payment Status Toggle (for view/edit mode) */}
+              {mode !== "create" && document && (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={document.isPaid ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={async () => {
+                      const { updateDocumentChecklist } = await import("@/server/actions/document");
+                      const result = await updateDocumentChecklist(document.id, { isPaid: !document.isPaid });
+                      if (result.success) {
+                        toast.success(document.isPaid ? "ยกเลิกสถานะจ่ายเงิน" : "บันทึกจ่ายเงินแล้ว");
+                        router.refresh();
+                      } else {
+                        toast.error(result.error || "เกิดข้อผิดพลาด");
+                      }
+                    }}
+                  >
+                    {document.isPaid ? (
+                      <>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        {transactionType === "EXPENSE" ? "จ่ายแล้ว" : "รับเงินแล้ว"}
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="mr-2 h-4 w-4" />
+                        {transactionType === "EXPENSE" ? "ยังไม่จ่าย" : "ยังไม่รับ"}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Document Slots (for view/edit mode) */}
+              {mode !== "create" && document && (() => {
+                const hasVat = calculations.hasVat || document.hasValidVat || false;
+                const hasWht = calculations.hasWht || document.hasWht || false;
+
+                // Define slots based on transaction type
+                const slotConfigs = transactionType === "EXPENSE"
+                  ? [
+                      { type: "SLIP" as SubDocType, label: "สลิปโอนเงิน", description: "หลักฐานการชำระเงิน", required: true },
+                      ...(hasVat ? [{ type: "TAX_INVOICE" as SubDocType, label: "ใบกำกับภาษี", description: "สำหรับขอคืน VAT", required: true, warning: "ถ้าไม่มี จะไม่สามารถขอคืน VAT ได้" }] : []),
+                      ...(hasWht ? [
+                        { type: "WHT_CERT_SENT" as SubDocType, label: "หนังสือหัก ณ ที่จ่าย", description: "ต้องออกให้คู่ค้า", required: true, warning: "ต้องส่งให้คู่ค้าภายใน 7 วัน" },
+                      ] : []),
+                      { type: "INVOICE" as SubDocType, label: "ใบแจ้งหนี้", description: "Invoice จากผู้ขาย", required: false },
+                    ]
+                  : [
+                      { type: "INVOICE" as SubDocType, label: "ใบแจ้งหนี้", description: "ที่ออกให้ลูกค้า", required: true },
+                      ...(hasVat ? [{ type: "TAX_INVOICE" as SubDocType, label: "ใบกำกับภาษี", description: "ที่ออกให้ลูกค้า", required: true }] : []),
+                      { type: "RECEIPT" as SubDocType, label: "ใบเสร็จรับเงิน", description: "หลังรับเงินแล้ว", required: false },
+                      ...(hasWht ? [{ type: "WHT_CERT_RECEIVED" as SubDocType, label: "หนังสือหัก ณ ที่จ่าย", description: "ที่ได้รับจากลูกค้า", required: true, warning: "ต้องได้รับจากลูกค้าเพื่อใช้เป็นหลักฐาน" }] : []),
+                    ];
+
+                return (
+                  <div className="grid grid-cols-2 gap-3">
+                    {slotConfigs.map((config) => {
+                      const subDocs = document.subDocuments?.filter(d => d.docType === config.type) || [];
+                      const hasFiles = subDocs.some(d => d.files && d.files.length > 0);
+                      const isNotApplicable = subDocs.some(d => d.slotStatus === "NOT_APPLICABLE");
+                      
+                      let status: SlotStatus = "pending";
+                      if (hasFiles) status = "completed";
+                      else if (isNotApplicable) status = "not_applicable";
+
+                      return (
+                        <DocumentSlot
+                          key={config.type}
+                          documentId={document.id}
+                          type={config.type}
+                          label={config.label}
+                          description={config.description}
+                          required={config.required}
+                          status={status}
+                          subDocuments={subDocs}
+                          warning={config.warning}
+                          canEdit={true}
+                        />
+                      );
+                    })}
+                  </div>
                 );
               })()}
 
               {/* For create mode - show required docs with upload */}
               {mode === "create" && (
-                <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
                   {requiredDocs.map((doc) => {
                     const isUploaded = uploadedDocTypes.has(doc.type);
                     const Icon = doc.icon;
@@ -994,102 +1083,85 @@ export function DocumentBoxForm({
                     return (
                       <div
                         key={doc.type}
-                        className={`rounded-lg border p-3 transition-colors ${
+                        className={`rounded-xl border-2 p-4 transition-colors ${
                           isUploaded 
                             ? "border-green-200 bg-green-50" 
                             : doc.required 
                               ? "border-orange-200 bg-orange-50" 
-                              : "border-border"
+                              : "border-dashed border-gray-200"
                         }`}
                       >
-                        <div className="flex items-start gap-2">
-                          <div className={`p-1.5 rounded ${
-                            isUploaded ? "bg-green-100" : doc.required ? "bg-orange-100" : "bg-muted"
+                        {/* Header */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className={`p-2 rounded-lg bg-white shadow-sm ${
+                            isUploaded ? "text-green-500" : doc.required ? "text-orange-500" : "text-gray-400"
                           }`}>
-                            <Icon className={`h-4 w-4 ${
-                              isUploaded ? "text-green-600" : doc.required ? "text-orange-600" : "text-muted-foreground"
-                            }`} />
+                            <Icon className="h-5 w-5" />
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{doc.label}</span>
-                              {doc.required && !isUploaded && (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0 text-orange-600 border-orange-200">
-                                  จำเป็น
-                                </Badge>
-                              )}
-                              {isUploaded && (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">{doc.description}</p>
-
-                            {/* Uploaded files */}
-                            {uploadedFiles.filter(f => f.docType === doc.type).length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {uploadedFiles.filter(f => f.docType === doc.type).map((file, idx) => {
-                                  const fileIndex = uploadedFiles.findIndex(f => f === file);
-                                  return (
-                                    <div key={idx} className="flex items-center gap-2 text-xs bg-background rounded p-1.5">
-                                      {file.file.type.startsWith("image/") ? (
-                                        <Image
-                                          src={file.preview}
-                                          alt={file.file.name}
-                                          width={24}
-                                          height={24}
-                                          className="rounded object-cover"
-                                        />
-                                      ) : (
-                                        <FileText className="h-4 w-4 text-muted-foreground" />
-                                      )}
-                                      <span className="flex-1 truncate">{file.file.name}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => removeFile(fileIndex)}
-                                        className="text-muted-foreground hover:text-destructive"
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            {/* Upload button */}
-                            <label className="mt-2 flex items-center justify-center gap-2 py-2 px-3 rounded border-2 border-dashed cursor-pointer hover:bg-muted/50 transition-colors">
-                              <Upload className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                {isUploaded ? "เพิ่มไฟล์" : "อัปโหลด"}
-                              </span>
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/png,application/pdf"
-                                multiple
-                                onChange={(e) => handleFileSelect(e, doc.type)}
-                                className="hidden"
-                              />
-                            </label>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm truncate">{doc.label}</h4>
+                            <p className="text-xs text-muted-foreground truncate">{doc.description}</p>
                           </div>
+                          {isUploaded && (
+                            <Badge className="bg-green-100 text-green-700">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              {uploadedFiles.filter(f => f.docType === doc.type).length}
+                            </Badge>
+                          )}
+                          {doc.required && !isUploaded && (
+                            <Badge className="bg-orange-100 text-orange-700">รอ</Badge>
+                          )}
                         </div>
+
+                        {/* Uploaded files */}
+                        {uploadedFiles.filter(f => f.docType === doc.type).length > 0 && (
+                          <div className="space-y-1 mb-3">
+                            {uploadedFiles.filter(f => f.docType === doc.type).map((file, idx) => {
+                              const fileIndex = uploadedFiles.findIndex(f => f === file);
+                              return (
+                                <div key={idx} className="flex items-center gap-2 text-xs bg-white rounded-lg p-2 border">
+                                  {file.file.type.startsWith("image/") ? (
+                                    <Image
+                                      src={file.preview}
+                                      alt={file.file.name}
+                                      width={24}
+                                      height={24}
+                                      className="rounded object-cover"
+                                    />
+                                  ) : (
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  <span className="flex-1 truncate">{file.file.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeFile(fileIndex)}
+                                    className="text-muted-foreground hover:text-destructive"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Upload button */}
+                        <label className="flex flex-col items-center justify-center gap-2 py-4 rounded-lg border-2 border-dashed cursor-pointer hover:bg-white/50 transition-colors">
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {isUploaded ? "เพิ่มไฟล์" : "อัปโหลด"}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,application/pdf"
+                            multiple
+                            onChange={(e) => handleFileSelect(e, doc.type)}
+                            className="hidden"
+                          />
+                        </label>
                       </div>
                     );
                   })}
-
-                  {/* Summary */}
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">เอกสารจำเป็น</span>
-                      <span className={`font-medium ${
-                        requiredDocs.filter(d => d.required).every(d => uploadedDocTypes.has(d.type))
-                          ? "text-green-600"
-                          : "text-orange-600"
-                      }`}>
-                        {requiredDocs.filter(d => d.required && uploadedDocTypes.has(d.type)).length}/
-                        {requiredDocs.filter(d => d.required).length}
-                      </span>
-                    </div>
-                  </div>
                 </div>
               )}
             </CardContent>

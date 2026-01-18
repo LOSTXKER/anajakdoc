@@ -412,3 +412,91 @@ export async function deleteSubDocumentFile(
   return { success: true, message: "ลบไฟล์เรียบร้อย" };
 }
 
+// Update SubDocument slot status (for "ไม่มี" / "มีแล้ว")
+export async function updateSubDocumentStatus(
+  documentId: string,
+  docType: SubDocType,
+  status: "pending" | "not_applicable",
+  reason?: string
+): Promise<ApiResponse> {
+  const session = await requireOrganization();
+
+  // Verify document belongs to organization
+  const document = await prisma.document.findFirst({
+    where: {
+      id: documentId,
+      organizationId: session.currentOrganization.id,
+    },
+    include: {
+      subDocuments: {
+        where: { docType },
+      },
+    },
+  });
+
+  if (!document) {
+    return { success: false, error: "ไม่พบเอกสาร" };
+  }
+
+  try {
+    if (status === "not_applicable") {
+      // Create or update SubDocument with NOT_APPLICABLE status
+      if (document.subDocuments.length > 0) {
+        // Update existing
+        await prisma.subDocument.updateMany({
+          where: { documentId, docType },
+          data: {
+            slotStatus: "NOT_APPLICABLE",
+            naReason: reason || null,
+          },
+        });
+      } else {
+        // Create placeholder
+        await prisma.subDocument.create({
+          data: {
+            documentId,
+            docType,
+            slotStatus: "NOT_APPLICABLE",
+            naReason: reason || null,
+          },
+        });
+      }
+    } else {
+      // Revert to PENDING
+      await prisma.subDocument.updateMany({
+        where: { documentId, docType },
+        data: {
+          slotStatus: "PENDING",
+          naReason: null,
+        },
+      });
+    }
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        documentId,
+        userId: session.id,
+        action: status === "not_applicable" ? "slot_marked_na" : "slot_reactivated",
+        details: {
+          docType,
+          reason: reason || null,
+        },
+      },
+    });
+
+    // Recalculate completion
+    await recalculateDocumentChecklist(documentId);
+
+    revalidatePath(`/documents/${documentId}`);
+    revalidatePath("/documents");
+
+    return { success: true, message: "อัปเดทสถานะเรียบร้อย" };
+  } catch (error) {
+    console.error("Error updating slot status:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+    };
+  }
+}
