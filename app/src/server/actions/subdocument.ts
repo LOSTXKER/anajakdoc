@@ -299,18 +299,3 @@ export async function deleteSubDocumentFile(
   return { success: true, message: "ลบไฟล์เรียบร้อย" };
 }
 
-// Get SubDocType labels
-export function getSubDocTypeLabel(docType: SubDocType): string {
-  const labels: Record<SubDocType, string> = {
-    SLIP: "สลิปโอนเงิน",
-    TAX_INVOICE: "ใบกำกับภาษี",
-    INVOICE: "ใบแจ้งหนี้",
-    RECEIPT: "ใบเสร็จรับเงิน",
-    WHT_CERT_SENT: "หนังสือหัก ณ ที่จ่าย (ออก)",
-    CONTRACT: "สัญญา/ใบสั่งซื้อ",
-    QUOTATION: "ใบเสนอราคา",
-    WHT_CERT_RECEIVED: "หนังสือหัก ณ ที่จ่าย (รับ)",
-    OTHER: "อื่นๆ",
-  };
-  return labels[docType] || docType;
-}

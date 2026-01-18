@@ -8,7 +8,8 @@ import type {
   WHTTrackingWithContact,
   SerializedWHTTracking,
   WHTStatus,
-  WHTTrackingType
+  WHTTrackingType,
+  SubDocType
 } from "@/types"
 
 export function cn(...inputs: ClassValue[]) {
@@ -120,4 +121,20 @@ export function getWHTTrackingTypeLabel(type: WHTTrackingType): string {
     INCOMING: "รอรับเข้า",
   };
   return labels[type] || type;
+}
+
+// Get SubDocType label
+export function getSubDocTypeLabel(docType: SubDocType): string {
+  const labels: Record<SubDocType, string> = {
+    SLIP: "สลิปโอนเงิน",
+    TAX_INVOICE: "ใบกำกับภาษี",
+    INVOICE: "ใบแจ้งหนี้",
+    RECEIPT: "ใบเสร็จรับเงิน",
+    WHT_CERT_SENT: "หนังสือหัก ณ ที่จ่าย (ออก)",
+    CONTRACT: "สัญญา/ใบสั่งซื้อ",
+    QUOTATION: "ใบเสนอราคา",
+    WHT_CERT_RECEIVED: "หนังสือหัก ณ ที่จ่าย (รับ)",
+    OTHER: "อื่นๆ",
+  };
+  return labels[docType] || docType;
 }
