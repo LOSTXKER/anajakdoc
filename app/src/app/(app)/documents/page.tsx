@@ -3,6 +3,7 @@ import { getDocuments } from "@/server/actions/document";
 import { AppHeader } from "@/components/layout/app-header";
 import { DocumentList } from "@/components/documents/document-list";
 import { DocumentFilters } from "@/components/documents/document-filters";
+import { serializeDocuments } from "@/lib/utils";
 
 interface DocumentsPageProps {
   searchParams: Promise<{
@@ -26,7 +27,13 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   };
 
   const page = parseInt(params.page || "1");
-  const documents = await getDocuments(filters, page);
+  const result = await getDocuments(filters, page);
+  
+  // Serialize documents for Client Component
+  const documents = {
+    ...result,
+    items: serializeDocuments(result.items),
+  };
 
   return (
     <>

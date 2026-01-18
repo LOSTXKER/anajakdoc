@@ -34,3 +34,8 @@ export function serializeDocument(doc: DocumentWithRelations): SerializedDocumen
     updatedAt: doc.updatedAt.toISOString(),
   };
 }
+
+// Serialize multiple documents
+export function serializeDocuments(docs: DocumentWithRelations[]): SerializedDocument[] {
+  return docs.map(serializeDocument);
+}

@@ -23,10 +23,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BulkActions } from "./bulk-actions";
-import type { PaginatedResponse, DocumentWithRelations, MemberRole } from "@/types";
+import type { PaginatedResponse, SerializedDocument, MemberRole } from "@/types";
 
 interface DocumentListProps {
-  documents: PaginatedResponse<DocumentWithRelations>;
+  documents: PaginatedResponse<SerializedDocument>;
   userRole?: MemberRole;
   showBulkActions?: boolean;
 }
@@ -173,7 +173,7 @@ export function DocumentList({ documents, userRole = "STAFF", showBulkActions = 
                   {/* Amount */}
                   <div className="mb-3">
                     <p className="text-2xl font-bold">
-                      ฿{doc.totalAmount.toString()}
+                      ฿{doc.totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                     </p>
                     {doc.category && (
                       <p className="text-sm text-muted-foreground">{doc.category.name}</p>
