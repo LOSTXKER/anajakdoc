@@ -5,9 +5,11 @@ import { requireOrganization } from "@/server/auth";
 import { createDocumentSchema, updateDocumentSchema } from "@/lib/validations/document";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ApiResponse, DocumentFilters, PaginatedResponse, DocumentWithRelations } from "@/types";
+import type { ApiResponse, DocumentFilters, PaginatedResponse, DocumentWithRelations, SubDocType } from "@/types";
 import { DocumentStatus } from ".prisma/client";
 import { createNotification, notifyAccountingTeam } from "./notification";
+import { createClient } from "@/lib/supabase/server";
+import crypto from "crypto";
 
 async function generateDocNumber(orgId: string, type: "EXPENSE" | "INCOME"): Promise<string> {
   const prefix = type === "EXPENSE" ? "EXP" : "INC";
@@ -97,6 +99,86 @@ export async function createDocument(formData: FormData): Promise<ApiResponse<{ 
       status: DocumentStatus.DRAFT,
     },
   });
+
+  // Handle file uploads and create SubDocuments
+  const files = formData.getAll("files") as File[];
+  const fileTypes = formData.getAll("fileTypes") as string[];
+
+  if (files.length > 0) {
+    const supabase = await createClient();
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const docType = (fileTypes[i] || "OTHER") as SubDocType;
+
+      try {
+        // Generate unique filename
+        const ext = file.name.split(".").pop();
+        const timestamp = Date.now();
+        const randomStr = crypto.randomBytes(8).toString("hex");
+        const fileName = `${session.currentOrganization.id}/${document.id}/${timestamp}-${randomStr}.${ext}`;
+
+        // Calculate checksum
+        const arrayBuffer = await file.arrayBuffer();
+        const checksum = crypto
+          .createHash("md5")
+          .update(Buffer.from(arrayBuffer))
+          .digest("hex");
+
+        // Upload to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(fileName, file, {
+            contentType: file.type,
+            cacheControl: "3600",
+          });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          continue;
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from("documents")
+          .getPublicUrl(fileName);
+
+        // Check if SubDocument for this type already exists
+        let subDocument = await prisma.subDocument.findFirst({
+          where: {
+            documentId: document.id,
+            docType,
+          },
+        });
+
+        // Create SubDocument if not exists
+        if (!subDocument) {
+          subDocument = await prisma.subDocument.create({
+            data: {
+              documentId: document.id,
+              docType,
+            },
+          });
+        }
+
+        // Create SubDocumentFile
+        await prisma.subDocumentFile.create({
+          data: {
+            subDocumentId: subDocument.id,
+            fileName: file.name,
+            fileUrl: urlData.publicUrl,
+            fileSize: file.size,
+            mimeType: file.type,
+            checksum,
+            pageOrder: i,
+            isPrimary: i === 0,
+          },
+        });
+      } catch (error) {
+        console.error("Error uploading file:", error);
+      }
+    }
+  }
 
   // Log activity
   await prisma.activityLog.create({
