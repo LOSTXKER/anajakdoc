@@ -5,8 +5,12 @@ export const createDocumentSchema = z.object({
   transactionType: z.nativeEnum(TransactionType).default(TransactionType.EXPENSE),
   // docType is now optional - actual doc types are in SubDocument
   docType: z.nativeEnum(DocType).optional().default(DocType.RECEIPT),
-  docDate: z.coerce.date(),
-  dueDate: z.coerce.date().optional(),
+  docDate: z.union([z.string(), z.date()]).transform((val) => 
+    typeof val === "string" ? new Date(val) : val
+  ),
+  dueDate: z.union([z.string(), z.date()]).optional().transform((val) => 
+    val ? (typeof val === "string" ? new Date(val) : val) : undefined
+  ),
   subtotal: z.coerce.number().min(0),
   vatAmount: z.coerce.number().min(0).default(0),
   whtAmount: z.coerce.number().min(0).default(0),
