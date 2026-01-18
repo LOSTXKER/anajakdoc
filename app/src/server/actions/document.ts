@@ -4,9 +4,9 @@ import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { createDocumentSchema, updateDocumentSchema } from "@/lib/validations/document";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import type { ApiResponse, DocumentFilters, PaginatedResponse, DocumentWithRelations } from "@/types";
 import { DocumentStatus } from ".prisma/client";
+import { createNotification, notifyAccountingTeam } from "./notification";
 
 async function generateDocNumber(orgId: string, type: "EXPENSE" | "INCOME"): Promise<string> {
   const prefix = type === "EXPENSE" ? "EXP" : "INC";
@@ -223,6 +223,15 @@ export async function submitDocument(documentId: string): Promise<ApiResponse> {
     },
   });
 
+  // Notify accounting team
+  await notifyAccountingTeam(
+    session.currentOrganization.id,
+    "DOCUMENT_SUBMITTED",
+    "เอกสารใหม่รอตรวจ",
+    `${document.docNumber} ถูกส่งเข้ามาใหม่`,
+    { documentId }
+  );
+
   revalidatePath(`/documents/${documentId}`);
   revalidatePath("/documents");
   revalidatePath("/inbox");
@@ -299,6 +308,27 @@ export async function reviewDocument(
       },
     });
   });
+
+  // Notify document owner
+  const notificationTypes = {
+    approve: "DOCUMENT_APPROVED" as const,
+    reject: "DOCUMENT_REJECTED" as const,
+    need_info: "DOCUMENT_NEED_INFO" as const,
+  };
+  const notificationMessages = {
+    approve: `เอกสาร ${document.docNumber} ได้รับการอนุมัติแล้ว`,
+    reject: `เอกสาร ${document.docNumber} ถูกปฏิเสธ${comment ? `: ${comment}` : ""}`,
+    need_info: `เอกสาร ${document.docNumber} ต้องการข้อมูลเพิ่มเติม${comment ? `: ${comment}` : ""}`,
+  };
+
+  await createNotification(
+    session.currentOrganization.id,
+    document.submittedById,
+    notificationTypes[action],
+    action === "approve" ? "เอกสารอนุมัติแล้ว" : action === "reject" ? "เอกสารถูกปฏิเสธ" : "ขอข้อมูลเพิ่ม",
+    notificationMessages[action],
+    { documentId }
+  );
 
   revalidatePath(`/documents/${documentId}`);
   revalidatePath("/documents");

@@ -63,6 +63,8 @@ model User {
   reviewedDocs  Document[]           @relation("ReviewedBy")
   comments      Comment[]
   activityLogs  ActivityLog[]
+  savedFilters  SavedFilter[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -424,4 +426,57 @@ enum ExportType {
   EXCEL_PEAK
   CSV
   ZIP
+}
+
+// ============================================
+// SAVED FILTERS
+// ============================================
+
+model SavedFilter {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  name           String
+  filters        Json     // Store filter criteria as JSON
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_filters")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  type           NotificationType
+  title          String
+  message        String
+  data           Json?            // Additional data (documentId, etc.)
+  isRead         Boolean          @default(false) @map("is_read")
+  readAt         DateTime?        @map("read_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  DOCUMENT_SUBMITTED    // เอกสารใหม่รอตรวจ
+  DOCUMENT_APPROVED     // เอกสารถูก approve
+  DOCUMENT_REJECTED     // เอกสารถูกปฏิเสธ
+  DOCUMENT_NEED_INFO    // ขอข้อมูลเพิ่ม
+  DUE_DATE_REMINDER     // ใกล้ครบกำหนด
+  DUE_DATE_OVERDUE      // เกินกำหนด
+  COMMENT_ADDED         // มี comment ใหม่
+  MEMBER_INVITED        // ถูกเชิญเข้าองค์กร
 }

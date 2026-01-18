@@ -1,5 +1,6 @@
 import { requireOrganization } from "@/server/auth";
 import { getDocuments } from "@/server/actions/document";
+import { getSavedFilters } from "@/server/actions/saved-filter";
 import { AppHeader } from "@/components/layout/app-header";
 import { DocumentList } from "@/components/documents/document-list";
 import { DocumentFilters } from "@/components/documents/document-filters";
@@ -27,7 +28,11 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   };
 
   const page = parseInt(params.page || "1");
-  const result = await getDocuments(filters, page);
+  
+  const [result, savedFilters] = await Promise.all([
+    getDocuments(filters, page),
+    getSavedFilters(),
+  ]);
   
   // Serialize documents for Client Component
   const documents = {
@@ -43,7 +48,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
       />
       
       <div className="p-6 space-y-6">
-        <DocumentFilters />
+        <DocumentFilters savedFilters={savedFilters} />
         <DocumentList 
           documents={documents} 
           userRole={session.currentOrganization.role}
