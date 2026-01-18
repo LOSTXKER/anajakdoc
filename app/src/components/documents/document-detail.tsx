@@ -44,6 +44,7 @@ import {
 import { toast } from "sonner";
 import type { SerializedDocument, MemberRole } from "@/types";
 import { SubDocumentList } from "./subdocument-list";
+import { WHTTrackingList } from "@/components/wht/wht-tracking-list";
 
 interface DocumentDetailProps {
   document: SerializedDocument;
@@ -361,6 +362,21 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
               </CardContent>
             </Tabs>
           </Card>
+
+          {/* WHT Tracking Card */}
+          {(document.hasWht || (document.whtTrackings && document.whtTrackings.length > 0)) && (
+            <Card>
+              <CardContent className="pt-6">
+                <WHTTrackingList
+                  documentId={document.id}
+                  whtTrackings={document.whtTrackings || []}
+                  contacts={document.contact ? [{ id: document.contact.id, name: document.contact.name }] : []}
+                  defaultContactId={document.contact?.id}
+                  canEdit={canEdit}
+                />
+              </CardContent>
+            </Card>
+          )}
           
           {/* File Preview Dialog */}
           <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>

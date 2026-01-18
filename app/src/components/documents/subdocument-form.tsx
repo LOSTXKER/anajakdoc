@@ -19,10 +19,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Upload, X, FileText } from "lucide-react";
+import { Loader2, Upload, X, FileText, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { createSubDocument, addSubDocumentFile } from "@/server/actions/subdocument";
 import { uploadFile } from "@/server/actions/file";
+import { extractDocumentData, type ExtractedDocumentData } from "@/server/actions/ocr";
 import { SubDocType, TransactionType } from "@/types";
 import Image from "next/image";
 
@@ -67,14 +68,77 @@ export function SubDocumentForm({
   onSuccess,
 }: SubDocumentFormProps) {
   const [isPending, startTransition] = useTransition();
+  const [isExtracting, setIsExtracting] = useState(false);
   const [docType, setDocType] = useState<SubDocType>("SLIP");
   const [docNumber, setDocNumber] = useState("");
   const [docDate, setDocDate] = useState("");
   const [amount, setAmount] = useState("");
+  const [vatAmount, setVatAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
 
   const docTypes = transactionType === "EXPENSE" ? expenseDocTypes : incomeDocTypes;
+
+  // OCR Extract function
+  const handleOCRExtract = async () => {
+    if (files.length === 0) {
+      toast.error("กรุณาเลือกไฟล์ก่อนอ่านข้อมูล");
+      return;
+    }
+
+    const firstImageFile = files.find(f => f.file.type.startsWith("image/"));
+    if (!firstImageFile) {
+      toast.error("ไม่พบไฟล์รูปภาพสำหรับอ่าน OCR");
+      return;
+    }
+
+    setIsExtracting(true);
+    
+    // Upload file first to get URL
+    const formData = new FormData();
+    formData.append("file", firstImageFile.file);
+    formData.append("documentId", documentId);
+    
+    const uploadResult = await uploadFile(formData);
+    
+    if (!uploadResult.success || !uploadResult.data) {
+      toast.error("ไม่สามารถอัปโหลดไฟล์ได้");
+      setIsExtracting(false);
+      return;
+    }
+
+    // Extract data
+    const result = await extractDocumentData(uploadResult.data.url);
+    setIsExtracting(false);
+
+    if (result.success && result.data) {
+      // Auto-fill form
+      if (result.data.docType) {
+        const mappedType = mapOCRDocType(result.data.docType);
+        if (mappedType) setDocType(mappedType);
+      }
+      if (result.data.externalRef) setDocNumber(result.data.externalRef);
+      if (result.data.docDate) setDocDate(result.data.docDate);
+      if (result.data.totalAmount) setAmount(result.data.totalAmount.toString());
+      if (result.data.vatAmount) setVatAmount(result.data.vatAmount.toString());
+      if (result.data.description) setNotes(result.data.description);
+      
+      toast.success(`อ่านข้อมูลสำเร็จ (ความมั่นใจ ${Math.round(result.data.confidence * 100)}%)`);
+    } else {
+      toast.error(result.error || "ไม่สามารถอ่านข้อมูลได้");
+    }
+  };
+
+  const mapOCRDocType = (ocrType: string): SubDocType | null => {
+    const mapping: Record<string, SubDocType> = {
+      SLIP: "SLIP",
+      RECEIPT: "RECEIPT",
+      TAX_INVOICE: "TAX_INVOICE",
+      INVOICE: "INVOICE",
+      OTHER: "OTHER",
+    };
+    return mapping[ocrType] || null;
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -261,9 +325,29 @@ export function SubDocumentForm({
                     </label>
                   </div>
                   
-                  <p className="text-xs text-muted-foreground">
-                    {files.length} ไฟล์ • ไฟล์แรกจะเป็นไฟล์หลัก
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      {files.length} ไฟล์ • ไฟล์แรกจะเป็นไฟล์หลัก
+                    </p>
+                    
+                    {/* OCR Button */}
+                    {files.some(f => f.file.type.startsWith("image/")) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOCRExtract}
+                        disabled={isExtracting}
+                      >
+                        {isExtracting ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-2" />
+                        )}
+                        {isExtracting ? "กำลังอ่าน..." : "อ่านข้อมูลอัตโนมัติ"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
