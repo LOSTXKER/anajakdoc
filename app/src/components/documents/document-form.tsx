@@ -37,15 +37,15 @@ import {
   Loader2,
   Save,
   ArrowLeft,
-  Receipt,
-  CreditCard,
-  FileCheck,
   UserPlus,
+  Info,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ContactForm } from "@/components/settings/contact-form";
 import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
-import type { Category, CostCenter, Contact, Document, DocType } from ".prisma/client";
+import type { Category, CostCenter, Contact, Document } from ".prisma/client";
 import Link from "next/link";
 
 interface DocumentFormProps {
@@ -55,23 +55,6 @@ interface DocumentFormProps {
   contacts: Contact[];
   document?: Document;
 }
-
-const docTypeOptions = {
-  EXPENSE: [
-    { value: "SLIP", label: "สลิปโอนเงิน", icon: CreditCard },
-    { value: "RECEIPT", label: "ใบเสร็จรับเงิน", icon: Receipt },
-    { value: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
-    { value: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
-    { value: "OTHER", label: "อื่นๆ", icon: FileText },
-  ],
-  INCOME: [
-    { value: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
-    { value: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
-    { value: "RECEIPT", label: "ใบเสร็จรับเงิน", icon: Receipt },
-    { value: "QUOTATION", label: "ใบเสนอราคา", icon: FileText },
-    { value: "OTHER", label: "อื่นๆ", icon: FileText },
-  ],
-};
 
 const paymentMethods = [
   { value: "TRANSFER", label: "โอนเงิน" },
@@ -93,7 +76,6 @@ export function DocumentForm({
   const [error, setError] = useState<string | null>(null);
 
   // Form state
-  const [docType, setDocType] = useState<DocType>(document?.docType || "RECEIPT");
   const [hasWht, setHasWht] = useState(document?.hasWht || false);
   const [hasValidVat, setHasValidVat] = useState(document?.hasValidVat || false);
 
@@ -113,7 +95,7 @@ export function DocumentForm({
   // Duplicate detection
   const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateWarning[]>([]);
 
-  // Calculate total - defined first for use in duplicate check
+  // Calculate total
   const calculateTotal = useCallback(() => {
     const sub = parseFloat(subtotal) || 0;
     const vat = parseFloat(vatAmount) || 0;
@@ -123,11 +105,8 @@ export function DocumentForm({
 
   // Contact created handler
   function handleContactCreated(newContact: { id: string; name: string }) {
-    // Add to local contacts list
     setContacts(prev => [...prev, newContact]);
-    // Select the new contact
     setSelectedContactId(newContact.id);
-    // Close dialog
     setShowAddContact(false);
   }
 
@@ -183,9 +162,10 @@ export function DocumentForm({
         setError(result.error || "เกิดข้อผิดพลาด");
         toast.error(result.error || "เกิดข้อผิดพลาด");
       } else {
-        toast.success(document ? "อัปเดตเอกสารเรียบร้อย" : "สร้างเอกสารเรียบร้อย");
+        toast.success(document ? "อัปเดตกล่องเรียบร้อย" : "สร้างกล่องเรียบร้อย");
         const data = result.data as { id: string } | undefined;
         if (!document && data?.id) {
+          // Redirect to document detail to add SubDocuments
           router.push(`/documents/${data.id}`);
         }
       }
@@ -211,56 +191,47 @@ export function DocumentForm({
       {/* Duplicate Warnings */}
       <DuplicateWarningAlert warnings={duplicateWarnings} onDismiss={dismissWarning} />
 
-      {/* Step 1: Document Type */}
+      {/* Info Card */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="pt-6">
+          <div className="flex gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg h-fit">
+              {transactionType === "EXPENSE" ? (
+                <TrendingDown className="h-5 w-5 text-blue-600" />
+              ) : (
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+              )}
+            </div>
+            <div>
+              <h3 className="font-medium text-blue-900">
+                {transactionType === "EXPENSE" ? "สร้างกล่องรายจ่าย" : "สร้างกล่องรายรับ"}
+              </h3>
+              <p className="text-sm text-blue-700 mt-1">
+                กล่องเอกสาร = 1 ธุรกรรม สามารถมีหลายเอกสาร (สลิป, ใบกำกับ, ใบแจ้งหนี้ ฯลฯ) อยู่ด้วยกัน
+              </p>
+              <p className="text-sm text-blue-600 mt-1">
+                <Info className="inline h-3 w-3 mr-1" />
+                หลังจากสร้างกล่องแล้ว สามารถเพิ่มเอกสารและไฟล์แนบได้ในหน้าถัดไป
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Step 1: Basic Info */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            ประเภทเอกสาร
+            ข้อมูลกล่องเอกสาร
           </CardTitle>
-          <CardDescription>เลือกประเภทเอกสารที่ต้องการบันทึก</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {docTypeOptions[transactionType].map((option) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setDocType(option.value as DocType)}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${
-                    docType === option.value
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  <Icon className={`h-6 w-6 ${docType === option.value ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className={`text-sm font-medium ${docType === option.value ? "text-primary" : ""}`}>
-                    {option.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <input type="hidden" name="docType" value={docType} />
-        </CardContent>
-      </Card>
-
-      {/* Step 2: Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            รายละเอียดเอกสาร
-          </CardTitle>
-          <CardDescription>กรอกข้อมูลเอกสาร</CardDescription>
+          <CardDescription>ข้อมูลพื้นฐานของธุรกรรม</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Date & Reference */}
+          {/* Date & External Ref */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="docDate">วันที่เอกสาร *</Label>
+              <Label htmlFor="docDate">วันที่ธุรกรรม *</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -275,11 +246,11 @@ export function DocumentForm({
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="externalRef">เลขที่เอกสาร (ถ้ามี)</Label>
+              <Label htmlFor="externalRef">เลขที่อ้างอิง (ถ้ามี)</Label>
               <Input
                 id="externalRef"
                 name="externalRef"
-                placeholder="เช่น INV-2024-001"
+                placeholder="เช่น PO-2026-001"
                 defaultValue={document?.externalRef || ""}
               />
             </div>
@@ -346,7 +317,7 @@ export function DocumentForm({
           {/* Contact */}
           <div className="space-y-2">
             <Label htmlFor="contactId">
-              {transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"}
+              {transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า *" : "ลูกค้า *"}
             </Label>
             <div className="flex gap-2">
               <Select 
@@ -406,26 +377,27 @@ export function DocumentForm({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">รายละเอียด</Label>
+            <Label htmlFor="description">รายละเอียดธุรกรรม *</Label>
             <Textarea
               id="description"
               name="description"
-              placeholder="รายละเอียดเพิ่มเติม..."
-              rows={3}
+              placeholder="เช่น ค่าบริการ IT เดือนมกราคม, ซื้อวัสดุสำนักงาน..."
+              rows={2}
               defaultValue={document?.description || ""}
+              required
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Step 3: Amount */}
+      {/* Step 2: Amount */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" />
-            ยอดเงิน
+            ยอดเงินรวม
           </CardTitle>
-          <CardDescription>กรอกยอดเงินและภาษี</CardDescription>
+          <CardDescription>ยอดเงินรวมของธุรกรรมนี้</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Amount inputs */}
@@ -564,11 +536,29 @@ export function DocumentForm({
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              บันทึกแบบร่าง
+              สร้างกล่อง
             </>
           )}
         </Button>
       </div>
+
+      {/* Next Step Info */}
+      <Card className="border-dashed">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <FileText className="h-5 w-5" />
+            <div className="text-sm">
+              <p className="font-medium">ขั้นตอนถัดไป</p>
+              <p>หลังจากสร้างกล่องแล้ว คุณจะสามารถ:</p>
+              <ul className="list-disc list-inside mt-1 ml-2">
+                <li>เพิ่มเอกสาร (สลิป, ใบกำกับภาษี, ใบแจ้งหนี้)</li>
+                <li>อัปโหลดไฟล์แนบ</li>
+                <li>ติดตามหนังสือหัก ณ ที่จ่าย</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </form>
   );
 }
