@@ -57,7 +57,6 @@ import {
 import { toast } from "sonner";
 import { ContactForm } from "@/components/settings/contact-form";
 import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
-import { WHTTrackingList } from "@/components/wht/wht-tracking-list";
 import type { Category, CostCenter, Contact, Document } from ".prisma/client";
 import type { SubDocType, SerializedDocument, MemberRole } from "@/types";
 import Link from "next/link";
@@ -868,21 +867,6 @@ export function DocumentBoxForm({
               </div>
             </CardContent>
           </Card>
-
-          {/* WHT Tracking (View/Edit mode only) */}
-          {mode !== "create" && document && (document.hasWht || (document.whtTrackings && document.whtTrackings.length > 0)) && (
-            <Card>
-              <CardContent className="pt-6">
-                <WHTTrackingList
-                  documentId={document.id}
-                  whtTrackings={document.whtTrackings || []}
-                  contacts={document.contact ? [{ id: document.contact.id, name: document.contact.name }] : []}
-                  defaultContactId={document.contact?.id}
-                  canEdit={canEdit && isEditing}
-                />
-              </CardContent>
-            </Card>
-          )}
 
           {/* Review Actions */}
           {canReview && (
