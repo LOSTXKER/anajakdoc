@@ -265,30 +265,6 @@ export async function createContact(formData: FormData): Promise<ActionResult & 
   return { success: true, data: { id: contact.id, name: contact.name } };
 }
 
-// Quick create contact (minimal info)
-export async function quickCreateContact(
-  name: string,
-  role: "VENDOR" | "CUSTOMER" | "BOTH" = "VENDOR"
-): Promise<ActionResult & { data?: { id: string; name: string } }> {
-  const session = await requireOrganization();
-
-  if (!name || name.trim().length < 2) {
-    return { success: false, error: "กรุณากรอกชื่ออย่างน้อย 2 ตัวอักษร" };
-  }
-
-  const contact = await prisma.contact.create({
-    data: {
-      organizationId: session.currentOrganization.id,
-      name: name.trim(),
-      contactType: "COMPANY",
-      contactRole: role,
-    },
-  });
-
-  revalidatePath("/settings/contacts");
-  return { success: true, data: { id: contact.id, name: contact.name } };
-}
-
 export async function updateContact(id: string, formData: FormData): Promise<ActionResult> {
   const session = await requireOrganization();
 

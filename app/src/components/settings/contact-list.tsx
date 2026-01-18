@@ -2,27 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -31,9 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Loader2, Building2, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, User } from "lucide-react";
 import { toast } from "sonner";
-import { createContact, updateContact, deleteContact } from "@/server/actions/settings";
+import { deleteContact } from "@/server/actions/settings";
+import { ContactForm } from "./contact-form";
 import type { Contact } from ".prisma/client";
 
 interface ContactListProps {
@@ -56,22 +46,6 @@ export function ContactList({ contacts }: ContactListProps) {
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-
-  const handleSubmit = async (formData: FormData) => {
-    startTransition(async () => {
-      const result = editingContact
-        ? await updateContact(editingContact.id, formData)
-        : await createContact(formData);
-
-      if (result.success) {
-        toast.success(editingContact ? "แก้ไขผู้ติดต่อเรียบร้อย" : "สร้างผู้ติดต่อเรียบร้อย");
-        setDialogOpen(false);
-        setEditingContact(null);
-      } else {
-        toast.error(result.error || "เกิดข้อผิดพลาด");
-      }
-    });
-  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("ต้องการลบผู้ติดต่อนี้?")) return;
@@ -96,6 +70,11 @@ export function ContactList({ contacts }: ContactListProps) {
     setDialogOpen(true);
   };
 
+  const handleFormSuccess = () => {
+    setDialogOpen(false);
+    setEditingContact(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
@@ -115,100 +94,11 @@ export function ContactList({ contacts }: ContactListProps) {
                 กรอกข้อมูลผู้ติดต่อ
               </DialogDescription>
             </DialogHeader>
-            <form action={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contactType">ประเภท</Label>
-                  <Select 
-                    name="contactType" 
-                    defaultValue={editingContact?.contactType || "COMPANY"}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="COMPANY">นิติบุคคล</SelectItem>
-                      <SelectItem value="INDIVIDUAL">บุคคล</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contactRole">บทบาท</Label>
-                  <Select 
-                    name="contactRole" 
-                    defaultValue={editingContact?.contactRole || "VENDOR"}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="VENDOR">ผู้ขาย/คู่ค้า</SelectItem>
-                      <SelectItem value="CUSTOMER">ลูกค้า</SelectItem>
-                      <SelectItem value="BOTH">ทั้งสอง</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">ชื่อ *</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  placeholder="ชื่อบริษัท หรือ ชื่อ-นามสกุล"
-                  defaultValue={editingContact?.name || ""}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="taxId">เลขประจำตัวผู้เสียภาษี</Label>
-                <Input
-                  id="taxId"
-                  name="taxId"
-                  placeholder="0123456789012"
-                  defaultValue={editingContact?.taxId || ""}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">เบอร์โทรศัพท์</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    placeholder="02-xxx-xxxx"
-                    defaultValue={editingContact?.phone || ""}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">อีเมล</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="contact@company.com"
-                    defaultValue={editingContact?.email || ""}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="address">ที่อยู่</Label>
-                <Textarea
-                  id="address"
-                  name="address"
-                  rows={2}
-                  placeholder="ที่อยู่สำหรับออกเอกสาร"
-                  defaultValue={editingContact?.address || ""}
-                />
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  ยกเลิก
-                </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingContact ? "บันทึก" : "สร้าง"}
-                </Button>
-              </DialogFooter>
-            </form>
+            <ContactForm
+              contact={editingContact}
+              onSuccess={handleFormSuccess}
+              onCancel={() => setDialogOpen(false)}
+            />
           </DialogContent>
         </Dialog>
       </div>

@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createDocument, updateDocument } from "@/server/actions/document";
-import { quickCreateContact } from "@/server/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +19,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -37,15 +35,14 @@ import {
   Users,
   Loader2,
   Save,
-  Send,
   ArrowLeft,
   Receipt,
   CreditCard,
   FileCheck,
-  Plus,
   UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ContactForm } from "@/components/settings/contact-form";
 import type { Category, CostCenter, Contact, Document, DocType } from ".prisma/client";
 import Link from "next/link";
 
@@ -102,43 +99,20 @@ export function DocumentForm({
   const [contacts, setContacts] = useState<Array<{ id: string; name: string }>>(initialContacts);
   const [selectedContactId, setSelectedContactId] = useState(document?.contactId || "");
   const [showAddContact, setShowAddContact] = useState(false);
-  const [newContactName, setNewContactName] = useState("");
-  const [isCreatingContact, setIsCreatingContact] = useState(false);
 
   // Calculate totals
   const [subtotal, setSubtotal] = useState(document?.subtotal?.toString() || "");
   const [vatAmount, setVatAmount] = useState(document?.vatAmount?.toString() || "0");
   const [whtAmount, setWhtAmount] = useState(document?.whtAmount?.toString() || "0");
 
-  // Quick create contact handler
-  async function handleQuickCreateContact() {
-    if (!newContactName.trim()) {
-      toast.error("กรุณากรอกชื่อผู้ติดต่อ");
-      return;
-    }
-
-    setIsCreatingContact(true);
-    try {
-      const role = transactionType === "EXPENSE" ? "VENDOR" : "CUSTOMER";
-      const result = await quickCreateContact(newContactName, role);
-      
-      if (result.success && result.data) {
-        // Add to local contacts list
-        setContacts(prev => [...prev, result.data!]);
-        // Select the new contact
-        setSelectedContactId(result.data.id);
-        // Close dialog and reset
-        setShowAddContact(false);
-        setNewContactName("");
-        toast.success(`เพิ่ม "${result.data.name}" เรียบร้อย`);
-      } else {
-        toast.error(result.error || "เกิดข้อผิดพลาด");
-      }
-    } catch {
-      toast.error("เกิดข้อผิดพลาดในการสร้างผู้ติดต่อ");
-    } finally {
-      setIsCreatingContact(false);
-    }
+  // Contact created handler
+  function handleContactCreated(newContact: { id: string; name: string }) {
+    // Add to local contacts list
+    setContacts(prev => [...prev, newContact]);
+    // Select the new contact
+    setSelectedContactId(newContact.id);
+    // Close dialog
+    setShowAddContact(false);
   }
 
   const calculateTotal = () => {
@@ -338,63 +312,21 @@ export function DocumentForm({
                     <UserPlus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="max-w-lg">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <UserPlus className="h-5 w-5" />
                       เพิ่ม{transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"}ใหม่
                     </DialogTitle>
                     <DialogDescription>
-                      เพิ่มผู้ติดต่อแบบด่วน สามารถแก้ไขรายละเอียดเพิ่มเติมได้ภายหลังในหน้าตั้งค่า
+                      กรอกข้อมูลผู้ติดต่อ สามารถแก้ไขรายละเอียดเพิ่มเติมได้ภายหลังในหน้าตั้งค่า
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="newContactName">ชื่อ{transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"} *</Label>
-                      <Input
-                        id="newContactName"
-                        placeholder={transactionType === "EXPENSE" ? "เช่น บริษัท ABC จำกัด" : "เช่น คุณสมชาย"}
-                        value={newContactName}
-                        onChange={(e) => setNewContactName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleQuickCreateContact();
-                          }
-                        }}
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowAddContact(false);
-                        setNewContactName("");
-                      }}
-                    >
-                      ยกเลิก
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleQuickCreateContact}
-                      disabled={isCreatingContact || !newContactName.trim()}
-                    >
-                      {isCreatingContact ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          กำลังสร้าง...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="mr-2 h-4 w-4" />
-                          เพิ่มผู้ติดต่อ
-                        </>
-                      )}
-                    </Button>
-                  </DialogFooter>
+                  <ContactForm
+                    defaultRole={transactionType === "EXPENSE" ? "VENDOR" : "CUSTOMER"}
+                    onSuccess={handleContactCreated}
+                    onCancel={() => setShowAddContact(false)}
+                  />
                 </DialogContent>
               </Dialog>
             </div>
