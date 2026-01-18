@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -37,9 +38,12 @@ import {
   Download,
   Image as ImageIcon,
   File,
+  Package,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { SerializedDocument, MemberRole } from "@/types";
+import { SubDocumentList } from "./subdocument-list";
 
 interface DocumentDetailProps {
   document: SerializedDocument;
@@ -314,29 +318,48 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
             </CardContent>
           </Card>
 
-          {/* Files Card */}
+          {/* SubDocuments & Files */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">ไฟล์แนบ ({document.files.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {document.files.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>ยังไม่มีไฟล์แนบ</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {document.files.map((file) => (
-                    <FilePreviewCard 
-                      key={file.id}
-                      file={file}
-                      onClick={() => setSelectedFile(file)}
-                    />
-                  ))}
-                </div>
-              )}
-            </CardContent>
+            <Tabs defaultValue="subdocs">
+              <CardHeader className="pb-0">
+                <TabsList>
+                  <TabsTrigger value="subdocs" className="gap-2">
+                    <Package className="h-4 w-4" />
+                    เอกสารในกล่อง ({document.subDocuments?.length || 0})
+                  </TabsTrigger>
+                  {document.files.length > 0 && (
+                    <TabsTrigger value="legacy" className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      ไฟล์เดิม ({document.files.length})
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <TabsContent value="subdocs" className="mt-0">
+                  <SubDocumentList
+                    documentId={document.id}
+                    transactionType={document.transactionType}
+                    subDocuments={document.subDocuments || []}
+                    canEdit={canEdit}
+                  />
+                </TabsContent>
+                
+                {document.files.length > 0 && (
+                  <TabsContent value="legacy" className="mt-0">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {document.files.map((file) => (
+                        <FilePreviewCard 
+                          key={file.id}
+                          file={file}
+                          onClick={() => setSelectedFile(file)}
+                        />
+                      ))}
+                    </div>
+                  </TabsContent>
+                )}
+              </CardContent>
+            </Tabs>
           </Card>
           
           {/* File Preview Dialog */}

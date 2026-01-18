@@ -31,6 +31,7 @@ import {
   Briefcase,
   Download,
   BarChart3,
+  Receipt,
 } from "lucide-react";
 import type { SessionUser } from "@/types";
 
@@ -53,6 +54,12 @@ const mainNavItems = [
     title: "Inbox",
     href: "/inbox",
     icon: Inbox,
+    roles: ["ACCOUNTING", "ADMIN", "OWNER"],
+  },
+  {
+    title: "ติดตาม WHT",
+    href: "/wht-tracking",
+    icon: Receipt,
     roles: ["ACCOUNTING", "ADMIN", "OWNER"],
   },
   {

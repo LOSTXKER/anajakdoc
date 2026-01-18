@@ -92,6 +92,65 @@ export async function checkSoftDuplicate(
   return null;
 }
 
+// Upload a single file and return URL (for SubDocument files)
+export async function uploadFile(
+  formData: FormData
+): Promise<{ success: boolean; error?: string; data?: { url: string; checksum: string } }> {
+  const session = await requireOrganization();
+  const file = formData.get("file") as File;
+  const documentId = formData.get("documentId") as string;
+
+  if (!file) {
+    return { success: false, error: "ไม่พบไฟล์" };
+  }
+
+  const supabase = await createClient();
+
+  try {
+    // Generate unique filename
+    const ext = file.name.split(".").pop();
+    const timestamp = Date.now();
+    const randomStr = crypto.randomBytes(8).toString("hex");
+    const fileName = `${session.currentOrganization.id}/${documentId || "temp"}/${timestamp}-${randomStr}.${ext}`;
+
+    // Calculate checksum
+    const arrayBuffer = await file.arrayBuffer();
+    const checksum = crypto
+      .createHash("md5")
+      .update(Buffer.from(arrayBuffer))
+      .digest("hex");
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(fileName, file, {
+        contentType: file.type,
+        cacheControl: "3600",
+      });
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return { success: false, error: "อัปโหลดไฟล์ไม่สำเร็จ" };
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("documents")
+      .getPublicUrl(fileName);
+
+    return {
+      success: true,
+      data: {
+        url: urlData.publicUrl,
+        checksum,
+      },
+    };
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    return { success: false, error: "เกิดข้อผิดพลาดในการอัปโหลด" };
+  }
+}
+
 export async function uploadDocumentFiles(
   documentId: string,
   formData: FormData
