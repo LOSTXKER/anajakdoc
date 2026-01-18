@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createDocument, updateDocument } from "@/server/actions/document";
+import { quickCreateContact } from "@/server/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -32,6 +42,8 @@ import {
   Receipt,
   CreditCard,
   FileCheck,
+  Plus,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, CostCenter, Contact, Document, DocType } from ".prisma/client";
@@ -74,7 +86,7 @@ export function DocumentForm({
   transactionType,
   categories,
   costCenters,
-  contacts,
+  contacts: initialContacts,
   document,
 }: DocumentFormProps) {
   const router = useRouter();
@@ -86,10 +98,48 @@ export function DocumentForm({
   const [hasWht, setHasWht] = useState(document?.hasWht || false);
   const [hasValidVat, setHasValidVat] = useState(document?.hasValidVat || false);
 
+  // Contact state
+  const [contacts, setContacts] = useState<Array<{ id: string; name: string }>>(initialContacts);
+  const [selectedContactId, setSelectedContactId] = useState(document?.contactId || "");
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [isCreatingContact, setIsCreatingContact] = useState(false);
+
   // Calculate totals
   const [subtotal, setSubtotal] = useState(document?.subtotal?.toString() || "");
   const [vatAmount, setVatAmount] = useState(document?.vatAmount?.toString() || "0");
   const [whtAmount, setWhtAmount] = useState(document?.whtAmount?.toString() || "0");
+
+  // Quick create contact handler
+  async function handleQuickCreateContact() {
+    if (!newContactName.trim()) {
+      toast.error("กรุณากรอกชื่อผู้ติดต่อ");
+      return;
+    }
+
+    setIsCreatingContact(true);
+    try {
+      const role = transactionType === "EXPENSE" ? "VENDOR" : "CUSTOMER";
+      const result = await quickCreateContact(newContactName, role);
+      
+      if (result.success && result.data) {
+        // Add to local contacts list
+        setContacts(prev => [...prev, result.data!]);
+        // Select the new contact
+        setSelectedContactId(result.data.id);
+        // Close dialog and reset
+        setShowAddContact(false);
+        setNewContactName("");
+        toast.success(`เพิ่ม "${result.data.name}" เรียบร้อย`);
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการสร้างผู้ติดต่อ");
+    } finally {
+      setIsCreatingContact(false);
+    }
+  }
 
   const calculateTotal = () => {
     const sub = parseFloat(subtotal) || 0;
@@ -257,19 +307,102 @@ export function DocumentForm({
             <Label htmlFor="contactId">
               {transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"}
             </Label>
-            <Select name="contactId" defaultValue={document?.contactId || ""}>
-              <SelectTrigger>
-                <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder={transactionType === "EXPENSE" ? "เลือกผู้ขาย" : "เลือกลูกค้า"} />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts.map((contact) => (
-                  <SelectItem key={contact.id} value={contact.id}>
-                    {contact.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select 
+                name="contactId" 
+                value={selectedContactId}
+                onValueChange={setSelectedContactId}
+              >
+                <SelectTrigger className="flex-1">
+                  <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder={transactionType === "EXPENSE" ? "เลือกผู้ขาย" : "เลือกลูกค้า"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      ยังไม่มีผู้ติดต่อ
+                    </div>
+                  ) : (
+                    contacts.map((contact) => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        {contact.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+
+              <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" size="icon" title="เพิ่มผู้ติดต่อใหม่">
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <UserPlus className="h-5 w-5" />
+                      เพิ่ม{transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"}ใหม่
+                    </DialogTitle>
+                    <DialogDescription>
+                      เพิ่มผู้ติดต่อแบบด่วน สามารถแก้ไขรายละเอียดเพิ่มเติมได้ภายหลังในหน้าตั้งค่า
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newContactName">ชื่อ{transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"} *</Label>
+                      <Input
+                        id="newContactName"
+                        placeholder={transactionType === "EXPENSE" ? "เช่น บริษัท ABC จำกัด" : "เช่น คุณสมชาย"}
+                        value={newContactName}
+                        onChange={(e) => setNewContactName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleQuickCreateContact();
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddContact(false);
+                        setNewContactName("");
+                      }}
+                    >
+                      ยกเลิก
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleQuickCreateContact}
+                      disabled={isCreatingContact || !newContactName.trim()}
+                    >
+                      {isCreatingContact ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          กำลังสร้าง...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          เพิ่มผู้ติดต่อ
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            {contacts.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                ยังไม่มีผู้ติดต่อ กดปุ่ม <UserPlus className="inline h-3 w-3" /> เพื่อเพิ่มผู้ติดต่อใหม่
+              </p>
+            )}
           </div>
 
           {/* Description */}

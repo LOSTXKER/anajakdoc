@@ -232,12 +232,12 @@ export async function deleteCostCenter(id: string): Promise<ActionResult> {
 // CONTACTS
 // ============================================
 
-export async function createContact(formData: FormData): Promise<ActionResult> {
+export async function createContact(formData: FormData): Promise<ActionResult & { data?: { id: string; name: string } }> {
   const session = await requireOrganization();
 
   const name = formData.get("name") as string;
-  const contactType = formData.get("contactType") as "INDIVIDUAL" | "COMPANY";
-  const contactRole = formData.get("contactRole") as "VENDOR" | "CUSTOMER" | "BOTH";
+  const contactType = (formData.get("contactType") as "INDIVIDUAL" | "COMPANY") || "COMPANY";
+  const contactRole = (formData.get("contactRole") as "VENDOR" | "CUSTOMER" | "BOTH") || "VENDOR";
   const taxId = formData.get("taxId") as string || null;
   const address = formData.get("address") as string || null;
   const phone = formData.get("phone") as string || null;
@@ -247,7 +247,7 @@ export async function createContact(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "กรุณากรอกชื่อ" };
   }
 
-  await prisma.contact.create({
+  const contact = await prisma.contact.create({
     data: {
       organizationId: session.currentOrganization.id,
       name,
@@ -261,7 +261,32 @@ export async function createContact(formData: FormData): Promise<ActionResult> {
   });
 
   revalidatePath("/settings/contacts");
-  return { success: true };
+  revalidatePath("/documents/new");
+  return { success: true, data: { id: contact.id, name: contact.name } };
+}
+
+// Quick create contact (minimal info)
+export async function quickCreateContact(
+  name: string,
+  role: "VENDOR" | "CUSTOMER" | "BOTH" = "VENDOR"
+): Promise<ActionResult & { data?: { id: string; name: string } }> {
+  const session = await requireOrganization();
+
+  if (!name || name.trim().length < 2) {
+    return { success: false, error: "กรุณากรอกชื่ออย่างน้อย 2 ตัวอักษร" };
+  }
+
+  const contact = await prisma.contact.create({
+    data: {
+      organizationId: session.currentOrganization.id,
+      name: name.trim(),
+      contactType: "COMPANY",
+      contactRole: role,
+    },
+  });
+
+  revalidatePath("/settings/contacts");
+  return { success: true, data: { id: contact.id, name: contact.name } };
 }
 
 export async function updateContact(id: string, formData: FormData): Promise<ActionResult> {
