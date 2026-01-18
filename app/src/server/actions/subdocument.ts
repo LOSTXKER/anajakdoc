@@ -281,7 +281,7 @@ export async function createSubDocumentWithFile(
     const ext = file.name.split(".").pop();
     const timestamp = Date.now();
     const randomStr = crypto.randomBytes(8).toString("hex");
-    const fileName = `organizations/${session.currentOrganization.id}/documents/${documentId}/${timestamp}-${randomStr}.${ext}`;
+    const filePath = `organizations/${session.currentOrganization.id}/documents/${documentId}/${timestamp}-${randomStr}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const checksum = crypto
@@ -289,21 +289,25 @@ export async function createSubDocumentWithFile(
       .update(Buffer.from(arrayBuffer))
       .digest("hex");
 
+    // Convert File to ArrayBuffer for upload
+    const fileBuffer = Buffer.from(arrayBuffer);
+
     const { error: uploadError } = await supabase.storage
       .from("documents")
-      .upload(fileName, file, {
+      .upload(filePath, fileBuffer, {
         contentType: file.type,
         cacheControl: "3600",
+        upsert: false,
       });
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
-      return { success: false, error: "อัปโหลดไฟล์ไม่สำเร็จ" };
+      return { success: false, error: `อัปโหลดไฟล์ไม่สำเร็จ: ${uploadError.message}` };
     }
 
     const { data: urlData } = supabase.storage
       .from("documents")
-      .getPublicUrl(fileName);
+      .getPublicUrl(filePath);
 
     // Create SubDocument with file
     const subDocument = await prisma.subDocument.create({
