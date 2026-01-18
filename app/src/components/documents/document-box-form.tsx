@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation";
 import { createDocument, updateDocument, submitDocument, reviewDocument } from "@/server/actions/document";
 import { checkSoftDuplicate, type DuplicateWarning } from "@/server/actions/file";
+import { createSubDocumentWithFile } from "@/server/actions/subdocument";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -332,17 +333,43 @@ export function DocumentBoxForm({
   }
 
   // File handlers
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, docType: SubDocType) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, docType: SubDocType) => {
     const files = e.target.files;
     if (!files) return;
 
-    const newFiles: FilePreview[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const preview = URL.createObjectURL(file);
-      newFiles.push({ file, preview, docType });
+    // For create mode, just store in state
+    if (mode === "create") {
+      const newFiles: FilePreview[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const preview = URL.createObjectURL(file);
+        newFiles.push({ file, preview, docType });
+      }
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      return;
     }
-    setUploadedFiles(prev => [...prev, ...newFiles]);
+
+    // For view/edit mode, upload directly
+    if (document) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.set("documentId", document.id);
+        formData.set("docType", docType);
+        formData.set("file", file);
+
+        toast.loading(`กำลังอัปโหลด ${file.name}...`, { id: `upload-${i}` });
+
+        const result = await createSubDocumentWithFile(formData);
+
+        if (result.success) {
+          toast.success(`อัปโหลด ${file.name} สำเร็จ`, { id: `upload-${i}` });
+          router.refresh();
+        } else {
+          toast.error(result.error || `อัปโหลด ${file.name} ไม่สำเร็จ`, { id: `upload-${i}` });
+        }
+      }
+    }
   };
 
   const removeFile = (index: number) => {
@@ -1016,22 +1043,20 @@ export function DocumentBoxForm({
                       </div>
                     )}
 
-                    {/* Upload button */}
-                    {(mode === "create" || (isEditing && canEdit)) && (
-                      <label className="mt-2 flex items-center justify-center gap-2 py-2 px-3 rounded border-2 border-dashed cursor-pointer hover:bg-muted/50 transition-colors">
-                        <Upload className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          {isUploaded ? "เพิ่มไฟล์" : "อัปโหลด"}
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,application/pdf"
-                          multiple
-                          onChange={(e) => handleFileSelect(e, doc.type)}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
+                    {/* Upload button - always show for existing documents */}
+                    <label className="mt-2 flex items-center justify-center gap-2 py-2 px-3 rounded border-2 border-dashed cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        {isUploaded ? "เพิ่มไฟล์" : "อัปโหลด"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,application/pdf"
+                        multiple
+                        onChange={(e) => handleFileSelect(e, doc.type)}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                 );
               })}

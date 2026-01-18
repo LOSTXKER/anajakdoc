@@ -5,6 +5,8 @@ import { requireOrganization } from "@/server/auth";
 import type { ApiResponse, CreateSubDocumentInput, UpdateSubDocumentInput } from "@/types";
 import { revalidatePath } from "next/cache";
 import type { SubDocType } from ".prisma/client";
+import { createClient } from "@/lib/supabase/server";
+import crypto from "crypto";
 
 // Create SubDocument
 export async function createSubDocument(
@@ -245,6 +247,109 @@ export async function addSubDocumentFile(
   revalidatePath(`/documents/${subDocument.documentId}`);
 
   return { success: true, data: { id: file.id } };
+}
+
+// Create SubDocument with file upload (for direct upload from view mode)
+export async function createSubDocumentWithFile(
+  formData: FormData
+): Promise<ApiResponse<{ id: string }>> {
+  const session = await requireOrganization();
+
+  const documentId = formData.get("documentId") as string;
+  const docType = formData.get("docType") as SubDocType;
+  const file = formData.get("file") as File;
+
+  if (!documentId || !docType || !file) {
+    return { success: false, error: "ข้อมูลไม่ครบ" };
+  }
+
+  // Verify document belongs to organization
+  const document = await prisma.document.findFirst({
+    where: {
+      id: documentId,
+      organizationId: session.currentOrganization.id,
+    },
+  });
+
+  if (!document) {
+    return { success: false, error: "ไม่พบเอกสารหลัก" };
+  }
+
+  try {
+    // Upload file to Supabase
+    const supabase = await createClient();
+    const ext = file.name.split(".").pop();
+    const timestamp = Date.now();
+    const randomStr = crypto.randomBytes(8).toString("hex");
+    const fileName = `organizations/${session.currentOrganization.id}/documents/${documentId}/${timestamp}-${randomStr}.${ext}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const checksum = crypto
+      .createHash("md5")
+      .update(Buffer.from(arrayBuffer))
+      .digest("hex");
+
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(fileName, file, {
+        contentType: file.type,
+        cacheControl: "3600",
+      });
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return { success: false, error: "อัปโหลดไฟล์ไม่สำเร็จ" };
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("documents")
+      .getPublicUrl(fileName);
+
+    // Create SubDocument with file
+    const subDocument = await prisma.subDocument.create({
+      data: {
+        documentId,
+        docType,
+        docDate: new Date(),
+        files: {
+          create: {
+            fileName: file.name,
+            fileUrl: urlData.publicUrl,
+            fileSize: file.size,
+            mimeType: file.type,
+            checksum,
+            pageOrder: 0,
+            isPrimary: true,
+          },
+        },
+      },
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        documentId,
+        userId: session.id,
+        action: "subdocument_added",
+        details: {
+          subDocumentId: subDocument.id,
+          docType,
+          fileName: file.name,
+        },
+      },
+    });
+
+    revalidatePath(`/documents/${documentId}`);
+    revalidatePath("/documents");
+
+    return { success: true, data: { id: subDocument.id } };
+  } catch (error) {
+    console.error("Error creating subdocument:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" 
+    };
+  }
 }
 
 // Delete SubDocument file
