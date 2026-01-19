@@ -650,9 +650,9 @@ export function DocumentBoxForm({
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Label>จำนวนเงิน *</Label>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Label className="shrink-0">จำนวนเงิน *</Label>
                       {/* Source badge */}
                       {mode === "create" && aggregatedData.amount.sources.length > 0 && !editedFields.has("amount") && (
                         <SourceBadge 
@@ -662,7 +662,7 @@ export function DocumentBoxForm({
                       )}
                     </div>
                     {isEditing && vatRate > 0 && (
-                      <div className="flex rounded-md border p-0.5 bg-muted/30">
+                      <div className="flex rounded-md border p-0.5 bg-muted/30 shrink-0">
                         <button
                           type="button"
                           onClick={() => setAmountInputType("includeVat")}
@@ -723,8 +723,8 @@ export function DocumentBoxForm({
               {/* Row 2: Contact & Category */}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label>{transactionType === "EXPENSE" ? "ผู้ติดต่อ / ร้านค้า" : "ลูกค้า"} *</Label>
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <Label className="shrink-0">{transactionType === "EXPENSE" ? "ผู้ติดต่อ / ร้านค้า" : "ลูกค้า"} *</Label>
                     {/* Source badge */}
                     {mode === "create" && aggregatedData.contactName.sources.length > 0 && !editedFields.has("contactName") && (
                       <SourceBadge 
@@ -777,8 +777,8 @@ export function DocumentBoxForm({
 
               {/* Row 3: Description */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label>รายละเอียด *</Label>
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <Label className="shrink-0">รายละเอียด *</Label>
                   {/* Source badge */}
                   {mode === "create" && aggregatedData.description.sources.length > 0 && !editedFields.has("description") && (
                     <SourceBadge 

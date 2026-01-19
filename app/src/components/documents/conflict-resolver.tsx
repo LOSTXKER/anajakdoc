@@ -249,11 +249,29 @@ interface SourceBadgeProps {
   isUserEdited?: boolean;
 }
 
+/**
+ * Truncate filename to show only the extension and part of name
+ */
+function truncateFileName(fileName: string, maxLength: number = 12): string {
+  if (fileName.length <= maxLength) return fileName;
+  
+  const ext = fileName.lastIndexOf(".");
+  if (ext > 0) {
+    const extension = fileName.slice(ext);
+    const name = fileName.slice(0, ext);
+    const availableLength = maxLength - extension.length - 2; // -2 for ".."
+    if (availableLength > 0) {
+      return name.slice(0, availableLength) + ".." + extension;
+    }
+  }
+  return fileName.slice(0, maxLength - 2) + "..";
+}
+
 export function SourceBadge({ source, isUserEdited }: SourceBadgeProps) {
   if (isUserEdited) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
-        <Edit2 className="h-2.5 w-2.5" />
+      <span className="inline-flex items-center gap-1 text-xs text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded shrink-0">
+        <Edit2 className="h-2.5 w-2.5 shrink-0" />
         แก้ไขเอง
       </span>
     );
@@ -265,13 +283,17 @@ export function SourceBadge({ source, isUserEdited }: SourceBadgeProps) {
   
   // Show first source
   const firstSource = sources[0];
+  const displayName = truncateFileName(firstSource.fileName);
   
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">
-      <FileText className="h-2.5 w-2.5" />
-      {firstSource.fileName}
+    <span 
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded shrink-0 max-w-[120px]"
+      title={firstSource.fileName + (sources.length > 1 ? ` และอีก ${sources.length - 1} ไฟล์` : "")}
+    >
+      <FileText className="h-2.5 w-2.5 shrink-0" />
+      <span className="truncate">{displayName}</span>
       {sources.length > 1 && (
-        <span className="text-gray-400">+{sources.length - 1}</span>
+        <span className="text-gray-400 shrink-0">+{sources.length - 1}</span>
       )}
     </span>
   );
