@@ -9,7 +9,13 @@ async function getContacts(orgId: string) {
       organizationId: orgId,
       isActive: true,
     },
-    orderBy: { name: "asc" },
+    include: {
+      _count: { select: { documents: true } },
+    },
+    orderBy: [
+      { documents: { _count: "desc" } },
+      { name: "asc" },
+    ],
   });
 }
 
@@ -21,7 +27,7 @@ export default async function ContactsPage() {
     <>
       <AppHeader 
         title="ผู้ติดต่อ" 
-        description="จัดการรายชื่อคู่ค้าและลูกค้า"
+        description="รายชื่อที่ใช้บ่อย"
         showCreateButton={false}
       />
       

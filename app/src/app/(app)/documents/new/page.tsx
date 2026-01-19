@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import { requireOrganization } from "@/server/auth";
-import { getCategories, getCostCenters, getContacts } from "@/server/queries/master-data";
+import { getCategories, getContacts } from "@/server/queries/master-data";
 import { DocumentBoxForm } from "@/components/documents/document-box-form";
 import type { TransactionType } from ".prisma/client";
 
@@ -14,9 +13,8 @@ export default async function NewDocumentPage({ searchParams }: NewDocumentPageP
   
   const transactionType = (params.type?.toUpperCase() === "INCOME" ? "INCOME" : "EXPENSE") as TransactionType;
   
-  const [categories, costCenters, contacts] = await Promise.all([
+  const [categories, contacts] = await Promise.all([
     getCategories(),
-    getCostCenters(),
     getContacts(),
   ]);
 
@@ -34,14 +32,22 @@ export default async function NewDocumentPage({ searchParams }: NewDocumentPageP
   });
 
   return (
-    <div className="p-6">
-      <DocumentBoxForm
-        mode="create"
-        transactionType={transactionType}
-        categories={filteredCategories}
-        costCenters={costCenters}
-        contacts={filteredContacts}
-      />
-    </div>
+    <>
+      {/* Simple Header Bar */}
+      <header className="border-b bg-white px-6 py-3">
+        <p className="text-sm text-gray-500">
+          สร้างกล่องเอกสารใหม่
+        </p>
+      </header>
+      
+      <div className="p-4 md:p-6 lg:px-8">
+        <DocumentBoxForm
+          mode="create"
+          transactionType={transactionType}
+          categories={filteredCategories}
+          contacts={filteredContacts}
+        />
+      </div>
+    </>
   );
 }

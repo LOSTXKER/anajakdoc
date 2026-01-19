@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,26 +69,26 @@ const slotIcons: Partial<Record<SubDocType, typeof Receipt>> = {
 
 const statusConfig = {
   pending: {
-    bg: "bg-orange-50 border-orange-200 hover:border-orange-300",
-    icon: "text-orange-500",
-    badge: "bg-orange-100 text-orange-700",
+    bg: "bg-gray-50 border-gray-200 hover:border-primary/30",
+    icon: "text-gray-400",
+    badge: "bg-gray-100 text-gray-500",
     label: "รอเอกสาร",
   },
   completed: {
-    bg: "bg-green-50 border-green-200 hover:border-green-300",
-    icon: "text-green-500",
-    badge: "bg-green-100 text-green-700",
+    bg: "bg-primary/5 border-primary/30 hover:border-primary/50",
+    icon: "text-primary",
+    badge: "bg-primary/10 text-primary",
     label: "มีแล้ว",
   },
   not_applicable: {
-    bg: "bg-gray-50 border-gray-200",
-    icon: "text-gray-400",
-    badge: "bg-gray-100 text-gray-500",
+    bg: "bg-gray-50/50 border-gray-100",
+    icon: "text-gray-300",
+    badge: "bg-gray-100 text-gray-400",
     label: "ไม่มี",
   },
   not_required: {
     bg: "bg-transparent border-dashed border-gray-200",
-    icon: "text-gray-300",
+    icon: "text-gray-200",
     badge: "",
     label: "",
   },
@@ -193,46 +192,39 @@ export function DocumentSlot({
     <>
       <div
         className={cn(
-          "rounded-xl border-2 p-4 transition-all",
+          "rounded-lg border p-3 transition-all",
           config.bg,
-          status === "not_applicable" && "opacity-60"
+          status === "not_applicable" && "opacity-50"
         )}
       >
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={cn("p-2 rounded-lg bg-white shadow-sm", config.icon)}>
-              <Icon className="h-5 w-5" />
+        {/* Header - Compact */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={cn("p-1.5 rounded-md bg-background/80", config.icon)}>
+              <Icon className="h-4 w-4" />
             </div>
-            <div>
-              <h4 className="font-medium text-sm">{label}</h4>
-              <p className="text-xs text-muted-foreground">{description}</p>
+            <div className="min-w-0">
+              <h4 className="font-medium text-sm truncate">{label}</h4>
             </div>
           </div>
 
           {/* Status Badge & Menu */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {status === "completed" && (
-              <Badge className={config.badge}>
-                <Check className="h-3 w-3 mr-1" />
-                {fileCount} ไฟล์
-              </Badge>
+              <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary flex items-center gap-0.5">
+                <Check className="h-3 w-3" />
+                {fileCount}
+              </span>
             )}
             {status === "pending" && required && (
-              <Badge className={config.badge}>รอ</Badge>
-            )}
-            {status === "not_applicable" && (
-              <Badge className={config.badge}>
-                <Ban className="h-3 w-3 mr-1" />
-                ไม่มี
-              </Badge>
+              <span className="text-xs px-1.5 py-0.5 rounded border text-gray-500">รอ</span>
             )}
 
             {canEdit && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <MoreVertical className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -270,87 +262,79 @@ export function DocumentSlot({
           </div>
         </div>
 
-        {/* File Preview / Upload Area */}
+        {/* File Preview (Completed) */}
         {status === "completed" && subDocuments.length > 0 && (
-          <div className="space-y-2">
-            {/* Show first 2 files */}
-            <div className="grid grid-cols-2 gap-2">
-              {subDocuments.slice(0, 2).flatMap((doc) =>
-                doc.files?.slice(0, 2).map((file) => (
+          <div className="mt-2 space-y-1.5">
+            {/* Show first file only */}
+            {subDocuments.slice(0, 1).flatMap((doc) =>
+              doc.files?.slice(0, 1).map((file) => (
                   <a
                     key={file.id}
                     href={file.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2 rounded-lg bg-white border hover:bg-muted/50 transition-colors"
+                    className="flex items-center gap-2 p-1.5 rounded-md bg-white border text-xs hover:bg-gray-50 transition-colors"
                   >
                     {file.mimeType?.startsWith("image/") ? (
                       <Image
                         src={file.fileUrl}
                         alt={file.fileName}
-                        width={32}
-                        height={32}
+                        width={24}
+                        height={24}
                         className="rounded object-cover"
                       />
                     ) : (
-                      <FileText className="h-6 w-6 text-muted-foreground" />
+                      <FileText className="h-5 w-5 text-gray-400" />
                     )}
-                    <span className="text-xs truncate flex-1">{file.fileName}</span>
+                    <span className="truncate flex-1 text-gray-700">{file.fileName}</span>
                   </a>
-                ))
+              ))
+            )}
+
+            {/* View All / Add More inline */}
+            <div className="flex gap-1.5">
+              {fileCount > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs flex-1"
+                  onClick={() => setShowFilesDialog(true)}
+                >
+                  +{fileCount - 1} ไฟล์
+                </Button>
+              )}
+              {canEdit && (
+                <label className="flex items-center justify-center gap-1 h-7 px-2 rounded-md border border-dashed cursor-pointer hover:bg-gray-50 transition-colors text-xs text-gray-400 flex-1">
+                  <Plus className="h-3 w-3" />
+                  เพิ่ม
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,application/pdf"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
               )}
             </div>
-
-            {/* View All Button */}
-            {fileCount > 2 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full"
-                onClick={() => setShowFilesDialog(true)}
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                ดูทั้งหมด ({fileCount} ไฟล์)
-              </Button>
-            )}
-
-            {/* Add More */}
-            {canEdit && (
-              <label className="flex items-center justify-center gap-2 py-2 rounded-lg border-2 border-dashed cursor-pointer hover:bg-white/50 transition-colors">
-                <Plus className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">เพิ่มไฟล์</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,application/pdf"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-            )}
           </div>
         )}
 
-        {/* Upload Area (Pending) */}
+        {/* Compact Upload Area (Pending) */}
         {status === "pending" && canEdit && (
           <label className={cn(
-            "flex flex-col items-center justify-center gap-2 py-6 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
-            isUploading ? "bg-primary/5 border-primary" : "hover:bg-white/50 hover:border-primary/50"
+            "mt-2 flex items-center justify-center gap-2 py-2 rounded-md border border-dashed cursor-pointer transition-colors text-xs",
+            isUploading ? "bg-primary/5 border-primary" : "hover:bg-gray-50 hover:border-primary/40"
           )}>
             {isUploading ? (
               <>
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="text-sm text-primary">กำลังอัปโหลด...</span>
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-primary">อัปโหลด...</span>
               </>
             ) : (
               <>
-                <Upload className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  คลิกเพื่ออัปโหลด หรือลากไฟล์มาวาง
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  รองรับ JPG, PNG, PDF
-                </span>
+                <Upload className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-400">อัปโหลดไฟล์</span>
               </>
             )}
             <input
@@ -364,20 +348,11 @@ export function DocumentSlot({
           </label>
         )}
 
-        {/* Not Applicable Message */}
-        {status === "not_applicable" && (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            <Ban className="h-6 w-6 mx-auto mb-2 opacity-50" />
-            ไม่มีเอกสารนี้
-          </div>
-        )}
-
-        {/* Warning */}
+        {/* Warning - more subtle */}
         {warning && status !== "completed" && (
-          <div className="mt-3 flex items-start gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
-            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700">{warning}</p>
-          </div>
+          <p className="mt-2 text-[10px] text-gray-400 leading-tight">
+            ⚠️ {warning}
+          </p>
         )}
       </div>
 
@@ -437,7 +412,7 @@ export function DocumentSlot({
                   href={file.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors"
                 >
                   {file.mimeType?.startsWith("image/") ? (
                     <Image
@@ -448,11 +423,11 @@ export function DocumentSlot({
                       className="rounded object-cover"
                     />
                   ) : (
-                    <FileText className="h-10 w-10 text-muted-foreground" />
+                    <FileText className="h-10 w-10 text-gray-400" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{file.fileName}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-gray-900 truncate">{file.fileName}</p>
+                    <p className="text-xs text-gray-500">
                       {(file.fileSize / 1024).toFixed(1)} KB
                     </p>
                   </div>

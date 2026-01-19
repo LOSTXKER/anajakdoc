@@ -191,7 +191,26 @@ export async function createDocument(formData: FormData): Promise<ApiResponse<{ 
     },
   });
 
+  // Auto-create WHT Tracking when hasWht is true
+  if (result.data.hasWht) {
+    const trackingType = result.data.transactionType === "EXPENSE" ? "OUTGOING" : "INCOMING";
+    const whtAmount = parseFloat(result.data.totalAmount?.toString() || "0") * 0.03; // Default 3%
+    
+    await prisma.wHTTracking.create({
+      data: {
+        organizationId: session.currentOrganization.id,
+        documentId: document.id,
+        trackingType,
+        whtAmount,
+        whtRate: 3, // Default 3%
+        contactId: result.data.contactId || null,
+        status: "PENDING",
+      },
+    });
+  }
+
   revalidatePath("/documents");
+  revalidatePath("/wht-tracking");
   
   return {
     success: true,
@@ -473,6 +492,9 @@ export async function getDocuments(
       { description: { contains: filters.search, mode: "insensitive" } },
       { externalRef: { contains: filters.search, mode: "insensitive" } },
     ];
+  }
+  if (filters?.paymentStatus?.length) {
+    where.paymentStatus = { in: filters.paymentStatus };
   }
 
   // For staff, only show their own documents
@@ -859,4 +881,66 @@ export async function recalculateDocumentChecklist(documentId: string): Promise<
       status: isComplete ? "COMPLETE" : "IN_PROGRESS",
     },
   });
+}
+
+// Update payment status (for Income documents)
+export async function updatePaymentStatus(
+  documentId: string,
+  input: {
+    paymentStatus: "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
+    paymentMethod?: "TRANSFER" | "CASH" | "CREDIT_CARD" | "CHEQUE" | "OTHER";
+    paidAmount?: number;
+    paidDate?: Date;
+    notes?: string;
+  }
+): Promise<ApiResponse> {
+  const session = await requireOrganization();
+
+  const document = await prisma.document.findFirst({
+    where: {
+      id: documentId,
+      organizationId: session.currentOrganization.id,
+    },
+  });
+
+  if (!document) {
+    return { success: false, error: "ไม่พบเอกสาร" };
+  }
+
+  // Update document
+  await prisma.document.update({
+    where: { id: documentId },
+    data: {
+      paymentStatus: input.paymentStatus,
+      paymentMethod: input.paymentMethod,
+      isPaid: input.paymentStatus === "PAID",
+    },
+  });
+
+  // Log activity
+  await prisma.activityLog.create({
+    data: {
+      documentId,
+      userId: session.id,
+      action: "payment_recorded",
+      details: {
+        paymentStatus: input.paymentStatus,
+        paymentMethod: input.paymentMethod,
+        paidAmount: input.paidAmount,
+        paidDate: input.paidDate,
+        notes: input.notes,
+      },
+    },
+  });
+
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/documents");
+  revalidatePath("/income");
+
+  return { 
+    success: true, 
+    message: input.paymentStatus === "PAID" 
+      ? "บันทึกการรับชำระเรียบร้อย" 
+      : "อัปเดตสถานะการชำระเรียบร้อย" 
+  };
 }

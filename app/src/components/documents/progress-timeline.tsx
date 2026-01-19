@@ -16,74 +16,49 @@ interface ProgressTimelineProps {
 }
 
 export function ProgressTimeline({ steps, completionPercent }: ProgressTimelineProps) {
+  const completedCount = steps.filter(s => s.completed).length;
+  
   return (
     <div className="space-y-3">
-      {/* Progress Bar */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-          <div 
-            className={cn(
-              "h-full rounded-full transition-all duration-500",
-              completionPercent === 100 ? "bg-green-500" : 
-              completionPercent >= 50 ? "bg-yellow-500" : "bg-orange-500"
-            )}
-            style={{ width: `${completionPercent}%` }}
-          />
-        </div>
-        <span className={cn(
-          "text-sm font-semibold min-w-[3rem] text-right",
-          completionPercent === 100 ? "text-green-600" : 
-          completionPercent >= 50 ? "text-yellow-600" : "text-orange-600"
-        )}>
-          {completionPercent}%
+      {/* Simple Progress Info */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-500">
+          ความคืบหน้า: {completedCount}/{steps.length} ขั้นตอน
         </span>
+        <span className="font-medium text-gray-900">{completionPercent}%</span>
+      </div>
+      
+      {/* Progress Bar */}
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div 
+          className="h-full rounded-full transition-all duration-500 bg-primary"
+          style={{ width: `${completionPercent}%` }}
+        />
       </div>
 
-      {/* Timeline Steps */}
-      <div className="flex items-center justify-between">
-        {steps.map((step, index) => (
-          <div key={step.id} className="flex items-center">
-            {/* Step Circle */}
-            <div className="flex flex-col items-center">
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all",
-                  step.completed
-                    ? "bg-green-500 text-white"
-                    : step.current
-                    ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {step.completed ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  index + 1
-                )}
-              </div>
-              <span
-                className={cn(
-                  "text-[10px] mt-1 max-w-[60px] text-center leading-tight",
-                  step.completed
-                    ? "text-green-600 font-medium"
-                    : step.current
-                    ? "text-primary font-medium"
-                    : "text-muted-foreground"
-                )}
-              >
-                {step.label}
-              </span>
-            </div>
-
-            {/* Connector Line */}
-            {index < steps.length - 1 && (
-              <div
-                className={cn(
-                  "h-0.5 flex-1 min-w-[20px] mx-1 mt-[-16px]",
-                  step.completed ? "bg-green-500" : "bg-muted"
-                )}
-              />
+      {/* Step Pills */}
+      <div className="flex flex-wrap gap-2">
+        {steps.map((step) => (
+          <div
+            key={step.id}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all",
+              step.completed
+                ? "bg-primary/10 text-primary"
+                : step.current
+                ? "bg-gray-100 text-gray-900 ring-1 ring-primary/30"
+                : "bg-gray-50 text-gray-400"
             )}
+          >
+            {step.completed ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                step.current ? "bg-primary" : "bg-gray-300"
+              )} />
+            )}
+            {step.label}
           </div>
         ))}
       </div>

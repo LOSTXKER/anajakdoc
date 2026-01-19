@@ -43,9 +43,21 @@ export type SubDocumentWithFiles = SubDocument & {
   files: SubDocumentFile[];
 };
 
-// WHT Tracking with contact
+// WHT Tracking with contact (for document relations)
 export type WHTTrackingWithContact = WHTTracking & {
   contact: Contact | null;
+};
+
+// WHT Tracking with document (for WHT tracking list)
+export type WHTTrackingWithDocument = WHTTracking & {
+  contact: Contact | null;
+  document: {
+    id: string;
+    docNumber: string;
+    description: string | null;
+    totalAmount: number;
+    docDate: Date;
+  } | null;
 };
 
 // Extended types with relations
@@ -91,6 +103,13 @@ export type SerializedWHTTracking = Omit<
   receivedDate: string | null;
   createdAt: string;
   updatedAt: string;
+  document?: {
+    id: string;
+    docNumber: string;
+    description: string | null;
+    totalAmount: number;
+    docDate: string;
+  } | null;
 };
 
 // Serialized version for Client Components (Decimal -> number)
@@ -102,7 +121,7 @@ export type SerializedDocument = Omit<
   vatAmount: number;
   whtAmount: number;
   totalAmount: number;
-  vatRate: number;
+  vatRate: number | null;
   whtRate: number | null;
   docDate: string;
   dueDate: string | null;
@@ -114,6 +133,51 @@ export type SerializedDocument = Omit<
   updatedAt: string;
   subDocuments: SerializedSubDocument[];
   whtTrackings: SerializedWHTTracking[];
+};
+
+// Simplified document type for list views (without all relations)
+export type SerializedDocumentListItem = {
+  id: string;
+  docNumber: string;
+  transactionType: TransactionType;
+  docType: DocType | null;
+  status: DocumentStatus;
+  subtotal: number;
+  vatAmount: number;
+  whtAmount: number;
+  totalAmount: number;
+  vatRate: number | null;
+  whtRate: number | null;
+  docDate: string;
+  dueDate: string | null;
+  description: string | null;
+  notes: string | null;
+  externalRef: string | null;
+  organizationId: string;
+  submittedById: string;
+  reviewedById: string | null;
+  contactId: string | null;
+  categoryId: string | null;
+  costCenterId: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  exportedAt: string | null;
+  bookedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isPaid: boolean;
+  hasPaymentProof: boolean;
+  hasTaxInvoice: boolean;
+  hasInvoice: boolean;
+  whtIssued: boolean;
+  whtSent: boolean;
+  whtReceived: boolean;
+  contact: Contact | null;
+  costCenter: CostCenter | null;
+  category: Category | null;
+  submittedBy: { id: string; name: string | null; email: string; avatarUrl: string | null };
+  subDocuments: SerializedSubDocument[];
+  _count?: { files: number; subDocuments: number; comments: number };
 };
 
 export type OrganizationWithMember = Organization & {
@@ -229,6 +293,7 @@ export type DocumentFilters = {
   transactionType?: TransactionType;
   docType?: DocType[];
   subDocType?: SubDocType[];
+  paymentStatus?: PaymentStatus[];
   categoryId?: string;
   costCenterId?: string;
   contactId?: string;
@@ -238,3 +303,6 @@ export type DocumentFilters = {
   hasWht?: boolean;
   isComplete?: boolean;
 };
+
+// Organization role type
+export type OrganizationRole = MemberRole;

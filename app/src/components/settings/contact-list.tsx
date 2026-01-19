@@ -2,65 +2,53 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Building2, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, User, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { deleteContact } from "@/server/actions/settings";
 import { ContactForm } from "./contact-form";
 import type { Contact } from ".prisma/client";
 
+type ContactWithCount = Contact & {
+  _count: { documents: number };
+};
+
 interface ContactListProps {
-  contacts: Contact[];
+  contacts: ContactWithCount[];
 }
-
-const roleLabels = {
-  VENDOR: "ผู้ขาย",
-  CUSTOMER: "ลูกค้า",
-  BOTH: "ทั้งสอง",
-};
-
-const roleColors = {
-  VENDOR: "bg-red-100 text-red-700",
-  CUSTOMER: "bg-green-100 text-green-700",
-  BOTH: "bg-blue-100 text-blue-700",
-};
 
 export function ContactList({ contacts }: ContactListProps) {
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [editingContact, setEditingContact] = useState<ContactWithCount | null>(null);
+  const [search, setSearch] = useState("");
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("ต้องการลบผู้ติดต่อนี้?")) return;
+  const filteredContacts = contacts.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`ต้องการลบ "${name}"?`)) return;
 
     startTransition(async () => {
       const result = await deleteContact(id);
       if (result.success) {
-        toast.success("ลบผู้ติดต่อเรียบร้อย");
+        toast.success("ลบเรียบร้อย");
       } else {
         toast.error(result.error || "เกิดข้อผิดพลาด");
       }
     });
   };
 
-  const openEditDialog = (contact: Contact) => {
+  const openEditDialog = (contact: ContactWithCount) => {
     setEditingContact(contact);
     setDialogOpen(true);
   };
@@ -76,23 +64,30 @@ export function ContactList({ contacts }: ContactListProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
+    <div className="space-y-4 max-w-2xl">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="ค้นหาผู้ติดต่อ..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 bg-white"
+          />
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              เพิ่มผู้ติดต่อ
+            <Button size="sm" onClick={openCreateDialog}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              เพิ่ม
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {editingContact ? "แก้ไขผู้ติดต่อ" : "เพิ่มผู้ติดต่อใหม่"}
+                {editingContact ? "แก้ไขผู้ติดต่อ" : "เพิ่มผู้ติดต่อ"}
               </DialogTitle>
-              <DialogDescription>
-                กรอกข้อมูลผู้ติดต่อ
-              </DialogDescription>
             </DialogHeader>
             <ContactForm
               contact={editingContact}
@@ -103,73 +98,79 @@ export function ContactList({ contacts }: ContactListProps) {
         </Dialog>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ชื่อ</TableHead>
-                <TableHead>เลขประจำตัวผู้เสียภาษี</TableHead>
-                <TableHead>บทบาท</TableHead>
-                <TableHead>เบอร์โทร</TableHead>
-                <TableHead className="w-[100px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {contact.contactType === "COMPANY" ? (
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span className="font-medium">{contact.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {contact.taxId || "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={roleColors[contact.contactRole]}>
-                      {roleLabels[contact.contactRole]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{contact.phone || "-"}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEditDialog(contact)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleDelete(contact.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {contacts.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    ยังไม่มีผู้ติดต่อ
-                  </TableCell>
-                </TableRow>
+      {/* Contact List */}
+      <div className="rounded-xl border bg-white divide-y">
+        {filteredContacts.length > 0 ? (
+          filteredContacts.map((contact) => (
+            <div key={contact.id} className="group flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                {contact.contactType === "COMPANY" ? (
+                  <Building2 className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <User className="h-5 w-5 text-gray-500" />
+                )}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">{contact.name}</p>
+                {contact.taxId && (
+                  <p className="text-sm text-gray-500">เลขที่ {contact.taxId}</p>
+                )}
+              </div>
+              
+              {contact._count.documents > 0 && (
+                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600 shrink-0">
+                  {contact._count.documents} เอกสาร
+                </span>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => openEditDialog(contact)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-500 hover:text-red-600"
+                  onClick={() => handleDelete(contact.id, contact.name)}
+                  disabled={isPending || contact._count.documents > 0}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="p-4">
+            {search ? (
+              <p className="text-center text-gray-500 py-8">ไม่พบ &quot;{search}&quot;</p>
+            ) : (
+              <EmptyState
+                icon={Users}
+                title="ยังไม่มีผู้ติดต่อ"
+                description="เพิ่มรายชื่อที่ใช้บ่อยเพื่อความสะดวก"
+                action={
+                  <Button size="sm" onClick={openCreateDialog}>
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    เพิ่มผู้ติดต่อ
+                  </Button>
+                }
+              />
+            )}
+          </div>
+        )}
+      </div>
+      
+      {contacts.length > 0 && (
+        <p className="text-sm text-gray-400 text-center">
+          {contacts.length} รายชื่อ
+        </p>
+      )}
     </div>
   );
 }

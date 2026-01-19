@@ -1,57 +1,104 @@
 import { requireOrganization } from "@/server/auth";
-import { getDocuments } from "@/server/actions/document";
-import { getSavedFilters } from "@/server/actions/saved-filter";
 import { AppHeader } from "@/components/layout/app-header";
-import { DocumentList } from "@/components/documents/document-list";
-import { DocumentFilters } from "@/components/documents/document-filters";
-import { serializeDocuments } from "@/lib/utils";
+import { UnifiedDocumentView } from "@/components/documents/unified-document-view";
+import prisma from "@/lib/prisma";
 
-interface DocumentsPageProps {
-  searchParams: Promise<{
-    status?: string;
-    type?: string;
-    category?: string;
-    search?: string;
-    page?: string;
-  }>;
+async function getAllDocuments(orgId: string, userId: string) {
+  const docs = await prisma.document.findMany({
+    where: {
+      organizationId: orgId,
+    },
+    include: {
+      category: true,
+      costCenter: true,
+      contact: true,
+      submittedBy: {
+        select: { id: true, name: true, email: true, avatarUrl: true },
+      },
+      subDocuments: {
+        include: {
+          files: { orderBy: { pageOrder: "asc" } },
+        },
+      },
+      _count: {
+        select: { files: true, subDocuments: true, comments: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Serialize for client
+  return docs.map(doc => ({
+    ...doc,
+    subtotal: doc.subtotal.toNumber(),
+    vatAmount: doc.vatAmount.toNumber(),
+    whtAmount: doc.whtAmount.toNumber(),
+    totalAmount: doc.totalAmount.toNumber(),
+    vatRate: doc.vatRate?.toNumber() ?? null,
+    whtRate: doc.whtRate?.toNumber() ?? null,
+    docDate: doc.docDate.toISOString(),
+    dueDate: doc.dueDate?.toISOString() ?? null,
+    submittedAt: doc.submittedAt?.toISOString() ?? null,
+    reviewedAt: doc.reviewedAt?.toISOString() ?? null,
+    exportedAt: doc.exportedAt?.toISOString() ?? null,
+    bookedAt: doc.bookedAt?.toISOString() ?? null,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+    subDocuments: doc.subDocuments.map(sub => ({
+      ...sub,
+      amount: sub.amount?.toNumber() ?? null,
+      vatAmount: sub.vatAmount?.toNumber() ?? null,
+      docDate: sub.docDate?.toISOString() ?? null,
+      createdAt: sub.createdAt.toISOString(),
+      updatedAt: sub.updatedAt.toISOString(),
+    })),
+  }));
 }
 
-export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
-  const session = await requireOrganization();
-  const params = await searchParams;
-  
-  const filters = {
-    status: params.status?.split(",") as import("@/types").DocumentStatus[] | undefined,
-    transactionType: params.type as import("@/types").TransactionType | undefined,
-    categoryId: params.category,
-    search: params.search,
-  };
-
-  const page = parseInt(params.page || "1");
-  
-  const [result, savedFilters] = await Promise.all([
-    getDocuments(filters, page),
-    getSavedFilters(),
+async function getStatusCounts(orgId: string, userId: string) {
+  const [myDocs, pendingReview, needInfo, readyToExport, exported, booked, total] = await Promise.all([
+    prisma.document.count({ where: { organizationId: orgId, submittedById: userId } }),
+    prisma.document.count({ where: { organizationId: orgId, status: "PENDING_REVIEW" } }),
+    prisma.document.count({ where: { organizationId: orgId, status: "NEED_INFO" } }),
+    prisma.document.count({ where: { organizationId: orgId, status: "READY_TO_EXPORT" } }),
+    prisma.document.count({ where: { organizationId: orgId, status: "EXPORTED" } }),
+    prisma.document.count({ where: { organizationId: orgId, status: "BOOKED" } }),
+    prisma.document.count({ where: { organizationId: orgId } }),
   ]);
-  
-  // Serialize documents for Client Component
-  const documents = {
-    ...result,
-    items: serializeDocuments(result.items),
+
+  return {
+    myDocs,
+    pendingReview,
+    needInfo,
+    readyToExport,
+    exported,
+    booked,
+    total,
   };
+}
+
+export default async function DocumentsPage() {
+  const session = await requireOrganization();
+
+  const [documents, counts] = await Promise.all([
+    getAllDocuments(session.currentOrganization.id, session.id),
+    getStatusCounts(session.currentOrganization.id, session.id),
+  ]);
 
   return (
     <>
-      <AppHeader 
-        title="เอกสารของฉัน" 
-        description="จัดการเอกสารทั้งหมดของคุณ"
+      <AppHeader
+        title="เอกสาร"
+        description="จัดการกล่องเอกสารทั้งหมดของคุณ"
+        showCreateButton={false}
       />
       
-      <div className="p-6 space-y-6">
-        <DocumentFilters savedFilters={savedFilters} />
-        <DocumentList 
-          documents={documents} 
+      <div className="p-6">
+        <UnifiedDocumentView
+          documents={documents}
+          counts={counts}
           userRole={session.currentOrganization.role}
+          userId={session.id}
         />
       </div>
     </>

@@ -39,7 +39,7 @@ const statusColors: Record<string, string> = {
   NEED_INFO: "bg-orange-100 text-orange-700",
   READY_TO_EXPORT: "bg-green-100 text-green-700",
   EXPORTED: "bg-purple-100 text-purple-700",
-  BOOKED: "bg-teal-100 text-teal-700",
+  BOOKED: "bg-primary/10 text-primary",
   REJECTED: "bg-red-100 text-red-700",
   VOID: "bg-gray-100 text-gray-500",
 };

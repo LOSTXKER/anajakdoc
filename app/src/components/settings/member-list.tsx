@@ -4,8 +4,6 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -56,8 +54,8 @@ const roleLabels: Record<MemberRole, string> = {
 
 const roleColors: Record<MemberRole, string> = {
   OWNER: "bg-purple-100 text-purple-700",
-  ADMIN: "bg-blue-100 text-blue-700",
-  ACCOUNTING: "bg-green-100 text-green-700",
+  ADMIN: "bg-sky-100 text-sky-700",
+  ACCOUNTING: "bg-emerald-100 text-emerald-700",
   STAFF: "bg-gray-100 text-gray-700",
 };
 
@@ -98,13 +96,13 @@ export function MemberList({ members, currentUserId, currentUserRole, organizati
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-4 max-w-2xl">
       {canManageMembers && (
         <div className="flex justify-end">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
+              <Button size="sm">
+                <Plus className="mr-1.5 h-4 w-4" />
                 เพิ่มสมาชิก
               </Button>
             </DialogTrigger>
@@ -123,6 +121,7 @@ export function MemberList({ members, currentUserId, currentUserRole, organizati
                     name="email"
                     type="email"
                     placeholder="email@example.com"
+                    className="bg-gray-50 focus:bg-white"
                     required
                   />
                 </div>
@@ -154,61 +153,58 @@ export function MemberList({ members, currentUserId, currentUserRole, organizati
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            สมาชิกทั้งหมด
-          </CardTitle>
-          <CardDescription>{members.length} คน</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between p-3 rounded-lg border"
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={member.user.avatarUrl || undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {getInitials(member.user.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">
-                      {member.user.name || "ไม่ระบุชื่อ"}
-                      {member.user.id === currentUserId && (
-                        <span className="text-muted-foreground ml-2">(คุณ)</span>
-                      )}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{member.user.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge className={roleColors[member.role]}>
-                    {roleLabels[member.role]}
-                  </Badge>
-                  {canManageMembers && 
-                   member.role !== "OWNER" && 
-                   member.user.id !== currentUserId && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => handleRemove(member.id, member.user.name)}
-                      disabled={isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+      <div className="rounded-xl border bg-white p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Users className="h-5 w-5 text-primary" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="font-semibold text-gray-900">สมาชิกทั้งหมด</h3>
+            <p className="text-sm text-gray-500">{members.length} คน</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {members.map((member) => (
+            <div
+              key={member.id}
+              className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={member.user.avatarUrl || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  {getInitials(member.user.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900">
+                  {member.user.name || "ไม่ระบุชื่อ"}
+                  {member.user.id === currentUserId && (
+                    <span className="text-gray-400 ml-2">(คุณ)</span>
+                  )}
+                </p>
+                <p className="text-sm text-gray-500 truncate">{member.user.email}</p>
+              </div>
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${roleColors[member.role]}`}>
+                {roleLabels[member.role]}
+              </span>
+              {canManageMembers && 
+               member.role !== "OWNER" && 
+               member.user.id !== currentUserId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => handleRemove(member.id, member.user.name)}
+                  disabled={isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

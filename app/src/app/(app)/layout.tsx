@@ -34,7 +34,7 @@ export default async function AppLayout({
       </header>
       
       {/* Main Content - adjust padding for desktop sidebar */}
-      <main className="md:pl-64">
+      <main className="md:pl-60 bg-gray-50 min-h-screen">
         {children}
       </main>
     </div>

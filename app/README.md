@@ -42,7 +42,12 @@ SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# AI - Gemini (for document classification)
+GEMINI_API_KEY="your-gemini-api-key"
 ```
+
+> **💡 Get Gemini API Key**: https://aistudio.google.com/apikey
 
 ### 3. Setup database
 
@@ -103,10 +108,11 @@ src/
 - ✅ Search & Filter
 - ✅ Comment system
 - ✅ Excel export (Generic & PEAK format)
+- ✅ **AI Document Intelligence** (Gemini) - อัปโหลดรูปภาพ AI จะอ่านเอกสาร + กรอกฟอร์มให้อัตโนมัติ
 
 ### Coming Soon
 - 📋 Income documents
-- 📋 OCR/Extraction
+- 📋 OCR/Extraction - ดึงข้อมูลจากเอกสารอัตโนมัติ
 - 📋 Email/LINE forward
 - 📋 WHT tracking
 - 📋 Reports & Analytics

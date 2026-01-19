@@ -4,8 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
@@ -22,15 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Loader2, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, FolderOpen, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { createCategory, updateCategory, deleteCategory } from "@/server/actions/settings";
 import type { Category } from ".prisma/client";
@@ -91,8 +82,8 @@ export function CategoryList({ categories }: CategoryListProps) {
       <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button size="sm" onClick={openCreateDialog}>
+              <Plus className="mr-1.5 h-4 w-4" />
               เพิ่มหมวดหมู่
             </Button>
           </DialogTrigger>
@@ -113,6 +104,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                   name="code"
                   placeholder="เช่น OFC, TRV"
                   defaultValue={editingCategory?.code || ""}
+                  className="bg-gray-50 focus:bg-white"
                   required
                 />
               </div>
@@ -123,6 +115,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                   name="name"
                   placeholder="เช่น ค่าใช้จ่ายสำนักงาน"
                   defaultValue={editingCategory?.name || ""}
+                  className="bg-gray-50 focus:bg-white"
                   required
                 />
               </div>
@@ -148,6 +141,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                   name="peakAccountCode"
                   placeholder="เช่น 5100-01"
                   defaultValue={editingCategory?.peakAccountCode || ""}
+                  className="bg-gray-50 focus:bg-white"
                 />
               </div>
               <DialogFooter>
@@ -166,118 +160,92 @@ export function CategoryList({ categories }: CategoryListProps) {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Expense Categories */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FolderOpen className="h-5 w-5 text-red-500" />
-              หมวดรายจ่าย
-            </CardTitle>
-            <CardDescription>{expenseCategories.length} หมวดหมู่</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>รหัส</TableHead>
-                  <TableHead>ชื่อ</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {expenseCategories.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="font-mono">{category.code}</TableCell>
-                    <TableCell>{category.name}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEditDialog(category)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDelete(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {expenseCategories.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground">
-                      ยังไม่มีหมวดหมู่
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-white p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+              <TrendingDown className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">หมวดรายจ่าย</h3>
+              <p className="text-sm text-gray-500">{expenseCategories.length} หมวดหมู่</p>
+            </div>
+          </div>
+
+          {expenseCategories.length > 0 ? (
+            <div className="space-y-2">
+              {expenseCategories.map((category) => (
+                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
+                  <span className="font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">{category.code}</span>
+                  <span className="flex-1 text-gray-900">{category.name}</span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openEditDialog(category)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 hover:text-red-600"
+                      onClick={() => handleDelete(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-400 py-8">ยังไม่มีหมวดหมู่</p>
+          )}
+        </div>
 
         {/* Income Categories */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FolderOpen className="h-5 w-5 text-green-500" />
-              หมวดรายรับ
-            </CardTitle>
-            <CardDescription>{incomeCategories.length} หมวดหมู่</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>รหัส</TableHead>
-                  <TableHead>ชื่อ</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {incomeCategories.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="font-mono">{category.code}</TableCell>
-                    <TableCell>{category.name}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEditDialog(category)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDelete(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {incomeCategories.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground">
-                      ยังไม่มีหมวดหมู่
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-white p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">หมวดรายรับ</h3>
+              <p className="text-sm text-gray-500">{incomeCategories.length} หมวดหมู่</p>
+            </div>
+          </div>
+
+          {incomeCategories.length > 0 ? (
+            <div className="space-y-2">
+              {incomeCategories.map((category) => (
+                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
+                  <span className="font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">{category.code}</span>
+                  <span className="flex-1 text-gray-900">{category.name}</span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openEditDialog(category)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 hover:text-red-600"
+                      onClick={() => handleDelete(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-400 py-8">ยังไม่มีหมวดหมู่</p>
+          )}
+        </div>
       </div>
     </div>
   );

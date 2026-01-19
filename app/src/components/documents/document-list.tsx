@@ -31,26 +31,27 @@ interface DocumentListProps {
   showBulkActions?: boolean;
 }
 
-// Get status label and color based on completion percent
+// Get status label and color
 function getStatusDisplay(doc: SerializedDocument) {
-  const percent = doc.completionPercent || 0;
-  const isExported = doc.status === "EXPORTED";
-  const isBooked = doc.status === "BOOKED";
-  const isVoid = doc.status === "VOID" || doc.status === "REJECTED";
-
-  if (isVoid) {
-    return { label: "ยกเลิก", color: "bg-gray-100 text-gray-500" };
+  switch (doc.status) {
+    case "DRAFT":
+      return { label: "ร่าง", color: "bg-gray-100 text-gray-600" };
+    case "PENDING_REVIEW":
+      return { label: "รอบัญชีตรวจ", color: "bg-blue-100 text-blue-700" };
+    case "NEED_INFO":
+      return { label: "ขอข้อมูลเพิ่ม", color: "bg-orange-100 text-orange-700" };
+    case "READY_TO_EXPORT":
+      return { label: "พร้อม Export", color: "bg-indigo-100 text-indigo-700" };
+    case "EXPORTED":
+      return { label: "Export แล้ว", color: "bg-purple-100 text-purple-700" };
+    case "BOOKED":
+      return { label: "บันทึกแล้ว", color: "bg-primary/10 text-primary" };
+    case "REJECTED":
+    case "VOID":
+      return { label: "ยกเลิก", color: "bg-gray-100 text-gray-500" };
+    default:
+      return { label: doc.status, color: "bg-gray-100 text-gray-600" };
   }
-  if (isBooked) {
-    return { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700" };
-  }
-  if (isExported) {
-    return { label: "Export แล้ว", color: "bg-purple-100 text-purple-700" };
-  }
-  if (percent === 100 || doc.isComplete) {
-    return { label: "เอกสารครบ", color: "bg-green-100 text-green-700" };
-  }
-  return { label: `${percent}%`, color: percent >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-orange-100 text-orange-700" };
 }
 
 const docTypeLabels: Record<string, string> = {

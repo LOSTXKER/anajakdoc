@@ -199,7 +199,7 @@ export function getStatusLabel(completionPercent: number, isExported: boolean, i
 
 // Get status color
 export function getStatusColor(completionPercent: number, isExported: boolean, isBooked: boolean): string {
-  if (isBooked) return "bg-teal-100 text-teal-700";
+  if (isBooked) return "bg-primary/10 text-primary";
   if (isExported) return "bg-purple-100 text-purple-700";
   if (completionPercent === 100) return "bg-green-100 text-green-700";
   if (completionPercent >= 50) return "bg-yellow-100 text-yellow-700";

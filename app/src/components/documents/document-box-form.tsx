@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback, useMemo } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createDocument, updateDocument, submitDocument, reviewDocument } from "@/server/actions/document";
-import { checkSoftDuplicate, type DuplicateWarning } from "@/server/actions/file";
+import { createDocument, updateDocument, reviewDocument, submitDocument } from "@/server/actions/document";
+import { type DuplicateWarning } from "@/server/actions/file";
 import { createSubDocumentWithFile } from "@/server/actions/subdocument";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -21,46 +21,45 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import {
   Package,
   Calendar,
-  DollarSign,
-  Building2,
   FolderOpen,
-  Users,
   Loader2,
   Save,
   ArrowLeft,
-  UserPlus,
   TrendingDown,
   TrendingUp,
-  Calculator,
   Upload,
   Receipt,
   FileCheck,
   FileText,
   CheckCircle2,
+  Check,
   X,
-  Send,
-  MessageSquare,
-  XCircle,
-  Clock,
-  AlertCircle,
   Edit,
+  Send,
+  Sparkles,
+  RefreshCw,
+  Plus,
+  Replace,
+  GripVertical,
+  AlertTriangle,
+  Hash,
+  Link2,
+  User,
+  Building2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ContactForm } from "@/components/settings/contact-form";
 import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
-import { ProgressTimeline, getExpenseTimelineSteps, getIncomeTimelineSteps } from "@/components/documents/progress-timeline";
-import { DocumentSlot, type SlotStatus } from "@/components/documents/document-slot";
-import type { Category, CostCenter, Contact, Document } from ".prisma/client";
+import { ContactInput, type ContactOption } from "@/components/documents/contact-input";
+import { extractDocumentData, type ExtractedDocumentData } from "@/server/actions/ai-classify";
+import { getDocumentChecklist, calculateCompletionPercent, type DocumentChecklist as ChecklistState } from "@/lib/checklist";
+import type { Category, Contact } from ".prisma/client";
 import type { SubDocType, SerializedDocument, MemberRole } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
@@ -71,78 +70,59 @@ interface DocumentBoxFormProps {
   mode: FormMode;
   transactionType?: "EXPENSE" | "INCOME";
   categories: Category[];
-  costCenters: CostCenter[];
   contacts: Contact[];
   document?: SerializedDocument;
   userRole?: MemberRole;
 }
 
-const vatOptions = [
-  { value: "none", label: "ไม่มี VAT", rate: 0 },
-  { value: "vat7", label: "VAT 7%", rate: 7 },
-  { value: "vat7_inclusive", label: "VAT 7% (รวมใน)", rate: 7 },
+
+// Extended type for UI (includes OTHER which AI might return)
+type DocTypeForUI = SubDocType | "OTHER" | "QUOTATION";
+
+// Document types for tracking
+const expenseDocTypes: { type: DocTypeForUI; label: string; icon: typeof Receipt }[] = [
+  { type: "SLIP", label: "สลิปโอนเงิน", icon: Receipt },
+  { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
+  { type: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
+  { type: "OTHER", label: "อื่นๆ", icon: FileText },
 ];
 
-const whtOptions = [
-  { value: "none", label: "ไม่หัก", rate: 0 },
-  { value: "wht1", label: "1% - ค่าขนส่ง", rate: 1 },
-  { value: "wht2", label: "2% - ค่าโฆษณา", rate: 2 },
-  { value: "wht3", label: "3% - ค่าบริการ/ค่าจ้าง", rate: 3 },
-  { value: "wht5", label: "5% - ค่าเช่า", rate: 5 },
+const incomeDocTypes: { type: DocTypeForUI; label: string; icon: typeof Receipt }[] = [
+  { type: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
+  { type: "RECEIPT", label: "ใบเสร็จรับเงิน", icon: Receipt },
+  { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
+  { type: "OTHER", label: "อื่นๆ", icon: FileText },
 ];
 
-const paymentMethods = [
-  { value: "TRANSFER", label: "โอนเงิน" },
-  { value: "CASH", label: "เงินสด" },
-  { value: "CREDIT_CARD", label: "บัตรเครดิต" },
-  { value: "CHEQUE", label: "เช็ค" },
-  { value: "OTHER", label: "อื่นๆ" },
+// WHT Types
+const whtTypes = [
+  { value: "1", label: "1% - ค่าขนส่ง" },
+  { value: "2", label: "2% - ค่าโฆษณา" },
+  { value: "3", label: "3% - ค่าบริการ/จ้างทำของ" },
+  { value: "5", label: "5% - ค่าเช่า" },
 ];
-
-// Get status display based on completion percent
-function getStatusDisplay(doc: SerializedDocument) {
-  const percent = doc.completionPercent || 0;
-  const isExported = doc.status === "EXPORTED";
-  const isBooked = doc.status === "BOOKED";
-  const isVoid = doc.status === "VOID" || doc.status === "REJECTED";
-
-  if (isVoid) {
-    return { label: "ยกเลิก", color: "bg-gray-100 text-gray-500", icon: XCircle };
-  }
-  if (isBooked) {
-    return { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700", icon: CheckCircle2 };
-  }
-  if (isExported) {
-    return { label: "Export แล้ว", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 };
-  }
-  if (percent === 100 || doc.isComplete) {
-    return { label: "เอกสารครบ", color: "bg-green-100 text-green-700", icon: CheckCircle2 };
-  }
-  if (percent >= 50) {
-    return { label: `${percent}%`, color: "bg-yellow-100 text-yellow-700", icon: Clock };
-  }
-  return { label: `${percent}%`, color: "bg-orange-100 text-orange-700", icon: AlertCircle };
-}
-
-interface RequiredDoc {
-  type: SubDocType;
-  label: string;
-  icon: typeof Receipt;
-  required: boolean;
-  description: string;
-}
 
 interface FilePreview {
   file: File;
   preview: string;
-  docType: SubDocType;
+  docType: DocTypeForUI;
+  extractedData?: ExtractedDocumentData;
+}
+
+// Aggregated AI result from all documents
+interface AggregatedAIData {
+  description?: string;
+  amount?: number;
+  contactName?: string;
+  documentDate?: string;
+  taxId?: string;
+  vatAmount?: number;
 }
 
 export function DocumentBoxForm({
   mode,
   transactionType: defaultTransactionType = "EXPENSE",
   categories,
-  costCenters,
   contacts: initialContacts,
   document,
   userRole = "STAFF",
@@ -158,302 +138,349 @@ export function DocumentBoxForm({
   );
 
   // Contact state
-  const [contacts, setContacts] = useState<Array<{ id: string; name: string }>>(initialContacts);
-  const [selectedContactId, setSelectedContactId] = useState(document?.contactId || "");
-  const [showAddContact, setShowAddContact] = useState(false);
-
-  // Amount & Calculation state
-  const [baseAmount, setBaseAmount] = useState(
-    document ? (document.subtotal + document.vatAmount).toString() : ""
+  const [contacts, setContacts] = useState<ContactOption[]>(
+    initialContacts.map(c => ({
+      id: c.id,
+      name: c.name,
+      taxId: (c as ContactOption).taxId,
+      contactType: (c as ContactOption).contactType,
+    }))
   );
-  const [vatOption, setVatOption] = useState(() => {
-    if (!document) return "none";
-    if (document.vatRate === 7 || document.vatAmount > 0) {
-      return document.isVatInclusive ? "vat7_inclusive" : "vat7";
-    }
-    return "none";
-  });
-  const [whtOption, setWhtOption] = useState(() => {
-    if (!document || !document.hasWht) return "none";
-    const rate = document.whtRate;
-    if (rate === 1) return "wht1";
-    if (rate === 2) return "wht2";
-    if (rate === 3) return "wht3";
-    if (rate === 5) return "wht5";
-    return "none";
-  });
+  const [selectedContactId, setSelectedContactId] = useState(document?.contactId || "");
+  const [contactName, setContactName] = useState(document?.contact?.name || "");
+
+  // Simple form fields
+  const [amount, setAmount] = useState(document?.totalAmount?.toString() || "");
   const [docDate, setDocDate] = useState(
     document?.docDate?.split("T")[0] || new Date().toISOString().split("T")[0]
   );
   const [dueDate, setDueDate] = useState(document?.dueDate?.split("T")[0] || "");
   const [categoryId, setCategoryId] = useState(document?.categoryId || "");
-  const [costCenterId, setCostCenterId] = useState(document?.costCenterId || "");
   const [description, setDescription] = useState(document?.description || "");
   const [notes, setNotes] = useState(document?.notes || "");
-  const [paymentMethod, setPaymentMethod] = useState<string>(document?.paymentMethod || "TRANSFER");
+  const [externalRef, setExternalRef] = useState(document?.externalRef || "");
+  
+  // VAT selection
+  const [vatRate, setVatRate] = useState(document?.vatRate || 0);
+  
+  // WHT state
+  const [hasWht, setHasWht] = useState(document?.hasWht || false);
+  const [whtRate, setWhtRate] = useState(document?.whtRate || 3);
+  const [whtSent, setWhtSent] = useState(document?.whtSent || false);
+  const [whtReceived, setWhtReceived] = useState(document?.whtReceived || false);
 
   // File upload state (for create mode)
   const [uploadedFiles, setUploadedFiles] = useState<FilePreview[]>([]);
-
-  // Review dialog
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [reviewAction, setReviewAction] = useState<"approve" | "reject" | "need_info" | null>(null);
-  const [reviewComment, setReviewComment] = useState("");
 
   // Duplicate detection
   const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateWarning[]>([]);
 
   // Permissions
-  const canEdit = mode === "create" || (document && ["DRAFT", "NEED_INFO"].includes(document.status));
-  const canSubmit = document && document.status === "DRAFT";
-  const canReview = ["ACCOUNTING", "ADMIN", "OWNER"].includes(userRole) && 
-                   document && ["PENDING_REVIEW", "NEED_INFO"].includes(document.status);
+  // Permission checks
+  const isAccounting = ["ACCOUNTING", "ADMIN", "OWNER"].includes(userRole);
+  const isOwnerOrAdmin = ["ADMIN", "OWNER"].includes(userRole);
+  
+  // Can edit if not yet exported/booked/void
+  const editableStatuses = ["DRAFT", "NEED_INFO", "PENDING_REVIEW", "READY_TO_EXPORT"];
+  const canEdit = mode === "create" || (document && editableStatuses.includes(document.status));
+  
+  // Can send to accounting if still in DRAFT
+  const canSendToAccounting = document && document.status === "DRAFT";
+  
+  // Accounting can review pending documents
+  const canReview = document && ["PENDING_REVIEW", "NEED_INFO"].includes(document.status);
+  
+  // Can always view/edit button for owner/admin on non-final statuses
+  const showEditButton = canEdit || isOwnerOrAdmin;
 
-  // Calculate amounts
-  const calculations = useMemo(() => {
-    const base = parseFloat(baseAmount) || 0;
-    const vatConfig = vatOptions.find(v => v.value === vatOption) || vatOptions[0];
-    const whtConfig = whtOptions.find(w => w.value === whtOption) || whtOptions[0];
+  // Document types based on transaction type
+  const docTypes = transactionType === "EXPENSE" ? expenseDocTypes : incomeDocTypes;
 
-    let subtotal = base;
-    let vatAmount = 0;
-    let whtAmount = 0;
+  // Checklist calculation (for view mode)
+  const checklistState: ChecklistState = {
+    isPaid: document?.isPaid || false,
+    hasPaymentProof: document?.hasPaymentProof || false,
+    hasTaxInvoice: document?.hasTaxInvoice || false,
+    hasInvoice: document?.hasInvoice || false,
+    whtIssued: document?.whtIssued || false,
+    whtSent: document?.whtSent || false,
+    whtReceived: document?.whtReceived || false,
+  };
+  
+  // Get uploaded doc types from subDocuments
+  const uploadedDocTypes = new Set<SubDocType>(
+    document?.subDocuments?.map(sub => sub.docType) || []
+  );
+  
+  // Calculate checklist items
+  const checklistItems = document 
+    ? getDocumentChecklist(
+        document.transactionType,
+        (document.vatRate ?? 0) > 0,
+        document.hasWht,
+        checklistState,
+        uploadedDocTypes
+      )
+    : [];
+  
+  const completionPercent = calculateCompletionPercent(checklistItems);
 
-    if (vatConfig.value === "vat7_inclusive") {
-      subtotal = base / 1.07;
-      vatAmount = base - subtotal;
-    } else if (vatConfig.value === "vat7") {
-      subtotal = base;
-      vatAmount = base * 0.07;
-    } else {
-      subtotal = base;
-      vatAmount = 0;
-    }
+  // AI Analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzed, setIsAnalyzed] = useState(false);
 
-    if (whtConfig.rate > 0) {
-      whtAmount = subtotal * (whtConfig.rate / 100);
-    }
+  // Merge dialog state
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{file: File; preview: string; docType: DocTypeForUI} | null>(null);
+  const [existingFileIndex, setExistingFileIndex] = useState<number>(-1);
 
-    const totalAmount = subtotal + vatAmount - whtAmount;
-
-    return {
-      subtotal: Math.round(subtotal * 100) / 100,
-      vatAmount: Math.round(vatAmount * 100) / 100,
-      whtAmount: Math.round(whtAmount * 100) / 100,
-      totalAmount: Math.round(totalAmount * 100) / 100,
-      vatRate: vatConfig.rate,
-      whtRate: whtConfig.rate,
-      hasVat: vatConfig.rate > 0,
-      hasWht: whtConfig.rate > 0,
-      isVatInclusive: vatConfig.value === "vat7_inclusive",
-    };
-  }, [baseAmount, vatOption, whtOption]);
-
-  // Required documents
-  const requiredDocs = useMemo((): RequiredDoc[] => {
-    const docs: RequiredDoc[] = [];
-
-    if (transactionType === "EXPENSE") {
-      docs.push({
-        type: "SLIP",
-        label: "สลิปโอนเงิน",
-        icon: Receipt,
-        required: true,
-        description: "หลักฐานการชำระเงิน",
-      });
-
-      if (calculations.hasVat) {
-        docs.push({
-          type: "TAX_INVOICE",
-          label: "ใบกำกับภาษี",
-          icon: FileCheck,
-          required: true,
-          description: "ต้องมีเพื่อขอคืน VAT",
-        });
-      }
-
-      if (calculations.hasWht) {
-        docs.push({
-          type: "WHT_CERT_SENT",
-          label: "หนังสือหัก ณ ที่จ่าย",
-          icon: FileText,
-          required: true,
-          description: "ต้องออกให้คู่ค้า",
-        });
-      }
-
-      docs.push({
-        type: "INVOICE",
-        label: "ใบแจ้งหนี้",
-        icon: FileText,
-        required: false,
-        description: "ถ้ามี",
-      });
-    } else {
-      docs.push({
-        type: "INVOICE",
-        label: "ใบแจ้งหนี้",
-        icon: FileText,
-        required: true,
-        description: "ที่ออกให้ลูกค้า",
-      });
-
-      if (calculations.hasVat) {
-        docs.push({
-          type: "TAX_INVOICE",
-          label: "ใบกำกับภาษี",
-          icon: FileCheck,
-          required: true,
-          description: "ที่ออกให้ลูกค้า",
-        });
-      }
-
-      docs.push({
-        type: "RECEIPT",
-        label: "ใบเสร็จรับเงิน",
-        icon: Receipt,
-        required: false,
-        description: "หลังรับเงินแล้ว",
-      });
-
-      if (calculations.hasWht) {
-        docs.push({
-          type: "WHT_CERT_RECEIVED",
-          label: "หนังสือหัก ณ ที่จ่าย",
-          icon: FileText,
-          required: true,
-          description: "ที่ได้รับจากลูกค้า",
-        });
-      }
-    }
-
-    return docs;
-  }, [transactionType, calculations.hasVat, calculations.hasWht]);
-
-  // Check uploaded docs (for create mode or from document)
-  const uploadedDocTypes = useMemo(() => {
-    if (mode === "create") {
-      return new Set(uploadedFiles.map(f => f.docType));
-    }
-    if (document?.subDocuments) {
-      return new Set(document.subDocuments.map(d => d.docType));
-    }
-    return new Set<SubDocType>();
-  }, [mode, uploadedFiles, document?.subDocuments]);
-
-  // Contact handler
-  function handleContactCreated(newContact: { id: string; name: string }) {
-    setContacts(prev => [...prev, newContact]);
-    setSelectedContactId(newContact.id);
-    setShowAddContact(false);
-  }
-
-  // File handlers
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, docType: SubDocType) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    // For create mode, just store in state
-    if (mode === "create") {
-      const newFiles: FilePreview[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const preview = URL.createObjectURL(file);
-        newFiles.push({ file, preview, docType });
-      }
-      setUploadedFiles(prev => [...prev, ...newFiles]);
-      return;
-    }
-
-    // For view/edit mode, upload directly
-    if (document) {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const formData = new FormData();
-        formData.set("documentId", document.id);
-        formData.set("docType", docType);
-        formData.set("file", file);
-
-        toast.loading(`กำลังอัปโหลด ${file.name}...`, { id: `upload-${i}` });
-
-        const result = await createSubDocumentWithFile(formData);
-
-        if (result.success) {
-          toast.success(`อัปโหลด ${file.name} สำเร็จ`, { id: `upload-${i}` });
-          router.refresh();
-        } else {
-          toast.error(result.error || `อัปโหลด ${file.name} ไม่สำเร็จ`, { id: `upload-${i}` });
-        }
-      }
-    }
+  // Format money
+  const formatMoney = (value: number) => {
+    return value.toLocaleString("th-TH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   };
 
-  const removeFile = (index: number) => {
+  // Calculate amounts
+  const totalAmount = parseFloat(amount) || 0;
+  const subtotal = vatRate > 0 ? totalAmount / (1 + vatRate / 100) : totalAmount;
+  const vatAmount = vatRate > 0 ? totalAmount - subtotal : 0;
+  const whtAmount = hasWht ? subtotal * (whtRate / 100) : 0;
+  const netAmount = totalAmount - whtAmount;
+
+  // Handle contact selection
+  const handleContactChange = (value: string, contactId?: string) => {
+    setContactName(value);
+    setSelectedContactId(contactId || "");
+  };
+
+  // Handle new contact created
+  const handleContactCreated = (newContact: ContactOption) => {
+    setContacts(prev => [...prev, newContact]);
+    setSelectedContactId(newContact.id);
+    setContactName(newContact.name);
+  };
+
+  // Handle file selection
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles: FilePreview[] = [];
+
+    for (const file of Array.from(files)) {
+      // Create preview
+      const preview = URL.createObjectURL(file);
+      
+      // Determine doc type based on file name or default
+      let docType: DocTypeForUI = "OTHER";
+      const fileName = file.name.toLowerCase();
+      if (fileName.includes("slip") || fileName.includes("สลิป")) {
+        docType = "SLIP";
+      } else if (fileName.includes("tax") || fileName.includes("กำกับ")) {
+        docType = "TAX_INVOICE";
+      } else if (fileName.includes("invoice") || fileName.includes("แจ้งหนี้")) {
+        docType = "INVOICE";
+      } else if (fileName.includes("receipt") || fileName.includes("เสร็จ")) {
+        docType = "RECEIPT";
+      }
+
+      // Check for existing file of same type
+      const existingIndex = uploadedFiles.findIndex(f => f.docType === docType);
+      if (existingIndex >= 0 && docType !== "OTHER") {
+        setPendingFile({ file, preview, docType });
+        setExistingFileIndex(existingIndex);
+        setShowMergeDialog(true);
+        continue;
+      }
+
+      newFiles.push({ file, preview, docType });
+    }
+
+    if (newFiles.length > 0) {
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+    }
+    
+    // Reset input
+    e.target.value = "";
+  };
+
+  // Handle merge dialog actions
+  const handleMergeAction = (action: "merge" | "replace" | "cancel") => {
+    if (!pendingFile) return;
+
+    if (action === "merge") {
+      setUploadedFiles(prev => [...prev, pendingFile]);
+    } else if (action === "replace") {
+      setUploadedFiles(prev => {
+        const newFiles = [...prev];
+        newFiles[existingFileIndex] = pendingFile;
+        return newFiles;
+      });
+    }
+    
+    setPendingFile(null);
+    setExistingFileIndex(-1);
+    setShowMergeDialog(false);
+  };
+
+  // Update doc type for a file
+  const updateFileDocType = (index: number, newType: DocTypeForUI) => {
     setUploadedFiles(prev => {
       const newFiles = [...prev];
-      URL.revokeObjectURL(newFiles[index].preview);
-      newFiles.splice(index, 1);
+      newFiles[index] = { ...newFiles[index], docType: newType };
       return newFiles;
     });
   };
 
-  // Duplicate check
-  useEffect(() => {
-    if (calculations.totalAmount <= 0 || mode === "view") return;
+  // Remove file
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => {
+      const removed = prev[index];
+      URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
-    const timer = setTimeout(async () => {
-      try {
-        const warning = await checkSoftDuplicate(
-          calculations.totalAmount,
-          selectedContactId || null,
-          new Date(docDate),
-          document?.id
-        );
-        
-        if (warning) {
-          setDuplicateWarnings(prev => {
-            const exists = prev.some(w => w.documentId === warning.documentId);
-            if (exists) return prev;
-            return [...prev, warning];
-          });
-        }
-      } catch (error) {
-        console.error("Error checking duplicates:", error);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [calculations.totalAmount, selectedContactId, docDate, document?.id, mode]);
-
-  function dismissWarning(index: number) {
+  // Dismiss duplicate warning
+  const dismissWarning = (index: number) => {
     setDuplicateWarnings(prev => prev.filter((_, i) => i !== index));
-  }
+  };
 
-  // Submit handler
-  async function handleSubmit(formData: FormData) {
-    setError(null);
+  // AI Analysis
+  const handleAIAnalysis = async () => {
+    if (uploadedFiles.length === 0) return;
     
-    formData.set("subtotal", calculations.subtotal.toString());
-    formData.set("vatAmount", calculations.vatAmount.toString());
-    formData.set("whtAmount", calculations.whtAmount.toString());
-    formData.set("totalAmount", calculations.totalAmount.toString());
-    formData.set("transactionType", transactionType);
-    formData.set("hasWht", calculations.hasWht.toString());
-    formData.set("hasValidVat", calculations.hasVat.toString());
-    formData.set("vatRate", calculations.vatRate.toString());
-    formData.set("whtRate", calculations.whtRate.toString());
-    formData.set("isVatInclusive", calculations.isVatInclusive.toString());
-
-    // Add files for create mode
-    if (mode === "create") {
-      uploadedFiles.forEach((filePreview) => {
-        formData.append(`files`, filePreview.file);
-        formData.append(`fileTypes`, filePreview.docType);
-      });
+    setIsAnalyzing(true);
+    
+    try {
+      const aggregatedData: AggregatedAIData = {};
+      
+      for (const filePreview of uploadedFiles) {
+        // Convert file to base64
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Remove the data URL prefix (e.g., "data:image/png;base64,")
+            const base64 = result.split(",")[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(filePreview.file);
+        });
+        
+        const result = await extractDocumentData(base64Data, filePreview.file.type);
+        
+        if (result.success && result.data) {
+          filePreview.extractedData = result.data;
+          
+          // Update document type if detected
+          if (result.data.type) {
+            const typeMap: Record<string, DocTypeForUI> = {
+              "TAX_INVOICE": "TAX_INVOICE",
+              "INVOICE": "INVOICE",
+              "RECEIPT": "RECEIPT",
+              "SLIP": "SLIP",
+              "QUOTATION": "QUOTATION",
+              "OTHER": "OTHER",
+            };
+            const newType = typeMap[result.data.type] || filePreview.docType;
+            if (newType !== filePreview.docType) {
+              const index = uploadedFiles.indexOf(filePreview);
+              updateFileDocType(index, newType);
+            }
+          }
+          
+          // Aggregate extracted data
+          if (result.data.description && !aggregatedData.description) {
+            aggregatedData.description = result.data.description;
+          }
+          if (result.data.amount && !aggregatedData.amount) {
+            aggregatedData.amount = result.data.amount;
+          }
+          if (result.data.contactName && !aggregatedData.contactName) {
+            aggregatedData.contactName = result.data.contactName;
+          }
+          if (result.data.documentDate && !aggregatedData.documentDate) {
+            aggregatedData.documentDate = result.data.documentDate;
+          }
+          if (result.data.vatAmount) {
+            aggregatedData.vatAmount = result.data.vatAmount;
+          }
+        }
+      }
+      
+      if (aggregatedData.description && !description) {
+        setDescription(aggregatedData.description);
+      }
+      if (aggregatedData.amount && !amount) {
+        setAmount(aggregatedData.amount.toString());
+      }
+      if (aggregatedData.contactName && !contactName) {
+        setContactName(aggregatedData.contactName);
+      }
+      if (aggregatedData.documentDate && !docDate) {
+        setDocDate(aggregatedData.documentDate);
+      }
+      if (aggregatedData.vatAmount && aggregatedData.vatAmount > 0) {
+        setVatRate(7);
+      }
+      
+      setIsAnalyzed(true);
+      toast.success("วิเคราะห์เอกสารเรียบร้อย");
+    } catch {
+      toast.error("ไม่สามารถวิเคราะห์เอกสารได้");
+    } finally {
+      setIsAnalyzing(false);
     }
+  };
+
+  // Handle form submission
+  const handleSubmit = async (formData: FormData) => {
+    setError(null);
 
     startTransition(async () => {
-      const result = mode === "create"
+      const amountNum = parseFloat(amount) || 0;
+      
+      // Calculate VAT amounts
+      let subtotalCalc = amountNum;
+      let vatAmountCalc = 0;
+      
+      if (vatRate > 0) {
+        subtotalCalc = amountNum / (1 + vatRate / 100);
+        vatAmountCalc = amountNum - subtotalCalc;
+      }
+      
+      // Calculate WHT amount
+      const whtAmountCalc = hasWht ? subtotalCalc * (whtRate / 100) : 0;
+      
+      formData.set("totalAmount", amountNum.toString());
+      formData.set("subtotal", subtotalCalc.toString());
+      formData.set("vatRate", vatRate.toString());
+      formData.set("vatAmount", vatAmountCalc.toString());
+      formData.set("whtAmount", whtAmountCalc.toString());
+      formData.set("whtRate", hasWht ? whtRate.toString() : "0");
+      formData.set("transactionType", transactionType);
+      formData.set("hasWht", hasWht.toString());
+      formData.set("whtSent", whtSent.toString());
+      formData.set("whtReceived", whtReceived.toString());
+      formData.set("externalRef", externalRef);
+      if (dueDate) {
+        formData.set("dueDate", dueDate);
+      }
+
+      // Add files for create mode
+      if (mode === "create") {
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          const filePreview = uploadedFiles[i];
+          formData.append(`files`, filePreview.file);
+          formData.append(`docTypes`, filePreview.docType === "OTHER" ? "OTHER" : filePreview.docType);
+        }
+      }
+
+      const result = mode === "create" 
         ? await createDocument(formData)
         : await updateDocument(document!.id, formData);
 
@@ -468,40 +495,23 @@ export function DocumentBoxForm({
         } else if (mode === "edit") {
           setIsEditing(false);
           router.refresh();
+        } else {
+          setIsEditing(false);
+          router.refresh();
         }
       }
     });
-  }
+  };
 
-  // Submit for review
-  const handleSubmitForReview = () => {
+  // Handle send to accounting
+  const handleSendToAccounting = async () => {
     if (!document) return;
-    startTransition(async () => {
-      const result = await submitDocument(document.id);
-      if (result.success) {
-        toast.success("ส่งตรวจเรียบร้อย");
-        router.refresh();
-      } else {
-        toast.error(result.error || "เกิดข้อผิดพลาด");
-      }
-    });
-  };
-
-  // Review handler
-  const handleReview = (action: "approve" | "reject" | "need_info") => {
-    setReviewAction(action);
-    setReviewDialogOpen(true);
-  };
-
-  const confirmReview = () => {
-    if (!reviewAction || !document) return;
     
     startTransition(async () => {
-      const result = await reviewDocument(document.id, reviewAction, reviewComment);
+      const result = await submitDocument(document.id);
+      
       if (result.success) {
-        toast.success(result.message);
-        setReviewDialogOpen(false);
-        setReviewComment("");
+        toast.success("ส่งให้บัญชีเรียบร้อย");
         router.refresh();
       } else {
         toast.error(result.error || "เกิดข้อผิดพลาด");
@@ -509,32 +519,29 @@ export function DocumentBoxForm({
     });
   };
 
-  const formatMoney = (amount: number) => {
-    return amount.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Handle approve
+  const handleApprove = async () => {
+    if (!document) return;
+    
+    startTransition(async () => {
+      const result = await reviewDocument(document.id, "approve");
+      
+      if (result.success) {
+        toast.success("อนุมัติเรียบร้อย");
+        router.refresh();
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    });
   };
 
-  const statusDisplay = document ? getStatusDisplay(document) : null;
-  const StatusIcon = statusDisplay?.icon || Clock;
+  // Count uploaded documents
+  const docCount = mode === "create" 
+    ? uploadedFiles.length 
+    : (document?.subDocuments?.length || 0);
 
   return (
-    <form action={handleSubmit} className="space-y-6 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/documents">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            กลับ
-          </Link>
-        </Button>
-
-        {mode === "view" && canEdit && !isEditing && (
-          <Button variant="outline" onClick={() => setIsEditing(true)}>
-            <Edit className="mr-2 h-4 w-4" />
-            แก้ไข
-          </Button>
-        )}
-      </div>
-
+    <form action={handleSubmit} className="space-y-6 max-w-5xl mx-auto">
       {error && (
         <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
@@ -543,182 +550,193 @@ export function DocumentBoxForm({
 
       <DuplicateWarningAlert warnings={duplicateWarnings} onDismiss={dismissWarning} />
 
-      {/* Status & Info Card */}
-      <Card className={`border-2 ${
-        transactionType === "EXPENSE" ? "border-red-200 bg-red-50/30" : "border-green-200 bg-green-50/30"
-      }`}>
-        <CardContent className="pt-6">
+      {/* Document Info Header (View Mode) */}
+      {mode !== "create" && document && (
+        <>
+          {/* Header Bar */}
           <div className="flex items-center justify-between">
-            <div className="flex gap-3">
-              <div className={`p-2 rounded-lg ${
-                transactionType === "EXPENSE" ? "bg-red-100" : "bg-green-100"
-              }`}>
-                {transactionType === "EXPENSE" ? (
-                  <TrendingDown className="h-5 w-5 text-red-600" />
-                ) : (
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                )}
-              </div>
+            {/* Left: Back + Title */}
+            <div className="flex items-center gap-3">
+              <Link 
+                href="/documents" 
+                className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary/90 transition-colors"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold">
-                    {mode === "create" ? "สร้างกล่อง" : document?.docNumber}
-                  </h2>
-                  {document && statusDisplay && (
-                    <Badge className={statusDisplay.color}>
-                      <StatusIcon className="mr-1 h-3 w-3" />
-                      {statusDisplay.label}
-                    </Badge>
-                  )}
+                  <h1 className="text-xl font-semibold text-gray-900">
+                    {transactionType === "EXPENSE" ? "รายจ่าย" : "รายรับ"}
+                  </h1>
+                  <StatusBadge status={document.status} />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {transactionType === "EXPENSE" ? "รายจ่าย" : "รายรับ"}
-                  {mode === "create" && " - กรอกยอดเงิน เลือก VAT และหัก ณ ที่จ่าย"}
-                </p>
+                <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>{new Date(document.docDate).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</span>
+                </div>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            {mode !== "create" && (
-              <div className="flex gap-2">
-                {canSubmit && (
-                  <Button onClick={handleSubmitForReview} disabled={isPending}>
-                    <Send className="mr-2 h-4 w-4" />
-                    ส่งตรวจ
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+              {isEditing ? (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+                    ยกเลิก
                   </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left Column - Main Form */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Amount & Calculation */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-primary" />
-                ยอดเงิน
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Base Amount */}
-              <div className="space-y-2">
-                <Label htmlFor="baseAmount" className="text-base font-medium">
-                  ยอดเงิน {isEditing ? "*" : ""}
-                </Label>
-                {isEditing ? (
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">฿</span>
-                    <Input
-                      id="baseAmount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="pl-8 text-2xl h-14 font-medium"
-                      placeholder="0.00"
-                      value={baseAmount}
-                      onChange={(e) => setBaseAmount(e.target.value)}
-                      required
-                    />
-                  </div>
-                ) : (
-                  <div className="text-3xl font-bold text-primary">
-                    ฿{formatMoney(document?.totalAmount || 0)}
-                  </div>
-                )}
-              </div>
-
-              {/* VAT & WHT Selection */}
-              {isEditing && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>VAT</Label>
-                    <Select value={vatOption} onValueChange={setVatOption}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vatOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>หัก ณ ที่จ่าย</Label>
-                    <Select value={whtOption} onValueChange={setWhtOption}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {whtOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                  <Button size="sm" type="submit" disabled={isPending}>
+                    {isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                    บันทึก
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {canSendToAccounting && (
+                    <Button size="sm" onClick={handleSendToAccounting} disabled={isPending}>
+                      <Send className="mr-1.5 h-4 w-4" />
+                      ส่งบัญชี
+                    </Button>
+                  )}
+                  {isAccounting && canReview && (
+                    <Button size="sm" onClick={handleApprove} disabled={isPending}>
+                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      อนุมัติ
+                    </Button>
+                  )}
+                  {showEditButton && (
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                      <Edit className="mr-1.5 h-4 w-4" />
+                      แก้ไข
+                    </Button>
+                  )}
+                </>
               )}
+            </div>
+          </div>
 
-              {/* Calculation Result */}
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">ยอดก่อน VAT</span>
-                  <span>฿{formatMoney(isEditing ? calculations.subtotal : (document?.subtotal || 0))}</span>
-                </div>
-                {(isEditing ? calculations.hasVat : document?.vatAmount && document.vatAmount > 0) && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      VAT {isEditing ? calculations.vatRate : document?.vatRate || 7}%
-                    </span>
-                    <span className="text-blue-600">
-                      +฿{formatMoney(isEditing ? calculations.vatAmount : (document?.vatAmount || 0))}
-                    </span>
+          {/* Progress Stepper */}
+          {checklistItems.length > 0 && (
+            <div className="flex items-start justify-between px-4 py-6 bg-white rounded-xl border">
+              {checklistItems.map((item, index) => (
+                <div key={item.id} className="flex-1 flex flex-col items-center relative">
+                  {/* Connector Line */}
+                  {index < checklistItems.length - 1 && (
+                    <div 
+                      className={cn(
+                        "absolute top-5 left-1/2 w-full h-0.5",
+                        item.completed ? "bg-primary" : "bg-gray-200"
+                      )} 
+                    />
+                  )}
+                  
+                  {/* Circle */}
+                  <div
+                    className={cn(
+                      "relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
+                      item.completed
+                        ? "bg-primary border-primary text-white"
+                        : "bg-white border-gray-300 text-gray-400"
+                    )}
+                  >
+                    {item.completed ? (
+                      <Check className="h-5 w-5" />
+                    ) : item.id === "whtSent" ? (
+                      <Send className="h-4 w-4" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
                   </div>
-                )}
-                {(isEditing ? calculations.hasWht : document?.hasWht) && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      หัก ณ ที่จ่าย {isEditing ? calculations.whtRate : document?.whtRate}%
-                    </span>
-                    <span className="text-orange-600">
-                      -฿{formatMoney(isEditing ? calculations.whtAmount : (document?.whtAmount || 0))}
-                    </span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">ยอดที่ต้องจ่ายจริง</span>
-                  <span className="text-2xl font-bold text-primary">
-                    ฿{formatMoney(isEditing ? calculations.totalAmount : (document?.totalAmount || 0))}
+
+                  {/* Label */}
+                  <span className={cn(
+                    "mt-2 text-xs text-center max-w-[80px]",
+                    item.completed ? "text-primary font-medium" : "text-gray-500"
+                  )}>
+                    {item.label}
                   </span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
-          {/* Basic Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                ข้อมูลธุรกรรม
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Date */}
-              <div className="grid md:grid-cols-2 gap-4">
+      {/* Create Mode Header */}
+      {mode === "create" && (
+        <div className="flex items-center justify-between">
+          {/* Left: Back + Title */}
+          <div className="flex items-center gap-3">
+            <Link 
+              href="/documents" 
+              className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary/90 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">
+                สร้างกล่องเอกสาร
+              </h1>
+              <p className="text-sm text-gray-500">กรอกข้อมูลและแนบเอกสาร</p>
+            </div>
+          </div>
+
+          {/* Right: Transaction Type Toggle */}
+          <div className="flex rounded-lg border p-0.5 bg-white">
+            <button
+              type="button"
+              onClick={() => setTransactionType("EXPENSE")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                transactionType === "EXPENSE"
+                  ? "bg-primary text-white"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              รายจ่าย
+            </button>
+            <button
+              type="button"
+              onClick={() => setTransactionType("INCOME")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                transactionType === "INCOME"
+                  ? "bg-primary text-white"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              รายรับ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - 2 Column Layout */}
+      <div className="grid lg:grid-cols-5 gap-6">
+        {/* LEFT COLUMN - Form Details (3 cols) */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Basic Info Card */}
+          <div className="rounded-xl border bg-white overflow-hidden">
+            {/* Card Title */}
+            <div className="px-5 py-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    {mode === "create" ? "ข้อมูลรายการ" : "รายละเอียดกล่อง"}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {mode === "create" ? "ข้อมูลพื้นฐานของรายการ" : "ข้อมูลกล่องเอกสาร"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-5 space-y-5">
+              {/* Row 1: Date & Amount */}
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>วันที่ธุรกรรม {isEditing ? "*" : ""}</Label>
+                  <Label>วันที่ *</Label>
                   {isEditing ? (
                     <div className="relative">
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -732,13 +750,118 @@ export function DocumentBoxForm({
                       />
                     </div>
                   ) : (
-                    <p className="font-medium">
+                    <p className="py-2 font-medium">
                       {document && new Date(document.docDate).toLocaleDateString("th-TH", {
                         day: "numeric", month: "long", year: "numeric"
                       })}
                     </p>
                   )}
                 </div>
+
+                <div className="space-y-2">
+                  <Label>จำนวนเงิน (รวม VAT) *</Label>
+                  {isEditing ? (
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">฿</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="pl-8 text-lg font-semibold"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <p className="py-2 text-lg font-bold text-primary">
+                      ฿{formatMoney(document?.totalAmount || 0)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 2: Contact & Category */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{transactionType === "EXPENSE" ? "ผู้ติดต่อ / ร้านค้า" : "ลูกค้า"} *</Label>
+                  {isEditing ? (
+                    <>
+                      <ContactInput
+                        value={contactName}
+                        onChange={handleContactChange}
+                        contacts={contacts}
+                        placeholder={transactionType === "EXPENSE" ? "พิมพ์ชื่อหรือเลือกจากรายชื่อ..." : "พิมพ์ชื่อลูกค้า..."}
+                        defaultRole={transactionType === "EXPENSE" ? "VENDOR" : "CUSTOMER"}
+                        onContactCreated={handleContactCreated}
+                      />
+                      <input type="hidden" name="contactId" value={selectedContactId} />
+                    </>
+                  ) : (
+                    <p className="py-2 font-medium">{document?.contact?.name || "-"}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>หมวดหมู่</Label>
+                  {isEditing ? (
+                    <Select name="categoryId" value={categoryId} onValueChange={setCategoryId}>
+                      <SelectTrigger>
+                        <FolderOpen className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <SelectValue placeholder="เลือกหมวดหมู่ (ถ้ามี)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="py-2 font-medium">{document?.category?.name || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3: Description */}
+              <div className="space-y-2">
+                <Label>รายละเอียด *</Label>
+                {isEditing ? (
+                  <Textarea
+                    name="description"
+                    placeholder="เช่น ค่าบริการ IT เดือนมกราคม..."
+                    rows={2}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    required
+                  />
+                ) : (
+                  <p className="py-2 font-medium">{document?.description || "-"}</p>
+                )}
+              </div>
+
+              {/* Row 4: Reference & Due Date */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>เลขที่อ้างอิง</Label>
+                  {isEditing ? (
+                    <div className="relative">
+                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        name="externalRef"
+                        className="pl-10"
+                        placeholder="เลขที่ใบแจ้งหนี้, PO, ..."
+                        value={externalRef}
+                        onChange={(e) => setExternalRef(e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <p className="py-2 font-medium">{document?.externalRef || "-"}</p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>วันครบกำหนด</Label>
                   {isEditing ? (
@@ -753,9 +876,9 @@ export function DocumentBoxForm({
                       />
                     </div>
                   ) : (
-                    <p className="font-medium">
+                    <p className="py-2 font-medium">
                       {document?.dueDate 
-                        ? new Date(document.dueDate).toLocaleDateString("th-TH")
+                        ? new Date(document.dueDate).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })
                         : "-"
                       }
                     </p>
@@ -763,468 +886,334 @@ export function DocumentBoxForm({
                 </div>
               </div>
 
-              {/* Category & Cost Center */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>หมวดหมู่ {isEditing ? "*" : ""}</Label>
-                  {isEditing ? (
-                    <Select name="categoryId" value={categoryId} onValueChange={setCategoryId}>
-                      <SelectTrigger>
-                        <FolderOpen className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <SelectValue placeholder="เลือกหมวดหมู่" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="font-medium">{document?.category?.name || "-"}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>ศูนย์ต้นทุน</Label>
-                  {isEditing ? (
-                    <Select name="costCenterId" value={costCenterId} onValueChange={setCostCenterId}>
-                      <SelectTrigger>
-                        <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <SelectValue placeholder="เลือก (ถ้ามี)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {costCenters.map((cc) => (
-                          <SelectItem key={cc.id} value={cc.id}>
-                            {cc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="font-medium">{document?.costCenter?.name || "-"}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Contact */}
+              {/* Row 5: Notes */}
               <div className="space-y-2">
-                <Label>
-                  {transactionType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"} {isEditing ? "*" : ""}
-                </Label>
-                {isEditing ? (
-                  <div className="flex gap-2">
-                    <Select 
-                      name="contactId" 
-                      value={selectedContactId}
-                      onValueChange={setSelectedContactId}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <SelectValue placeholder="เลือก..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {contacts.map((contact) => (
-                          <SelectItem key={contact.id} value={contact.id}>
-                            {contact.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
-                      <DialogTrigger asChild>
-                        <Button type="button" variant="outline" size="icon">
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-lg">
-                        <DialogHeader>
-                          <DialogTitle>เพิ่มผู้ติดต่อใหม่</DialogTitle>
-                        </DialogHeader>
-                        <ContactForm
-                          defaultRole={transactionType === "EXPENSE" ? "VENDOR" : "CUSTOMER"}
-                          onSuccess={handleContactCreated}
-                          onCancel={() => setShowAddContact(false)}
-                        />
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                ) : (
-                  <p className="font-medium">{document?.contact?.name || "-"}</p>
-                )}
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <Label>รายละเอียด {isEditing ? "*" : ""}</Label>
+                <Label>หมายเหตุ</Label>
                 {isEditing ? (
                   <Textarea
-                    name="description"
-                    placeholder="เช่น ค่าบริการ IT เดือนมกราคม..."
+                    name="notes"
+                    placeholder="หมายเหตุเพิ่มเติม..."
                     rows={2}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    required
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                   />
                 ) : (
-                  <p>{document?.description || "-"}</p>
+                  <p className="py-2 text-muted-foreground">{document?.notes || "-"}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tax & Summary Section - inside left column */}
+          <div className="rounded-xl border bg-white overflow-hidden">
+            <div className="px-5 py-4 border-b">
+              <h3 className="font-semibold text-gray-900">ภาษีและยอดเงิน</h3>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* VAT Selection */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">ภาษีมูลค่าเพิ่ม (VAT)</Label>
+                  <p className="text-xs text-muted-foreground">มีใบกำกับภาษี?</p>
+                </div>
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setVatRate(0)}
+                      className={`py-1.5 px-3 rounded-lg border text-sm font-medium transition-all ${
+                        vatRate === 0
+                          ? "bg-gray-900 text-white border-gray-900"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      ไม่มี VAT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVatRate(7)}
+                      className={`py-1.5 px-3 rounded-lg border text-sm font-medium transition-all ${
+                        vatRate === 7
+                          ? "bg-primary text-white border-primary"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      VAT 7%
+                    </button>
+                  </div>
+                ) : (
+                  <p className="font-medium">{vatRate > 0 ? `VAT ${vatRate}%` : "ไม่มี VAT"}</p>
                 )}
               </div>
 
-              {/* Payment & Notes */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>วิธีชำระเงิน</Label>
-                  {isEditing ? (
-                    <Select name="paymentMethod" value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {paymentMethods.map((method) => (
-                          <SelectItem key={method.value} value={method.value}>
-                            {method.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="font-medium">
-                      {paymentMethods.find(m => m.value === document?.paymentMethod)?.label || "-"}
+              {/* WHT Section */}
+              <div className="p-3 rounded-lg border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">หัก ณ ที่จ่าย</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {transactionType === "EXPENSE" ? "หักภาษีผู้ขาย?" : "ถูกหักภาษี?"}
                     </p>
+                  </div>
+                  <Switch
+                    checked={hasWht}
+                    onCheckedChange={setHasWht}
+                    disabled={!isEditing}
+                  />
+                </div>
+                
+                {hasWht && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">ประเภทและอัตรา</Label>
+                    {isEditing ? (
+                      <Select value={whtRate.toString()} onValueChange={(v) => setWhtRate(parseInt(v))}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="เลือกประเภทภาษีหัก ณ ที่จ่าย" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {whtTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium text-orange-600">
+                        {whtTypes.find(t => t.value === whtRate.toString())?.label || `${whtRate}%`}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Amount Summary */}
+              <div className="p-3 rounded-lg bg-gray-50 space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Receipt className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">สรุปยอด</span>
+                </div>
+                
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">ยอดก่อน VAT</span>
+                    <span>฿{formatMoney(subtotal)}</span>
+                  </div>
+                  {vatRate > 0 && (
+                    <div className="flex justify-between text-primary">
+                      <span>VAT {vatRate}%</span>
+                      <span>+฿{formatMoney(vatAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">ยอดรวม VAT</span>
+                    <span>฿{formatMoney(totalAmount)}</span>
+                  </div>
+                  {hasWht && (
+                    <div className="flex justify-between text-orange-600">
+                      <span>หัก ณ ที่จ่าย {whtRate}%</span>
+                      <span>-฿{formatMoney(whtAmount)}</span>
+                    </div>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label>หมายเหตุ</Label>
-                  {isEditing ? (
-                    <Textarea
-                      name="notes"
-                      placeholder="หมายเหตุเพิ่มเติม..."
-                      rows={2}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                    />
-                  ) : (
-                    <p className="text-muted-foreground">{document?.notes || "-"}</p>
-                  )}
+
+                <div className="flex justify-between pt-2 border-t mt-2 font-bold">
+                  <span className="text-sm">{transactionType === "EXPENSE" ? "ยอดโอนจริง" : "ยอดรับจริง"}</span>
+                  <span className="text-primary">
+                    ฿{formatMoney(netAmount)}
+                  </span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Review Actions */}
-          {canReview && (
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="text-lg">ตรวจสอบเอกสาร</CardTitle>
-              </CardHeader>
-              <CardContent className="flex gap-3">
-                <Button onClick={() => handleReview("approve")} className="flex-1">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  อนุมัติ
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleReview("need_info")}
-                  className="flex-1"
-                >
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  ขอข้อมูลเพิ่ม
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => handleReview("reject")}
-                  className="flex-1"
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  ปฏิเสธ
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+            </div>
+          </div>
         </div>
 
-        {/* Right Column - Document Slots with Timeline */}
-        <div className="space-y-6">
-          <Card className="sticky top-20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                กล่องเอกสาร
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Progress Timeline (for view/edit mode) */}
-              {mode !== "create" && document && (() => {
-                const hasVat = calculations.hasVat || document.hasValidVat || false;
-                const hasWht = calculations.hasWht || document.hasWht || false;
-                
-                const timelineSteps = transactionType === "EXPENSE"
-                  ? getExpenseTimelineSteps(
-                      document.isPaid || false,
-                      document.hasPaymentProof || uploadedDocTypes.has("SLIP"),
-                      document.hasTaxInvoice || uploadedDocTypes.has("TAX_INVOICE"),
-                      hasVat,
-                      hasWht,
-                      document.whtIssued || uploadedDocTypes.has("WHT_CERT_SENT"),
-                      document.whtSent || false
-                    )
-                  : getIncomeTimelineSteps(
-                      document.hasInvoice || uploadedDocTypes.has("INVOICE"),
-                      document.hasTaxInvoice || uploadedDocTypes.has("TAX_INVOICE"),
-                      hasVat,
-                      document.isPaid || false,
-                      hasWht,
-                      document.whtReceived || uploadedDocTypes.has("WHT_CERT_RECEIVED")
-                    );
-
-                return (
-                  <ProgressTimeline
-                    steps={timelineSteps}
-                    completionPercent={document.completionPercent || 0}
-                  />
-                );
-              })()}
-
-              {/* Payment Status Toggle (for view/edit mode) */}
-              {mode !== "create" && document && (
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={document.isPaid ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={async () => {
-                      const { updateDocumentChecklist } = await import("@/server/actions/document");
-                      const result = await updateDocumentChecklist(document.id, { isPaid: !document.isPaid });
-                      if (result.success) {
-                        toast.success(document.isPaid ? "ยกเลิกสถานะจ่ายเงิน" : "บันทึกจ่ายเงินแล้ว");
-                        router.refresh();
-                      } else {
-                        toast.error(result.error || "เกิดข้อผิดพลาด");
-                      }
-                    }}
-                  >
-                    {document.isPaid ? (
-                      <>
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        {transactionType === "EXPENSE" ? "จ่ายแล้ว" : "รับเงินแล้ว"}
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="mr-2 h-4 w-4" />
-                        {transactionType === "EXPENSE" ? "ยังไม่จ่าย" : "ยังไม่รับ"}
-                      </>
-                    )}
-                  </Button>
+        {/* RIGHT COLUMN - Documents (2 cols) */}
+        <div className="lg:col-span-2">
+          <div className="rounded-xl border bg-white sticky top-4">
+            {/* Header */}
+            <div className="px-5 py-4 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="font-semibold text-gray-900">เอกสารในกล่อง</span>
                 </div>
-              )}
+                {isAnalyzed && (
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    AI วิเคราะห์แล้ว
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {docCount} เอกสาร
+              </p>
+            </div>
 
-              <Separator />
-
-              {/* Document Slots (for view/edit mode) */}
-              {mode !== "create" && document && (() => {
-                const hasVat = calculations.hasVat || document.hasValidVat || false;
-                const hasWht = calculations.hasWht || document.hasWht || false;
-
-                // Define slots based on transaction type
-                const slotConfigs = transactionType === "EXPENSE"
-                  ? [
-                      { type: "SLIP" as SubDocType, label: "สลิปโอนเงิน", description: "หลักฐานการชำระเงิน", required: true },
-                      ...(hasVat ? [{ type: "TAX_INVOICE" as SubDocType, label: "ใบกำกับภาษี", description: "สำหรับขอคืน VAT", required: true, warning: "ถ้าไม่มี จะไม่สามารถขอคืน VAT ได้" }] : []),
-                      ...(hasWht ? [
-                        { type: "WHT_CERT_SENT" as SubDocType, label: "หนังสือหัก ณ ที่จ่าย", description: "ต้องออกให้คู่ค้า", required: true, warning: "ต้องส่งให้คู่ค้าภายใน 7 วัน" },
-                      ] : []),
-                      { type: "INVOICE" as SubDocType, label: "ใบแจ้งหนี้", description: "Invoice จากผู้ขาย", required: false },
-                    ]
-                  : [
-                      { type: "INVOICE" as SubDocType, label: "ใบแจ้งหนี้", description: "ที่ออกให้ลูกค้า", required: true },
-                      ...(hasVat ? [{ type: "TAX_INVOICE" as SubDocType, label: "ใบกำกับภาษี", description: "ที่ออกให้ลูกค้า", required: true }] : []),
-                      { type: "RECEIPT" as SubDocType, label: "ใบเสร็จรับเงิน", description: "หลังรับเงินแล้ว", required: false },
-                      ...(hasWht ? [{ type: "WHT_CERT_RECEIVED" as SubDocType, label: "หนังสือหัก ณ ที่จ่าย", description: "ที่ได้รับจากลูกค้า", required: true, warning: "ต้องได้รับจากลูกค้าเพื่อใช้เป็นหลักฐาน" }] : []),
-                    ];
-
-                return (
-                  <div className="grid grid-cols-2 gap-3">
-                    {slotConfigs.map((config) => {
-                      const subDocs = document.subDocuments?.filter(d => d.docType === config.type) || [];
-                      const hasFiles = subDocs.some(d => d.files && d.files.length > 0);
-                      const isNotApplicable = subDocs.some(d => d.slotStatus === "NOT_APPLICABLE");
-                      
-                      let status: SlotStatus = "pending";
-                      if (hasFiles) status = "completed";
-                      else if (isNotApplicable) status = "not_applicable";
-
-                      return (
-                        <DocumentSlot
-                          key={config.type}
-                          documentId={document.id}
-                          type={config.type}
-                          label={config.label}
-                          description={config.description}
-                          required={config.required}
-                          status={status}
-                          subDocuments={subDocs}
-                          warning={config.warning}
-                          canEdit={true}
-                        />
-                      );
-                    })}
+            <div className="p-4 space-y-3">
+              {/* Upload Area */}
+              {isEditing && (
+                <label className="block p-5 rounded-lg border-2 border-dashed hover:border-primary/50 hover:bg-muted/30 transition-all cursor-pointer">
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <div className="text-sm">
+                      <span className="text-primary font-medium">คลิกเพื่อเลือก</span>
+                      <span className="text-muted-foreground"> หรือลากไฟล์มาวาง</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      รองรับ: รูปภาพ, PDF
+                    </span>
                   </div>
-                );
-              })()}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </label>
+              )}
 
-              {/* For create mode - show required docs with upload */}
-              {mode === "create" && (
-                <div className="grid grid-cols-2 gap-3">
-                  {requiredDocs.map((doc) => {
-                    const isUploaded = uploadedDocTypes.has(doc.type);
-                    const Icon = doc.icon;
+              {/* AI Analysis Button */}
+              {mode === "create" && uploadedFiles.length > 0 && isEditing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleAIAnalysis}
+                  disabled={isAnalyzing}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      กำลังวิเคราะห์...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      AI วิเคราะห์เอกสาร
+                    </>
+                  )}
+                </Button>
+              )}
 
-                    return (
-                      <div
-                        key={doc.type}
-                        className={`rounded-xl border-2 p-4 transition-colors ${
-                          isUploaded 
-                            ? "border-green-200 bg-green-50" 
-                            : doc.required 
-                              ? "border-orange-200 bg-orange-50" 
-                              : "border-dashed border-gray-200"
-                        }`}
-                      >
-                        {/* Header */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className={`p-2 rounded-lg bg-white shadow-sm ${
-                            isUploaded ? "text-green-500" : doc.required ? "text-orange-500" : "text-gray-400"
-                          }`}>
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm truncate">{doc.label}</h4>
-                            <p className="text-xs text-muted-foreground truncate">{doc.description}</p>
-                          </div>
-                          {isUploaded && (
-                            <Badge className="bg-green-100 text-green-700">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              {uploadedFiles.filter(f => f.docType === doc.type).length}
-                            </Badge>
-                          )}
-                          {doc.required && !isUploaded && (
-                            <Badge className="bg-orange-100 text-orange-700">รอ</Badge>
-                          )}
-                        </div>
-
-                        {/* Uploaded files */}
-                        {uploadedFiles.filter(f => f.docType === doc.type).length > 0 && (
-                          <div className="space-y-1 mb-3">
-                            {uploadedFiles.filter(f => f.docType === doc.type).map((file, idx) => {
-                              const fileIndex = uploadedFiles.findIndex(f => f === file);
-                              return (
-                                <div key={idx} className="flex items-center gap-2 text-xs bg-white rounded-lg p-2 border">
-                                  {file.file.type.startsWith("image/") ? (
-                                    <Image
-                                      src={file.preview}
-                                      alt={file.file.name}
-                                      width={24}
-                                      height={24}
-                                      className="rounded object-cover"
-                                    />
-                                  ) : (
-                                    <FileText className="h-4 w-4 text-muted-foreground" />
-                                  )}
-                                  <span className="flex-1 truncate">{file.file.name}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeFile(fileIndex)}
-                                    className="text-muted-foreground hover:text-destructive"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* Upload button */}
-                        <label className="flex flex-col items-center justify-center gap-2 py-4 rounded-lg border-2 border-dashed cursor-pointer hover:bg-white/50 transition-colors">
-                          <Upload className="h-6 w-6 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">
-                            {isUploaded ? "เพิ่มไฟล์" : "อัปโหลด"}
-                          </span>
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,application/pdf"
-                            multiple
-                            onChange={(e) => handleFileSelect(e, doc.type)}
-                            className="hidden"
-                          />
-                        </label>
+              {/* Uploaded Files (Create Mode) */}
+              {mode === "create" && uploadedFiles.length > 0 && (
+                <div className="space-y-2">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
+                      <div className="w-9 h-9 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                        <FileText className="h-4 w-4 text-primary" />
                       </div>
-                    );
-                  })}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{file.file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {docTypes.find(d => d.type === file.docType)?.label || file.docType}
+                        </p>
+                      </div>
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          className="w-7 h-7 rounded-full hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+
+              {/* Existing files (view/edit mode) */}
+              {mode !== "create" && document?.subDocuments && document.subDocuments.length > 0 && (
+                <div className="space-y-2">
+                  {document.subDocuments.map((subDoc) => (
+                    <div key={subDoc.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
+                      <div className="w-9 h-9 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                        <FileText className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">
+                          {docTypes.find(d => d.type === subDoc.docType)?.label || subDoc.docType}
+                        </p>
+                        {subDoc.files && subDoc.files.length > 0 && (
+                          <p className="text-xs text-muted-foreground">{subDoc.files.length} ไฟล์</p>
+                        )}
+                      </div>
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {uploadedFiles.length === 0 && mode === "create" && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">ยังไม่มีเอกสาร</p>
+                  <p className="text-xs mt-1">อัปโหลดเอกสารเพื่อเริ่มต้น</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Actions */}
-      {isEditing && (
-        <div className="flex items-center justify-end gap-3">
-          {mode === "view" ? (
-            <>
-              <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
-                ยกเลิก
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                บันทึก
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button type="button" variant="outline" asChild>
-                <Link href="/documents">ยกเลิก</Link>
-              </Button>
-              <Button type="submit" disabled={isPending || !baseAmount}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                {mode === "create" ? "สร้างกล่อง" : "บันทึก"}
-              </Button>
-            </>
-          )}
+      {/* Actions - Only for create mode */}
+      {mode === "create" && (
+        <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-gray-50 -mx-6 px-6 py-4 border-t">
+          <Button type="button" variant="outline" asChild>
+            <Link href="/documents">ยกเลิก</Link>
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={isPending || !amount || !description}
+          >
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            สร้างกล่องเอกสาร
+          </Button>
         </div>
       )}
 
-      {/* Review Dialog */}
-      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent>
+      {/* Merge Dialog */}
+      <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>
-              {reviewAction === "approve" && "อนุมัติเอกสาร"}
-              {reviewAction === "reject" && "ปฏิเสธเอกสาร"}
-              {reviewAction === "need_info" && "ขอข้อมูลเพิ่มเติม"}
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              พบเอกสารซ้ำ
             </DialogTitle>
           </DialogHeader>
-          <Textarea
-            placeholder="ความคิดเห็น (ถ้ามี)..."
-            value={reviewComment}
-            onChange={(e) => setReviewComment(e.target.value)}
-            rows={3}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>
-              ยกเลิก
-            </Button>
-            <Button 
-              onClick={confirmReview} 
-              disabled={isPending}
-              variant={reviewAction === "reject" ? "destructive" : "default"}
+          <p className="text-sm text-muted-foreground">
+            มีเอกสารประเภท "{pendingFile && docTypes.find(d => d.type === pendingFile.docType)?.label}" อยู่แล้ว
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleMergeAction("merge")}
             >
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              ยืนยัน
+              <Plus className="h-4 w-4 mr-1.5" />
+              เพิ่มทั้งคู่
             </Button>
-          </DialogFooter>
+            <Button
+              type="button"
+              onClick={() => handleMergeAction("replace")}
+            >
+              <Replace className="h-4 w-4 mr-1.5" />
+              แทนที่
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => handleMergeAction("cancel")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </form>

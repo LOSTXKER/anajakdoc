@@ -54,9 +54,12 @@ export function serializeSubDocuments(subDocs: SubDocumentWithFiles[]): Serializ
 }
 
 // Serialize WHT Tracking for Client Components
-export function serializeWHTTracking(wht: WHTTrackingWithContact): SerializedWHTTracking {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function serializeWHTTracking(wht: WHTTrackingWithContact & { document?: any }): SerializedWHTTracking {
+  const { document, ...rest } = wht;
+  
   return {
-    ...wht,
+    ...rest,
     whtAmount: toNumber(wht.whtAmount),
     whtRate: toNumber(wht.whtRate),
     issuedDate: wht.issuedDate?.toISOString() || null,
@@ -65,11 +68,19 @@ export function serializeWHTTracking(wht: WHTTrackingWithContact): SerializedWHT
     receivedDate: wht.receivedDate?.toISOString() || null,
     createdAt: wht.createdAt.toISOString(),
     updatedAt: wht.updatedAt.toISOString(),
+    document: document ? {
+      id: document.id,
+      docNumber: document.docNumber,
+      description: document.description,
+      totalAmount: toNumber(document.totalAmount),
+      docDate: document.docDate instanceof Date ? document.docDate.toISOString() : document.docDate,
+    } : null,
   };
 }
 
 // Serialize multiple WHT Trackings
-export function serializeWHTTrackings(whts: WHTTrackingWithContact[]): SerializedWHTTracking[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function serializeWHTTrackings(whts: (WHTTrackingWithContact & { document?: any })[]): SerializedWHTTracking[] {
   return whts.map(serializeWHTTracking);
 }
 

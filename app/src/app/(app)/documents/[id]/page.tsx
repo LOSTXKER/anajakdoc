@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireOrganization } from "@/server/auth";
 import { getDocument } from "@/server/actions/document";
-import { getCategories, getCostCenters, getContacts } from "@/server/queries/master-data";
+import { getCategories, getContacts } from "@/server/queries/master-data";
 import { DocumentBoxForm } from "@/components/documents/document-box-form";
 import { serializeDocument } from "@/lib/utils";
 
@@ -13,10 +13,9 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const session = await requireOrganization();
   const { id } = await params;
   
-  const [doc, categories, costCenters, contacts] = await Promise.all([
+  const [doc, categories, contacts] = await Promise.all([
     getDocument(id),
     getCategories(),
-    getCostCenters(),
     getContacts(),
   ]);
 
@@ -25,15 +24,23 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   }
 
   return (
-    <div className="p-6">
-      <DocumentBoxForm
-        mode="view"
-        document={serializeDocument(doc)}
-        categories={categories}
-        costCenters={costCenters}
-        contacts={contacts}
-        userRole={session.currentOrganization.role}
-      />
-    </div>
+    <>
+      {/* Simple Header Bar */}
+      <header className="border-b bg-white px-6 py-3">
+        <p className="text-sm text-gray-500">
+          รายละเอียดกล่องเอกสาร
+        </p>
+      </header>
+      
+      <div className="p-4 md:p-6 lg:px-8">
+        <DocumentBoxForm
+          mode="view"
+          document={serializeDocument(doc)}
+          categories={categories}
+          contacts={contacts}
+          userRole={session.currentOrganization.role}
+        />
+      </div>
+    </>
   );
 }

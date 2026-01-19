@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireOrganization } from "@/server/auth";
 import { getDocument } from "@/server/actions/document";
-import { getCategories, getCostCenters, getContacts } from "@/server/queries/master-data";
+import { getCategories, getContacts } from "@/server/queries/master-data";
 import { DocumentBoxForm } from "@/components/documents/document-box-form";
 import { serializeDocument } from "@/lib/utils";
 
@@ -13,10 +13,9 @@ export default async function EditDocumentPage({ params }: EditDocumentPageProps
   const session = await requireOrganization();
   const { id } = await params;
   
-  const [doc, categories, costCenters, contacts] = await Promise.all([
+  const [doc, categories, contacts] = await Promise.all([
     getDocument(id),
     getCategories(),
-    getCostCenters(),
     getContacts(),
   ]);
 
@@ -33,7 +32,6 @@ export default async function EditDocumentPage({ params }: EditDocumentPageProps
           mode="view"
           document={serializeDocument(doc)}
           categories={categories}
-          costCenters={costCenters}
           contacts={contacts}
           userRole={session.currentOrganization.role}
         />
@@ -47,7 +45,6 @@ export default async function EditDocumentPage({ params }: EditDocumentPageProps
         mode="edit"
         document={serializeDocument(doc)}
         categories={categories}
-        costCenters={costCenters}
         contacts={contacts}
         userRole={session.currentOrganization.role}
       />

@@ -232,6 +232,75 @@ export async function deleteCostCenter(id: string): Promise<ActionResult> {
 // CONTACTS
 // ============================================
 
+/**
+ * Quick contact creation - just a name and role
+ * Used by the autocomplete input for fast inline creation
+ */
+export async function createQuickContact(
+  name: string,
+  role: "VENDOR" | "CUSTOMER" | "BOTH" = "VENDOR"
+): Promise<ActionResult & { data?: { id: string; name: string; taxId: string | null; contactType: "COMPANY" | "INDIVIDUAL" } }> {
+  const session = await requireOrganization();
+
+  if (!name.trim()) {
+    return { success: false, error: "กรุณากรอกชื่อ" };
+  }
+
+  // Check for existing contact with same name
+  const existing = await prisma.contact.findFirst({
+    where: {
+      organizationId: session.currentOrganization.id,
+      name: {
+        equals: name.trim(),
+        mode: "insensitive",
+      },
+    },
+  });
+
+  if (existing) {
+    // Return existing contact instead of creating duplicate
+    return {
+      success: true,
+      data: {
+        id: existing.id,
+        name: existing.name,
+        taxId: existing.taxId,
+        contactType: existing.contactType,
+      },
+    };
+  }
+
+  // Determine if company or individual based on name
+  const isCompany = name.includes("บริษัท") || 
+                   name.includes("ห้างหุ้นส่วน") || 
+                   name.includes("จำกัด") ||
+                   name.includes("Co.,") ||
+                   name.includes("Ltd") ||
+                   name.includes("Inc");
+
+  const contact = await prisma.contact.create({
+    data: {
+      organizationId: session.currentOrganization.id,
+      name: name.trim(),
+      contactType: isCompany ? "COMPANY" : "INDIVIDUAL",
+      contactRole: role,
+    },
+  });
+
+  revalidatePath("/settings/contacts");
+  revalidatePath("/documents");
+
+  return {
+    success: true,
+    data: {
+      id: contact.id,
+      name: contact.name,
+      taxId: contact.taxId,
+      contactType: contact.contactType,
+    },
+  };
+}
+
 export async function createContact(formData: FormData): Promise<ActionResult & { data?: { id: string; name: string } }> {
   const session = await requireOrganization();
 

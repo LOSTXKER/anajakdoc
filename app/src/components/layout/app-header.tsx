@@ -9,29 +9,36 @@ interface AppHeaderProps {
   title: string;
   description?: string;
   showCreateButton?: boolean;
+  action?: React.ReactNode;
 }
 
-export function AppHeader({ title, description, showCreateButton = true }: AppHeaderProps) {
+export function AppHeader({ title, description, showCreateButton = true, action }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
-      <div>
-        <h1 className="text-xl font-semibold">{title}</h1>
-        {description && (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
-      
-      <div className="flex items-center gap-2">
-        <NotificationBell />
-        
-        {showCreateButton && (
-          <Button asChild>
-            <Link href="/documents/new">
-              <Plus className="mr-2 h-4 w-4" />
-              สร้างกล่องใหม่
-            </Link>
-          </Button>
-        )}
+    <header className="border-b bg-white">
+      <div className="px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+            {description && (
+              <p className="text-sm text-gray-500 mt-0.5">{description}</p>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            
+            {action}
+            
+            {showCreateButton && !action && (
+              <Button asChild>
+                <Link href="/documents/new">
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  สร้างกล่องใหม่
+                </Link>
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </header>
   );

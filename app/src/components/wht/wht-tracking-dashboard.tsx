@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   ArrowUpRight,
   ArrowDownLeft,
   Clock,
   CheckCircle,
   Send,
-  AlertTriangle,
+  Receipt,
 } from "lucide-react";
 import { WHTTrackingCard } from "./wht-tracking-card";
 import type { SerializedWHTTracking } from "@/types";
@@ -42,197 +41,189 @@ export function WHTTrackingDashboard({
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <ArrowUpRight className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">ต้องส่งออก</p>
-                <p className="text-2xl font-bold">{summary.outgoing.pending}</p>
-              </div>
+        <div className="rounded-xl border bg-white p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+              <ArrowUpRight className="h-5 w-5 text-orange-600" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm text-gray-500">ต้องส่งออก</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.outgoing.pending}</p>
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Send className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">ส่งแล้วรอยืนยัน</p>
-                <p className="text-2xl font-bold">{summary.outgoing.sent}</p>
-              </div>
+        <div className="rounded-xl border bg-white p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
+              <Send className="h-5 w-5 text-violet-600" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm text-gray-500">ส่งแล้วรอยืนยัน</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.outgoing.sent}</p>
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <ArrowDownLeft className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">รอรับเข้า</p>
-                <p className="text-2xl font-bold">{summary.incoming.pending}</p>
-              </div>
+        <div className="rounded-xl border bg-white p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
+              <ArrowDownLeft className="h-5 w-5 text-sky-600" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm text-gray-500">รอรับเข้า</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.incoming.pending}</p>
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">ได้รับแล้ว</p>
-                <p className="text-2xl font-bold">{summary.incoming.received}</p>
-              </div>
+        <div className="rounded-xl border bg-white p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-sm text-gray-500">ได้รับแล้ว</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.incoming.received}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="outgoing" className="gap-2">
+        <TabsList className="bg-gray-100/80">
+          <TabsTrigger value="outgoing" className="gap-2 data-[state=active]:bg-white">
             <ArrowUpRight className="h-4 w-4" />
             ต้องส่งออก
             {outgoingPending.length > 0 && (
-              <Badge variant="destructive" className="ml-1">
+              <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
                 {outgoingPending.length}
-              </Badge>
+              </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="incoming" className="gap-2">
+          <TabsTrigger value="incoming" className="gap-2 data-[state=active]:bg-white">
             <ArrowDownLeft className="h-4 w-4" />
             รอรับเข้า
             {incomingPending.length > 0 && (
-              <Badge variant="secondary" className="ml-1">
+              <span className="text-xs bg-sky-500 text-white px-1.5 py-0.5 rounded-full">
                 {incomingPending.length}
-              </Badge>
+              </span>
             )}
           </TabsTrigger>
         </TabsList>
 
         {/* Outgoing Tab */}
-        <TabsContent value="outgoing" className="space-y-6">
+        <TabsContent value="outgoing" className="mt-4 space-y-6">
           {/* Pending Section */}
           {outgoingPending.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-yellow-500" />
-                  รอออกเอกสาร / รอส่ง
-                  <Badge variant="outline">{outgoingPending.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="rounded-xl border bg-white p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="font-medium text-gray-900">รอออกเอกสาร / รอส่ง</span>
+                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                  {outgoingPending.length}
+                </span>
+              </div>
+              <div className="space-y-3">
                 {outgoingPending.map((tracking) => (
                   <WHTTrackingCard key={tracking.id} tracking={tracking} showDocument />
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Sent Section */}
           {outgoingSent.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Send className="h-4 w-4 text-indigo-500" />
-                  ส่งแล้ว รอยืนยันรับ
-                  <Badge variant="outline">{outgoingSent.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="rounded-xl border bg-white p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Send className="h-4 w-4 text-violet-500" />
+                <span className="font-medium text-gray-900">ส่งแล้ว รอยืนยันรับ</span>
+                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                  {outgoingSent.length}
+                </span>
+              </div>
+              <div className="space-y-3">
                 {outgoingSent.map((tracking) => (
                   <WHTTrackingCard key={tracking.id} tracking={tracking} showDocument />
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Confirmed Section */}
           {outgoingConfirmed.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  ยืนยันรับแล้ว
-                  <Badge variant="outline">{outgoingConfirmed.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="rounded-xl border bg-white p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                <span className="font-medium text-gray-900">ยืนยันรับแล้ว</span>
+                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                  {outgoingConfirmed.length}
+                </span>
+              </div>
+              <div className="space-y-3">
                 {outgoingConfirmed.map((tracking) => (
                   <WHTTrackingCard key={tracking.id} tracking={tracking} showDocument />
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Empty State */}
           {outgoingTrackings.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <ArrowUpRight className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="font-medium mb-1">ไม่มีรายการ WHT ที่ต้องส่งออก</h3>
-              <p className="text-sm">หนังสือหัก ณ ที่จ่ายที่ต้องส่งให้คู่ค้าจะแสดงที่นี่</p>
-            </div>
+            <EmptyState
+              icon={Receipt}
+              title="ไม่มีรายการ WHT ที่ต้องส่งออก"
+              description="หนังสือหัก ณ ที่จ่ายที่ต้องส่งให้คู่ค้าจะแสดงที่นี่"
+            />
           )}
         </TabsContent>
 
         {/* Incoming Tab */}
-        <TabsContent value="incoming" className="space-y-6">
+        <TabsContent value="incoming" className="mt-4 space-y-6">
           {/* Pending Section */}
           {incomingPending.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-yellow-500" />
-                  รอรับจากลูกค้า
-                  <Badge variant="outline">{incomingPending.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="rounded-xl border bg-white p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="font-medium text-gray-900">รอรับจากลูกค้า</span>
+                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                  {incomingPending.length}
+                </span>
+              </div>
+              <div className="space-y-3">
                 {incomingPending.map((tracking) => (
                   <WHTTrackingCard key={tracking.id} tracking={tracking} showDocument />
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Received Section */}
           {incomingReceived.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  ได้รับแล้ว
-                  <Badge variant="outline">{incomingReceived.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="rounded-xl border bg-white p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                <span className="font-medium text-gray-900">ได้รับแล้ว</span>
+                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                  {incomingReceived.length}
+                </span>
+              </div>
+              <div className="space-y-3">
                 {incomingReceived.map((tracking) => (
                   <WHTTrackingCard key={tracking.id} tracking={tracking} showDocument />
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Empty State */}
           {incomingTrackings.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <ArrowDownLeft className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="font-medium mb-1">ไม่มีรายการ WHT ที่รอรับเข้า</h3>
-              <p className="text-sm">หนังสือหัก ณ ที่จ่ายที่รอรับจากลูกค้าจะแสดงที่นี่</p>
-            </div>
+            <EmptyState
+              icon={Receipt}
+              title="ไม่มีรายการ WHT ที่รอรับเข้า"
+              description="หนังสือหัก ณ ที่จ่ายที่รอรับจากลูกค้าจะแสดงที่นี่"
+            />
           )}
         </TabsContent>
       </Tabs>

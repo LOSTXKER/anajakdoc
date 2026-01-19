@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import {
   Bell,
   FileText,
@@ -117,12 +116,9 @@ export function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center text-xs"
-            >
+            <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center text-xs bg-red-500 text-white rounded-full">
               {unreadCount > 99 ? "99+" : unreadCount}
-            </Badge>
+            </span>
           )}
         </Button>
       </DropdownMenuTrigger>
@@ -145,7 +141,7 @@ export function NotificationBell() {
 
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
+            <div className="py-8 text-center text-gray-400">
               <Bell className="mx-auto h-8 w-8 mb-2 opacity-50" />
               <p className="text-sm">ไม่มีการแจ้งเตือน</p>
             </div>
@@ -169,10 +165,10 @@ export function NotificationBell() {
                     <p className="font-medium text-sm truncate">
                       {notification.title}
                     </p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
+                    <p className="text-xs text-gray-500 line-clamp-2">
                       {notification.message}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-gray-400 mt-1">
                       {formatDistanceToNow(new Date(notification.createdAt), {
                         addSuffix: true,
                         locale: th,

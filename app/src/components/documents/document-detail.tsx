@@ -62,7 +62,7 @@ function getStatusDisplay(doc: SerializedDocument) {
     return { label: "ยกเลิก", color: "bg-gray-100 text-gray-500", icon: XCircle };
   }
   if (isBooked) {
-    return { label: "บันทึกแล้ว", color: "bg-teal-100 text-teal-700", icon: CheckCircle2 };
+    return { label: "บันทึกแล้ว", color: "bg-primary/10 text-primary", icon: CheckCircle2 };
   }
   if (isExported) {
     return { label: "Export แล้ว", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 };

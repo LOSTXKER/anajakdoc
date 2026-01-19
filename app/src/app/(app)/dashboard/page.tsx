@@ -1,21 +1,18 @@
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { 
   Package, 
   FileText, 
   Clock, 
   CheckCircle2, 
-  AlertCircle,
   ArrowRight,
   TrendingUp,
   TrendingDown,
-  Calendar,
-  Wallet,
+  AlertTriangle,
   CalendarClock,
-  AlertTriangle
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
@@ -24,8 +21,6 @@ async function getDashboardStats(orgId: string) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  
-  // Due date tracking: 7 days from now
   const dueSoon = new Date();
   dueSoon.setDate(dueSoon.getDate() + 7);
 
@@ -50,9 +45,8 @@ async function getDashboardStats(orgId: string) {
       take: 5,
       include: {
         category: true,
-        submittedBy: {
-          select: { name: true, avatarUrl: true },
-        },
+        contact: true,
+        submittedBy: { select: { name: true } },
       },
     }),
     prisma.document.aggregate({
@@ -73,7 +67,6 @@ async function getDashboardStats(orgId: string) {
       },
       _sum: { totalAmount: true },
     }),
-    // Overdue documents
     prisma.document.findMany({
       where: {
         organizationId: orgId,
@@ -82,11 +75,8 @@ async function getDashboardStats(orgId: string) {
       },
       orderBy: { dueDate: "asc" },
       take: 5,
-      include: {
-        contact: { select: { name: true } },
-      },
+      include: { contact: { select: { name: true } } },
     }),
-    // Due within 7 days
     prisma.document.findMany({
       where: {
         organizationId: orgId,
@@ -95,9 +85,7 @@ async function getDashboardStats(orgId: string) {
       },
       orderBy: { dueDate: "asc" },
       take: 5,
-      include: {
-        contact: { select: { name: true } },
-      },
+      include: { contact: { select: { name: true } } },
     }),
   ]);
 
@@ -114,295 +102,262 @@ async function getDashboardStats(orgId: string) {
   };
 }
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  DRAFT: { label: "แบบร่าง", variant: "secondary" },
-  PENDING_REVIEW: { label: "รอตรวจ", variant: "default" },
-  NEED_INFO: { label: "ขอข้อมูลเพิ่ม", variant: "destructive" },
-  READY_TO_EXPORT: { label: "พร้อม Export", variant: "outline" },
-  EXPORTED: { label: "Export แล้ว", variant: "outline" },
-  BOOKED: { label: "บันทึกแล้ว", variant: "outline" },
-};
-
 export default async function DashboardPage() {
   const session = await requireOrganization();
   const stats = await getDashboardStats(session.currentOrganization.id);
+
+  const formatMoney = (amount: number) => 
+    amount.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 
   return (
     <>
       <AppHeader 
         title="Dashboard" 
-        description={`ยินดีต้อนรับ, ${session.name || "ผู้ใช้"}!`}
+        description={`ยินดีต้อนรับ ${session.name || "ผู้ใช้"}`}
+        showCreateButton={false}
       />
       
       <div className="p-6 space-y-6">
         {/* Monthly Summary */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="bg-gradient-to-br from-red-50 to-red-100/50 border-red-200/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-red-700">รายจ่ายเดือนนี้</CardTitle>
-              <TrendingDown className="h-5 w-5 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-red-600">
-                ฿{stats.monthlyExpense.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+          <div className="rounded-xl border bg-white p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-500">รายจ่ายเดือนนี้</span>
+              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                <TrendingDown className="h-4 w-4 text-red-600" />
               </div>
-              <p className="text-xs text-red-600/70 mt-1">
-                {new Date().toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">฿{formatMoney(stats.monthlyExpense)}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {new Date().toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
+            </p>
+          </div>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-700">รายรับเดือนนี้</CardTitle>
-              <TrendingUp className="h-5 w-5 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">
-                ฿{stats.monthlyIncome.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+          <div className="rounded-xl border bg-white p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-500">รายรับเดือนนี้</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-emerald-600" />
               </div>
-              <p className="text-xs text-green-600/70 mt-1">
-                {new Date().toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">฿{formatMoney(stats.monthlyIncome)}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {new Date().toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
+            </p>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">เอกสารทั้งหมด</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalDocs}</div>
-              <p className="text-xs text-muted-foreground">
-                รายการในระบบ
-              </p>
-            </CardContent>
-          </Card>
+        {/* Stats */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <Link href="/documents" className="rounded-xl border bg-white p-4 hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-gray-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalDocs}</p>
+                <p className="text-sm text-gray-500">ทั้งหมด</p>
+              </div>
+            </div>
+          </Link>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">แบบร่าง</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.draftDocs}</div>
-              <p className="text-xs text-muted-foreground">
-                รอดำเนินการ
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/documents" className="rounded-xl border bg-white p-4 hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-slate-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{stats.draftDocs}</p>
+                <p className="text-sm text-gray-500">ร่าง</p>
+              </div>
+            </div>
+          </Link>
 
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">รอตรวจสอบ</CardTitle>
-              <AlertCircle className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.pendingDocs}</div>
-              <p className="text-xs text-muted-foreground">
-                ต้องการความสนใจ
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/documents" className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 hover:border-sky-300 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
+                <Package className="h-5 w-5 text-sky-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-sky-700">{stats.pendingDocs}</p>
+                <p className="text-sm text-sky-600">รอตรวจ</p>
+              </div>
+            </div>
+          </Link>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">อนุมัติแล้ว</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.approvedDocs}</div>
-              <p className="text-xs text-muted-foreground">
-                พร้อม Export
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/documents" className="rounded-xl border bg-white p-4 hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{stats.approvedDocs}</p>
+                <p className="text-sm text-gray-500">อนุมัติแล้ว</p>
+              </div>
+            </div>
+          </Link>
         </div>
 
-        {/* Due Date Alerts */}
+        {/* Alerts */}
         {(stats.overdueDocs.length > 0 || stats.dueSoonDocs.length > 0) && (
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Overdue Documents */}
             {stats.overdueDocs.length > 0 && (
-              <Card className="border-red-200 bg-red-50/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2 text-red-700">
-                    <AlertTriangle className="h-5 w-5" />
-                    เกินกำหนดชำระ ({stats.overdueDocs.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+              <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <span className="font-medium text-red-700">เกินกำหนดชำระ ({stats.overdueDocs.length})</span>
+                </div>
+                <div className="space-y-2">
                   {stats.overdueDocs.map((doc) => {
-                    const daysOverdue = Math.floor((new Date().getTime() - new Date(doc.dueDate!).getTime()) / (1000 * 60 * 60 * 24));
+                    const days = Math.floor((Date.now() - new Date(doc.dueDate!).getTime()) / 86400000);
                     return (
                       <Link
                         key={doc.id}
                         href={`/documents/${doc.id}`}
-                        className="flex items-center justify-between p-2 rounded-md bg-white/80 border border-red-200 hover:bg-white transition-colors"
+                        className="flex items-center justify-between p-3 rounded-lg bg-white border border-red-100 hover:border-red-200 transition-colors"
                       >
                         <div>
-                          <p className="font-medium text-sm">{doc.docNumber}</p>
-                          <p className="text-xs text-muted-foreground">{doc.contact?.name || "ไม่ระบุ"}</p>
+                          <p className="font-medium text-sm text-gray-900">{doc.docNumber}</p>
+                          <p className="text-xs text-gray-500">{doc.contact?.name || "-"}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-sm text-red-600">
                             ฿{doc.totalAmount.toNumber().toLocaleString()}
                           </p>
-                          <p className="text-xs text-red-500">เกิน {daysOverdue} วัน</p>
+                          <p className="text-xs text-red-500">เกิน {days} วัน</p>
                         </div>
                       </Link>
                     );
                   })}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
 
-            {/* Due Soon Documents */}
             {stats.dueSoonDocs.length > 0 && (
-              <Card className="border-amber-200 bg-amber-50/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2 text-amber-700">
-                    <CalendarClock className="h-5 w-5" />
-                    ใกล้ครบกำหนด ({stats.dueSoonDocs.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CalendarClock className="h-5 w-5 text-amber-600" />
+                  <span className="font-medium text-amber-700">ใกล้ครบกำหนด ({stats.dueSoonDocs.length})</span>
+                </div>
+                <div className="space-y-2">
                   {stats.dueSoonDocs.map((doc) => {
-                    const daysUntilDue = Math.ceil((new Date(doc.dueDate!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    const days = Math.ceil((new Date(doc.dueDate!).getTime() - Date.now()) / 86400000);
                     return (
                       <Link
                         key={doc.id}
                         href={`/documents/${doc.id}`}
-                        className="flex items-center justify-between p-2 rounded-md bg-white/80 border border-amber-200 hover:bg-white transition-colors"
+                        className="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-100 hover:border-primary/30 transition-colors"
                       >
                         <div>
-                          <p className="font-medium text-sm">{doc.docNumber}</p>
-                          <p className="text-xs text-muted-foreground">{doc.contact?.name || "ไม่ระบุ"}</p>
+                          <p className="font-medium text-sm text-gray-900">{doc.docNumber}</p>
+                          <p className="text-xs text-gray-500">{doc.contact?.name || "-"}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium text-sm">
+                          <p className="font-medium text-sm text-gray-900">
                             ฿{doc.totalAmount.toNumber().toLocaleString()}
                           </p>
                           <p className="text-xs text-amber-600">
-                            {daysUntilDue === 0 ? "วันนี้" : `อีก ${daysUntilDue} วัน`}
+                            {days === 0 ? "วันนี้" : `อีก ${days} วัน`}
                           </p>
                         </div>
                       </Link>
                     );
                   })}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
         )}
 
+        {/* Quick Actions & Recent */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Quick Actions */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-lg">เริ่มต้นใช้งาน</CardTitle>
-              <CardDescription>สร้างกล่องเอกสารใหม่</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button className="w-full justify-start h-auto py-4" variant="outline" asChild>
-                <Link href="/documents/new?type=expense">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                      <Package className="h-5 w-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium">รายจ่าย</p>
-                      <p className="text-xs text-muted-foreground">ใบเสร็จ, ใบกำกับภาษี</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="ml-auto h-4 w-4" />
-                </Link>
-              </Button>
+          <div className="rounded-xl border bg-white p-5">
+            <h3 className="font-semibold text-gray-900 mb-4">สร้างกล่องใหม่</h3>
+            <div className="space-y-3">
+              <Link
+                href="/documents/new?type=expense"
+                className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                  <TrendingDown className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">รายจ่าย</p>
+                  <p className="text-xs text-gray-500">ใบเสร็จ, ใบกำกับภาษี</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-gray-400" />
+              </Link>
 
-              <Button className="w-full justify-start h-auto py-4" variant="outline" asChild>
-                <Link href="/documents/new?type=income">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600">
-                      <TrendingUp className="h-5 w-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium">รายรับ</p>
-                      <p className="text-xs text-muted-foreground">ใบแจ้งหนี้, ใบเสนอราคา</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="ml-auto h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+              <Link
+                href="/documents/new?type=income"
+                className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">รายรับ</p>
+                  <p className="text-xs text-gray-500">ใบแจ้งหนี้, ใบเสนอราคา</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-gray-400" />
+              </Link>
+            </div>
+          </div>
 
           {/* Recent Documents */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">เอกสารล่าสุด</CardTitle>
-                <CardDescription>เอกสารที่เพิ่งสร้างหรืออัปเดต</CardDescription>
-              </div>
+          <div className="lg:col-span-2 rounded-xl border bg-white p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">เอกสารล่าสุด</h3>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/documents">
                   ดูทั้งหมด
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>
-            </CardHeader>
-            <CardContent>
-              {stats.recentDocs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                  <p className="text-muted-foreground">ยังไม่มีเอกสาร</p>
-                  <Button className="mt-4" asChild>
-                    <Link href="/documents/new">
-                      <Package className="mr-2 h-4 w-4" />
-                      สร้างกล่องแรก
-                    </Link>
-                  </Button>
+            </div>
+
+            {stats.recentDocs.length === 0 ? (
+              <div className="flex flex-col items-center py-10">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                  <Package className="h-7 w-7 text-primary" />
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {stats.recentDocs.map((doc) => (
-                    <Link
-                      key={doc.id}
-                      href={`/documents/${doc.id}`}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                          <FileText className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{doc.docNumber}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {doc.category?.name || "ไม่ระบุหมวด"} • ฿{doc.totalAmount.toNumber().toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
+                <p className="text-gray-500 mb-4">ยังไม่มีเอกสาร</p>
+                <Button size="sm" asChild>
+                  <Link href="/documents/new">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    สร้างกล่องแรก
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {stats.recentDocs.map((doc) => (
+                  <Link
+                    key={doc.id}
+                    href={`/documents/${doc.id}`}
+                    className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Package className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Badge variant={statusConfig[doc.status]?.variant || "secondary"}>
-                          {statusConfig[doc.status]?.label || doc.status}
-                        </Badge>
-                        <div className="flex items-center text-xs text-muted-foreground">
-                          <Calendar className="mr-1 h-3 w-3" />
-                          {new Date(doc.createdAt).toLocaleDateString("th-TH", { 
-                            day: "numeric", 
-                            month: "short" 
-                          })}
-                        </div>
+                        <span className="font-medium text-gray-900">{doc.docNumber}</span>
+                        <StatusBadge status={doc.status} />
                       </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      <p className="text-sm text-gray-500 truncate">
+                        {doc.contact?.name || "-"} • ฿{doc.totalAmount.toNumber().toLocaleString()}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {new Date(doc.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
