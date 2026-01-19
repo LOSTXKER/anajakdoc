@@ -950,9 +950,9 @@ export function DocumentBoxForm({
         {/* RIGHT COLUMN - Documents (2 cols) */}
         <div className="lg:col-span-2 space-y-4">
           {/* Documents Panel */}
-          <div className="rounded-xl border bg-white sticky top-4">
+          <div className="rounded-xl border bg-white sticky top-4 max-h-[calc(100vh-160px)] flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="px-5 py-4 border-b">
+            <div className="px-5 py-4 border-b shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
@@ -977,7 +977,7 @@ export function DocumentBoxForm({
               </p>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
               {/* Upload Area */}
               {isEditing && (
                 <label className="block p-5 rounded-lg border-2 border-dashed hover:border-primary/50 hover:bg-muted/30 transition-all cursor-pointer">
@@ -1092,7 +1092,7 @@ export function DocumentBoxForm({
 
       {/* Actions - Only for create mode */}
       {mode === "create" && (
-        <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-gray-50 -mx-6 px-6 py-4 border-t">
+        <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-gray-50 -mx-6 px-6 py-4 border-t z-10">
           <Button type="button" variant="outline" asChild>
             <Link href="/documents">ยกเลิก</Link>
           </Button>
