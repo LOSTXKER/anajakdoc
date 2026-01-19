@@ -511,6 +511,7 @@ export function UploadFirstForm({
 
               {/* Show form if no matches or user chose to create new */}
               {(!matchResult || !matchResult.hasMatch) && (
+              <>
               <div className="rounded-xl border bg-white overflow-hidden">
                 <div className="px-5 py-4 border-b">
                   <div className="flex items-center gap-3">
@@ -634,6 +635,7 @@ export function UploadFirstForm({
                   สร้างกล่องเอกสาร
                 </Button>
               </div>
+              </>
               )}
             </div>
           </div>
