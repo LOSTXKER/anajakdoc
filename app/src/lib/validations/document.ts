@@ -11,10 +11,12 @@ export const createDocumentSchema = z.object({
   dueDate: z.union([z.string(), z.date()]).optional().transform((val) => 
     val ? (typeof val === "string" ? new Date(val) : val) : undefined
   ),
-  subtotal: z.coerce.number().min(0),
+  // Amount fields are now optional - may not know until tax invoice arrives
+  // For slip-only uploads, amount might be 0 or unknown
+  subtotal: z.coerce.number().min(0).default(0),
   vatAmount: z.coerce.number().min(0).default(0),
   whtAmount: z.coerce.number().min(0).default(0),
-  totalAmount: z.coerce.number().min(0),
+  totalAmount: z.coerce.number().min(0).default(0),
   vatRate: z.coerce.number().min(0).max(100).optional(),
   isVatInclusive: z.boolean().default(true),
   hasValidVat: z.boolean().default(false),

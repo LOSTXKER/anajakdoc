@@ -34,16 +34,21 @@ async function generateDocNumber(orgId: string, type: "EXPENSE" | "INCOME"): Pro
 export async function createDocument(formData: FormData): Promise<ApiResponse<{ id: string }>> {
   const session = await requireOrganization();
   
+  // Get totalAmount - may be optional for slip-only uploads
+  const totalAmountStr = formData.get("totalAmount") as string;
+  const totalAmount = totalAmountStr ? parseFloat(totalAmountStr) : 0;
+  
   const rawData = {
     transactionType: formData.get("transactionType") as string,
     // docType is now optional - defaults to RECEIPT for backward compatibility
     docType: (formData.get("docType") as string) || undefined,
     docDate: formData.get("docDate") as string,
     dueDate: formData.get("dueDate") as string || undefined,
-    subtotal: formData.get("subtotal") as string,
+    // Amount fields - default to 0 if not provided (slip-only case)
+    subtotal: formData.get("subtotal") as string || totalAmount.toString(),
     vatAmount: formData.get("vatAmount") as string || "0",
     whtAmount: formData.get("whtAmount") as string || "0",
-    totalAmount: formData.get("totalAmount") as string,
+    totalAmount: totalAmount.toString(),
     vatRate: formData.get("vatRate") as string || undefined,
     isVatInclusive: formData.get("isVatInclusive") === "true",
     hasValidVat: formData.get("hasValidVat") === "true",
@@ -103,8 +108,22 @@ export async function createDocument(formData: FormData): Promise<ApiResponse<{ 
   });
 
   // Handle file uploads and create SubDocuments
-  const files = formData.getAll("files") as File[];
-  const fileTypes = formData.getAll("fileTypes") as string[];
+  // Support both old format (files[], fileTypes[]) and new format (file_0, file_1, ...)
+  let files: File[] = formData.getAll("files") as File[];
+  let fileTypes: string[] = formData.getAll("fileTypes") as string[];
+
+  // Check for new format (file_0, file_1, ...)
+  if (files.length === 0) {
+    let index = 0;
+    while (true) {
+      const file = formData.get(`file_${index}`) as File | null;
+      if (!file || !(file instanceof File)) break;
+      files.push(file);
+      const fileType = formData.get(`fileType_${index}`) as string || "OTHER";
+      fileTypes.push(fileType);
+      index++;
+    }
+  }
 
   if (files.length > 0) {
     const supabase = await createClient();
