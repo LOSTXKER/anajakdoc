@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   CalendarClock,
   Plus,
+  Receipt,
+  FileCheck,
 } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
@@ -34,6 +36,10 @@ async function getDashboardStats(orgId: string) {
     monthlyIncome,
     overdueDocs,
     dueSoonDocs,
+    // New: Get documents waiting for tax invoice
+    docsWaitingTaxInvoice,
+    // New: Get pending WHT tracking
+    pendingWht,
   ] = await Promise.all([
     prisma.document.count({ where: { organizationId: orgId } }),
     prisma.document.count({ where: { organizationId: orgId, status: "DRAFT" } }),
@@ -47,6 +53,7 @@ async function getDashboardStats(orgId: string) {
         category: true,
         contact: true,
         submittedBy: { select: { name: true } },
+        subDocuments: { select: { docType: true } },
       },
     }),
     prisma.document.aggregate({
@@ -87,6 +94,40 @@ async function getDashboardStats(orgId: string) {
       take: 5,
       include: { contact: { select: { name: true } } },
     }),
+    // Documents with SLIP but no TAX_INVOICE
+    prisma.document.findMany({
+      where: {
+        organizationId: orgId,
+        status: { notIn: ["VOID", "REJECTED", "BOOKED", "EXPORTED"] },
+        subDocuments: {
+          some: { docType: "SLIP" },
+        },
+        NOT: {
+          subDocuments: {
+            some: { docType: "TAX_INVOICE" },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { 
+        contact: { select: { name: true } },
+        subDocuments: { select: { docType: true } },
+      },
+    }),
+    // WHT tracking pending
+    prisma.wHTTracking.findMany({
+      where: {
+        organizationId: orgId,
+        status: "PENDING",
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { 
+        document: { select: { docNumber: true } },
+        contact: { select: { name: true } },
+      },
+    }),
   ]);
 
   return {
@@ -99,6 +140,8 @@ async function getDashboardStats(orgId: string) {
     monthlyIncome: monthlyIncome._sum.totalAmount?.toNumber() || 0,
     overdueDocs,
     dueSoonDocs,
+    docsWaitingTaxInvoice,
+    pendingWht,
   };
 }
 
@@ -198,7 +241,85 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* Alerts */}
+        {/* Document Status Alerts */}
+        {(stats.docsWaitingTaxInvoice.length > 0 || stats.pendingWht.length > 0) && (
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Waiting for Tax Invoice */}
+            {stats.docsWaitingTaxInvoice.length > 0 && (
+              <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Receipt className="h-5 w-5 text-orange-600" />
+                  <span className="font-medium text-orange-700">รอใบกำกับภาษี ({stats.docsWaitingTaxInvoice.length})</span>
+                </div>
+                <p className="text-xs text-orange-600 mb-3">
+                  กล่องที่มีสลิปแล้ว แต่ยังไม่มีใบกำกับ
+                </p>
+                <div className="space-y-2">
+                  {stats.docsWaitingTaxInvoice.map((doc) => (
+                    <Link
+                      key={doc.id}
+                      href={`/documents/${doc.id}`}
+                      className="flex items-center justify-between p-3 rounded-lg bg-white border border-orange-100 hover:border-orange-200 transition-colors"
+                    >
+                      <div>
+                        <p className="font-medium text-sm text-gray-900">{doc.docNumber}</p>
+                        <p className="text-xs text-gray-500">{doc.contact?.name || "-"}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-sm text-orange-600">
+                          {doc.totalAmount.toNumber() > 0 
+                            ? `฿${doc.totalAmount.toNumber().toLocaleString()}`
+                            : "รอยอด"
+                          }
+                        </p>
+                        <p className="text-xs text-orange-500">มีสลิป</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pending WHT */}
+            {stats.pendingWht.length > 0 && (
+              <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileCheck className="h-5 w-5 text-purple-600" />
+                  <span className="font-medium text-purple-700">รอหนังสือหัก ณ ที่จ่าย ({stats.pendingWht.length})</span>
+                </div>
+                <p className="text-xs text-purple-600 mb-3">
+                  รายการที่รอรับ/ส่งหนังสือรับรอง
+                </p>
+                <div className="space-y-2">
+                  {stats.pendingWht.map((wht) => (
+                    <Link
+                      key={wht.id}
+                      href={wht.documentId ? `/documents/${wht.documentId}` : "/wht-tracking"}
+                      className="flex items-center justify-between p-3 rounded-lg bg-white border border-purple-100 hover:border-purple-200 transition-colors"
+                    >
+                      <div>
+                        <p className="font-medium text-sm text-gray-900">
+                          {wht.document?.docNumber || "ไม่ระบุ"}
+                        </p>
+                        <p className="text-xs text-gray-500">{wht.contact?.name || "-"}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-sm text-purple-600">
+                          ฿{wht.whtAmount.toNumber().toLocaleString()}
+                        </p>
+                        <p className="text-xs text-purple-500">
+                          {wht.trackingType === "OUTGOING" ? "รอส่ง" : "รอรับ"}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Payment Alerts */}
         {(stats.overdueDocs.length > 0 || stats.dueSoonDocs.length > 0) && (
           <div className="grid gap-4 md:grid-cols-2">
             {stats.overdueDocs.length > 0 && (
