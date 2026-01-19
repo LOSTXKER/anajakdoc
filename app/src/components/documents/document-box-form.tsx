@@ -49,6 +49,7 @@ import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning"
 import { ContactInput, type ContactOption } from "@/components/documents/contact-input";
 import { DocumentFileCard, type ExtractedFile } from "@/components/documents/document-file-card";
 import { ConflictResolver, SourceBadge } from "@/components/documents/conflict-resolver";
+import { BoxProgressTracker } from "@/components/documents/box-progress-tracker";
 import { getDocumentChecklist, calculateCompletionPercent, type DocumentChecklist as ChecklistState } from "@/lib/checklist";
 import { formatMoney, getTodayForInput } from "@/lib/formatters";
 import { 
@@ -501,49 +502,22 @@ export function DocumentBoxForm({
             </div>
           </div>
 
-          {/* Progress Stepper */}
-          {checklistItems.length > 0 && (
-            <div className="flex items-start justify-between px-4 py-6 bg-white rounded-xl border">
-              {checklistItems.map((item, index) => (
-                <div key={item.id} className="flex-1 flex flex-col items-center relative">
-                  {/* Connector Line */}
-                  {index < checklistItems.length - 1 && (
-                    <div 
-                      className={cn(
-                        "absolute top-5 left-1/2 w-full h-0.5",
-                        item.completed ? "bg-primary" : "bg-gray-200"
-                      )} 
-                    />
-                  )}
-                  
-                  {/* Circle */}
-                  <div
-                    className={cn(
-                      "relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
-                      item.completed
-                        ? "bg-primary border-primary text-white"
-                        : "bg-white border-gray-300 text-gray-400"
-                    )}
-                  >
-                    {item.completed ? (
-                      <Check className="h-5 w-5" />
-                    ) : item.id === "whtSent" ? (
-                      <Send className="h-4 w-4" />
-                    ) : (
-                      <FileText className="h-4 w-4" />
-                    )}
-                  </div>
-
-                  {/* Label */}
-                  <span className={cn(
-                    "mt-2 text-xs text-center max-w-[80px]",
-                    item.completed ? "text-primary font-medium" : "text-gray-500"
-                  )}>
-                    {item.label}
-                  </span>
-                </div>
-              ))}
-            </div>
+          {/* Progress Tracker */}
+          {document && (
+            <BoxProgressTracker
+              hasSlip={uploadedDocTypes.has("SLIP")}
+              hasTaxInvoice={uploadedDocTypes.has("TAX_INVOICE")}
+              hasReceipt={uploadedDocTypes.has("RECEIPT")}
+              hasWhtCert={uploadedDocTypes.has("WHT_CERT_SENT") || uploadedDocTypes.has("WHT_CERT_RECEIVED")}
+              hasWht={document.hasWht}
+              totalAmount={document.totalAmount}
+              transactionType={document.transactionType}
+              onAddDocument={isEditing ? (docType) => {
+                // Trigger file upload input
+                const input = window.document.getElementById("file-upload-input") as HTMLInputElement;
+                if (input) input.click();
+              } : undefined}
+            />
           )}
         </>
       )}
