@@ -948,9 +948,9 @@ export function DocumentBoxForm({
         </div>
 
         {/* RIGHT COLUMN - Documents (2 cols) */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-4 sticky top-4 max-h-[calc(100vh-160px)] overflow-y-auto">
           {/* Documents Panel */}
-          <div className="rounded-xl border bg-white sticky top-4 max-h-[calc(100vh-160px)] flex flex-col overflow-hidden">
+          <div className="rounded-xl border bg-white flex flex-col overflow-hidden">
             {/* Header */}
             <div className="px-5 py-4 border-b shrink-0">
               <div className="flex items-center justify-between">
