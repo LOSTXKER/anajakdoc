@@ -22,9 +22,9 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const userRole = session.currentOrganization.role;
 
   // Determine permissions
-  const canEdit = ["ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
+  const canEdit = ["OWNER", "ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
     ["DRAFT", "NEED_INFO"].includes(doc.status);
-  const canSend = ["ADMIN", "STAFF"].includes(userRole) && doc.status === "DRAFT";
+  const canSend = ["OWNER", "ADMIN", "STAFF"].includes(userRole) && doc.status === "DRAFT";
 
   return (
     <div className="p-4 md:p-6 lg:px-8 max-w-4xl mx-auto">
