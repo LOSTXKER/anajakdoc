@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { createDocument } from "@/server/actions/document";
-import { classifyDocument, type ExtractedDocumentData } from "@/server/actions/ai-classify";
+import { createDocument, getPendingBoxes, addFileToExistingBox } from "@/server/actions/document";
+import { 
+  extractDocumentData, 
+  findMatchingDocumentBox,
+  type ExtractedDocumentData,
+  type DocumentBoxMatch,
+  type MatchResult,
+} from "@/server/actions/ai-classify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Upload,
   FileText,
@@ -41,8 +41,9 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ContactInput, type ContactOption } from "@/components/documents/contact-input";
+import { BoxMatchPanel } from "@/components/documents/box-match-panel";
 import { formatMoney, getTodayForInput } from "@/lib/formatters";
-import { getSubDocTypeConfig, TRANSACTION_TYPE_CONFIG } from "@/lib/document-config";
+import { getSubDocTypeConfig } from "@/lib/document-config";
 import type { Category, Contact } from ".prisma/client";
 import type { SubDocType } from "@/types";
 
@@ -98,6 +99,33 @@ export function UploadFirstForm({
     }))
   );
 
+  // Matching state
+  const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+  const [isMatching, setIsMatching] = useState(false);
+  const [pendingBoxes, setPendingBoxes] = useState<Array<{
+    id: string;
+    docNumber: string;
+    description: string | null;
+    totalAmount: number;
+    docDate: Date;
+    contactId: string | null;
+    contactName: string | null;
+    contactTaxId: string | null;
+    hasSlip: boolean;
+    hasTaxInvoice: boolean;
+  }>>([]);
+
+  // Load pending boxes on mount
+  useEffect(() => {
+    async function loadPendingBoxes() {
+      const result = await getPendingBoxes(transactionType);
+      if (result.success && result.data) {
+        setPendingBoxes(result.data);
+      }
+    }
+    loadPendingBoxes();
+  }, [transactionType]);
+
   // Handle file drop/select
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -127,21 +155,34 @@ export function UploadFirstForm({
     // Start analyzing
     setIsAnalyzing(true);
     
+    let firstExtractedData: ExtractedDocumentData | null = null;
+    
     for (const extractedFile of newFiles) {
-      await analyzeFile(extractedFile);
+      const data = await analyzeFile(extractedFile);
+      if (data && !firstExtractedData) {
+        firstExtractedData = data;
+      }
     }
     
     setIsAnalyzing(false);
+    
+    // Try to find matching boxes
+    if (firstExtractedData && pendingBoxes.length > 0) {
+      setIsMatching(true);
+      const match = await findMatchingDocumentBox(firstExtractedData, pendingBoxes);
+      setMatchResult(match);
+      setIsMatching(false);
+    }
     
     // Move to review step if we have results
     setStep("review");
     
     // Reset input
     e.target.value = "";
-  }, []);
+  }, [pendingBoxes]);
 
-  // Analyze a single file with AI
-  const analyzeFile = async (extractedFile: ExtractedFile) => {
+  // Analyze a single file with AI - returns extracted data
+  const analyzeFile = async (extractedFile: ExtractedFile): Promise<ExtractedDocumentData | null> => {
     setFiles(prev => prev.map(f => 
       f.id === extractedFile.id ? { ...f, status: "analyzing" } : f
     ));
@@ -150,8 +191,8 @@ export function UploadFirstForm({
       // Convert file to base64
       const base64 = await fileToBase64(extractedFile.file);
       
-      // Call AI classification
-      const result = await classifyDocument(base64, extractedFile.file.type);
+      // Call AI extraction (full data, not just classification)
+      const result = await extractDocumentData(base64, extractedFile.file.type);
       
       if (result.success && result.data) {
         setFiles(prev => prev.map(f => 
@@ -166,12 +207,15 @@ export function UploadFirstForm({
         if (data.documentDate && docDate === getTodayForInput()) setDocDate(data.documentDate);
         if (data.description && !description) setDescription(data.description);
         if (data.contactName && !contactName) setContactName(data.contactName);
+        
+        return data;
       } else {
         setFiles(prev => prev.map(f => 
           f.id === extractedFile.id 
             ? { ...f, status: "error", error: result.error || "วิเคราะห์ไม่สำเร็จ" } 
             : f
         ));
+        return null;
       }
     } catch (error) {
       setFiles(prev => prev.map(f => 
@@ -179,6 +223,7 @@ export function UploadFirstForm({
           ? { ...f, status: "error", error: "เกิดข้อผิดพลาด" } 
           : f
       ));
+      return null;
     }
   };
 
@@ -210,6 +255,50 @@ export function UploadFirstForm({
     setContacts(prev => [...prev, contact]);
     setSelectedContactId(contact.id);
     setContactName(contact.name);
+  };
+
+  // Add to existing box
+  const handleAddToExistingBox = async (documentId: string) => {
+    if (files.length === 0) {
+      toast.error("กรุณาอัปโหลดเอกสารอย่างน้อย 1 ไฟล์");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        // Add each file to the existing box
+        for (const f of files) {
+          const formData = new FormData();
+          formData.append("file", f.file);
+          if (f.extractedData?.type) {
+            formData.append("docType", f.extractedData.type);
+          }
+          if (f.extractedData?.amount) {
+            formData.append("amount", f.extractedData.amount.toString());
+          }
+          if (f.extractedData?.vatAmount) {
+            formData.append("vatAmount", f.extractedData.vatAmount.toString());
+          }
+
+          const result = await addFileToExistingBox(documentId, formData);
+          
+          if (!result.success) {
+            toast.error(result.error || "เกิดข้อผิดพลาด");
+            return;
+          }
+        }
+
+        toast.success("เพิ่มเอกสารเข้ากล่องสำเร็จ");
+        router.push(`/documents/${documentId}`);
+      } catch (error) {
+        toast.error("เกิดข้อผิดพลาดในการเพิ่มเอกสาร");
+      }
+    });
+  };
+
+  // Clear match result and create new
+  const handleCreateNew = () => {
+    setMatchResult(null);
   };
 
   // Submit form
@@ -406,8 +495,22 @@ export function UploadFirstForm({
               )}
             </div>
 
-            {/* Right: Form */}
+            {/* Right: Form or Match Panel */}
             <div className="space-y-4">
+              {/* Show Match Panel if matches found */}
+              {matchResult && matchResult.hasMatch && (
+                <BoxMatchPanel
+                  matches={matchResult.matches}
+                  suggestedAction={matchResult.suggestedAction}
+                  reason={matchResult.reason}
+                  onSelectBox={handleAddToExistingBox}
+                  onCreateNew={handleCreateNew}
+                  isLoading={isPending}
+                />
+              )}
+
+              {/* Show form if no matches or user chose to create new */}
+              {(!matchResult || !matchResult.hasMatch) && (
               <div className="rounded-xl border bg-white overflow-hidden">
                 <div className="px-5 py-4 border-b">
                   <div className="flex items-center gap-3">
@@ -531,6 +634,7 @@ export function UploadFirstForm({
                   สร้างกล่องเอกสาร
                 </Button>
               </div>
+              )}
             </div>
           </div>
         </form>

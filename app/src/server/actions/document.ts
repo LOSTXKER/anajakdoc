@@ -901,3 +901,211 @@ export async function updatePaymentStatus(
       : "อัปเดตสถานะการชำระเรียบร้อย" 
   };
 }
+
+// Get pending boxes for AI matching
+export async function getPendingBoxes(transactionType: "EXPENSE" | "INCOME"): Promise<ApiResponse<Array<{
+  id: string;
+  docNumber: string;
+  description: string | null;
+  totalAmount: number;
+  docDate: Date;
+  contactId: string | null;
+  contactName: string | null;
+  contactTaxId: string | null;
+  hasSlip: boolean;
+  hasTaxInvoice: boolean;
+}>>> {
+  const session = await requireOrganization();
+
+  const documents = await prisma.document.findMany({
+    where: {
+      organizationId: session.currentOrganization.id,
+      transactionType,
+      // Only get documents that are incomplete (missing documents)
+      OR: [
+        { status: DocumentStatus.DRAFT },
+        { status: DocumentStatus.PENDING },
+      ],
+    },
+    include: {
+      contact: {
+        select: {
+          id: true,
+          name: true,
+          taxId: true,
+        },
+      },
+      subDocuments: {
+        select: {
+          docType: true,
+        },
+      },
+    },
+    orderBy: {
+      docDate: "desc",
+    },
+    take: 50, // Limit for performance
+  });
+
+  const result = documents.map(doc => {
+    const subDocTypes = doc.subDocuments.map(sd => sd.docType);
+    return {
+      id: doc.id,
+      docNumber: doc.docNumber,
+      description: doc.description,
+      totalAmount: doc.totalAmount,
+      docDate: doc.docDate,
+      contactId: doc.contact?.id || null,
+      contactName: doc.contact?.name || null,
+      contactTaxId: doc.contact?.taxId || null,
+      hasSlip: subDocTypes.includes("SLIP"),
+      hasTaxInvoice: subDocTypes.includes("TAX_INVOICE"),
+    };
+  });
+
+  return { success: true, data: result };
+}
+
+// Add document file to existing box
+export async function addFileToExistingBox(
+  documentId: string,
+  formData: FormData
+): Promise<ApiResponse> {
+  const session = await requireOrganization();
+
+  const document = await prisma.document.findFirst({
+    where: {
+      id: documentId,
+      organizationId: session.currentOrganization.id,
+    },
+  });
+
+  if (!document) {
+    return { success: false, error: "ไม่พบกล่องเอกสาร" };
+  }
+
+  // Get file from formData
+  const file = formData.get("file") as File | null;
+  const docType = (formData.get("docType") as string) || "OTHER";
+  const amount = formData.get("amount") as string | null;
+  const vatAmount = formData.get("vatAmount") as string | null;
+
+  if (!file || !(file instanceof File)) {
+    return { success: false, error: "ไม่พบไฟล์" };
+  }
+
+  const supabase = await createClient();
+
+  try {
+    // Generate unique filename
+    const ext = file.name.split(".").pop();
+    const timestamp = Date.now();
+    const randomStr = crypto.randomBytes(8).toString("hex");
+    const fileName = `${session.currentOrganization.id}/${document.id}/${timestamp}-${randomStr}.${ext}`;
+
+    // Calculate checksum
+    const arrayBuffer = await file.arrayBuffer();
+    const checksum = crypto
+      .createHash("md5")
+      .update(Buffer.from(arrayBuffer))
+      .digest("hex");
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(fileName, file, {
+        contentType: file.type,
+        cacheControl: "3600",
+      });
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return { success: false, error: "อัปโหลดไฟล์ไม่สำเร็จ" };
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("documents")
+      .getPublicUrl(fileName);
+
+    // Check if SubDocument for this type already exists
+    let subDocument = await prisma.subDocument.findFirst({
+      where: {
+        documentId: document.id,
+        docType: docType as SubDocType,
+      },
+    });
+
+    if (subDocument) {
+      // Add file to existing SubDocument
+      await prisma.documentFile.create({
+        data: {
+          subDocumentId: subDocument.id,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          storagePath: fileName,
+          publicUrl: urlData.publicUrl,
+          checksum,
+          uploadedById: session.id,
+        },
+      });
+    } else {
+      // Create new SubDocument with file
+      subDocument = await prisma.subDocument.create({
+        data: {
+          documentId: document.id,
+          docType: docType as SubDocType,
+          files: {
+            create: {
+              fileName: file.name,
+              fileSize: file.size,
+              fileType: file.type,
+              storagePath: fileName,
+              publicUrl: urlData.publicUrl,
+              checksum,
+              uploadedById: session.id,
+            },
+          },
+        },
+      });
+    }
+
+    // Update document amount if provided (e.g., from tax invoice)
+    if (amount && docType === "TAX_INVOICE") {
+      const amountNum = parseFloat(amount);
+      const vatAmountNum = vatAmount ? parseFloat(vatAmount) : 0;
+      
+      await prisma.document.update({
+        where: { id: document.id },
+        data: {
+          totalAmount: amountNum,
+          subtotal: amountNum - vatAmountNum,
+          vatAmount: vatAmountNum,
+          hasValidVat: vatAmountNum > 0,
+        },
+      });
+    }
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        documentId: document.id,
+        userId: session.id,
+        action: "file_added",
+        details: {
+          fileName: file.name,
+          docType,
+        },
+      },
+    });
+
+    revalidatePath(`/documents/${document.id}`);
+    revalidatePath("/documents");
+
+    return { success: true, message: "เพิ่มเอกสารสำเร็จ" };
+  } catch (error) {
+    console.error("Error adding file:", error);
+    return { success: false, error: "เกิดข้อผิดพลาด" };
+  }
+}

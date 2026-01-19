@@ -210,3 +210,185 @@ export async function fileToBase64(file: File): Promise<string> {
   }
   return btoa(binary);
 }
+
+// Types for matching
+export type DocumentBoxMatch = {
+  documentId: string;
+  docNumber: string;
+  contactName?: string;
+  amount?: number;
+  matchScore: number;
+  matchReasons: string[];
+};
+
+export type MatchResult = {
+  hasMatch: boolean;
+  matches: DocumentBoxMatch[];
+  suggestedAction: "add_to_existing" | "create_new";
+  reason: string;
+};
+
+// Match extracted data against existing document boxes
+export async function findMatchingDocumentBox(
+  extractedData: ExtractedDocumentData,
+  existingBoxes: Array<{
+    id: string;
+    docNumber: string;
+    description?: string | null;
+    totalAmount: number;
+    docDate: Date;
+    contactId?: string | null;
+    contactName?: string | null;
+    contactTaxId?: string | null;
+    hasSlip: boolean;
+    hasTaxInvoice: boolean;
+  }>
+): Promise<MatchResult> {
+  if (!existingBoxes.length) {
+    return {
+      hasMatch: false,
+      matches: [],
+      suggestedAction: "create_new",
+      reason: "ไม่มีกล่องเอกสารที่รอเอกสาร",
+    };
+  }
+
+  const matches: DocumentBoxMatch[] = [];
+
+  for (const box of existingBoxes) {
+    const reasons: string[] = [];
+    let score = 0;
+
+    // 1. Match by Tax ID (strongest signal)
+    if (extractedData.taxId && box.contactTaxId) {
+      const extractedTaxId = extractedData.taxId.replace(/\D/g, "");
+      const boxTaxId = box.contactTaxId.replace(/\D/g, "");
+      if (extractedTaxId === boxTaxId) {
+        score += 50;
+        reasons.push("เลขประจำตัวผู้เสียภาษีตรงกัน");
+      }
+    }
+
+    // 2. Match by contact name (fuzzy)
+    if (extractedData.contactName && box.contactName) {
+      const similarity = calculateNameSimilarity(
+        extractedData.contactName,
+        box.contactName
+      );
+      if (similarity >= 0.7) {
+        score += 30;
+        reasons.push(`ชื่อผู้ติดต่อคล้ายกัน (${Math.round(similarity * 100)}%)`);
+      }
+    }
+
+    // 3. Match by amount (if box doesn't have amount yet, or matches)
+    if (extractedData.amount && box.totalAmount > 0) {
+      const diff = Math.abs(extractedData.amount - box.totalAmount);
+      const percentDiff = diff / box.totalAmount;
+      
+      if (percentDiff <= 0.01) { // Within 1%
+        score += 25;
+        reasons.push("ยอดเงินตรงกัน");
+      } else if (percentDiff <= 0.05) { // Within 5%
+        score += 15;
+        reasons.push("ยอดเงินใกล้เคียง");
+      }
+    } else if (extractedData.amount && box.totalAmount === 0) {
+      // Box has no amount yet (slip-only case) - this is a good candidate
+      score += 20;
+      reasons.push("กล่องยังไม่มียอดเงิน (รอใบกำกับ)");
+    }
+
+    // 4. Match by date (within 7 days)
+    if (extractedData.documentDate) {
+      const extractedDate = new Date(extractedData.documentDate);
+      const boxDate = new Date(box.docDate);
+      const daysDiff = Math.abs(
+        (extractedDate.getTime() - boxDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      if (daysDiff <= 1) {
+        score += 15;
+        reasons.push("วันที่ตรงกัน");
+      } else if (daysDiff <= 7) {
+        score += 10;
+        reasons.push("วันที่ใกล้เคียง");
+      }
+    }
+
+    // 5. Check if box needs this document type
+    const docType = extractedData.type;
+    if (docType === "TAX_INVOICE" && !box.hasTaxInvoice) {
+      score += 20;
+      reasons.push("กล่องยังไม่มีใบกำกับภาษี");
+    } else if (docType === "SLIP" && !box.hasSlip) {
+      score += 15;
+      reasons.push("กล่องยังไม่มีสลิป");
+    } else if (docType === "TAX_INVOICE" && box.hasTaxInvoice) {
+      // Already has tax invoice - less likely to match
+      score -= 30;
+    }
+
+    // Only include if score is positive and above threshold
+    if (score >= 30 && reasons.length > 0) {
+      matches.push({
+        documentId: box.id,
+        docNumber: box.docNumber,
+        contactName: box.contactName || undefined,
+        amount: box.totalAmount,
+        matchScore: Math.min(score, 100),
+        matchReasons: reasons,
+      });
+    }
+  }
+
+  // Sort by score descending
+  matches.sort((a, b) => b.matchScore - a.matchScore);
+
+  // Determine suggested action
+  const topMatch = matches[0];
+  if (topMatch && topMatch.matchScore >= 60) {
+    return {
+      hasMatch: true,
+      matches: matches.slice(0, 3), // Return top 3
+      suggestedAction: "add_to_existing",
+      reason: `แนะนำให้เพิ่มเข้ากล่อง ${topMatch.docNumber}`,
+    };
+  } else if (matches.length > 0) {
+    return {
+      hasMatch: true,
+      matches: matches.slice(0, 3),
+      suggestedAction: "create_new",
+      reason: "พบกล่องที่อาจตรงกัน แต่ไม่แน่ใจ",
+    };
+  }
+
+  return {
+    hasMatch: false,
+    matches: [],
+    suggestedAction: "create_new",
+    reason: "ไม่พบกล่องที่ตรงกัน แนะนำสร้างใหม่",
+  };
+}
+
+// Simple name similarity using Jaccard index
+function calculateNameSimilarity(name1: string, name2: string): number {
+  // Normalize names
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/บริษัท|จำกัด|มหาชน|ltd|co\.|inc\.|corp\./gi, "")
+      .replace(/[^\u0E00-\u0E7Fa-z0-9]/gi, " ")
+      .split(/\s+/)
+      .filter((x) => x.length > 1);
+
+  const set1 = new Set(normalize(name1));
+  const set2 = new Set(normalize(name2));
+
+  if (set1.size === 0 || set2.size === 0) return 0;
+
+  const intersection = new Set([...set1].filter((x) => set2.has(x)));
+  const union = new Set([...set1, ...set2]);
+
+  return intersection.size / union.size;
+}
