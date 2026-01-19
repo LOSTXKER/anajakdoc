@@ -63,7 +63,6 @@ export async function exportDocumentsToExcel(
       "ยอดรวม": doc.totalAmount.toString(),
       "สถานะ": doc.status,
       "ผู้ส่ง": doc.submittedBy.name || doc.submittedBy.email,
-      "เลขที่อ้างอิง": doc.externalRef || "-",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -211,7 +210,6 @@ export async function exportDocuments(
       "วิธีชำระเงิน": doc.paymentMethod || "-",
       "สถานะ": doc.status,
       "ผู้ส่ง": doc.submittedBy.name || doc.submittedBy.email,
-      "เลขที่อ้างอิง": doc.externalRef || "-",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);

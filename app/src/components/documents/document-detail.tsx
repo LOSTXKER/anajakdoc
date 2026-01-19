@@ -17,7 +17,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
@@ -31,17 +30,17 @@ import {
   Building2,
   FolderOpen,
   Users,
-  DollarSign,
   Loader2,
   Clock,
   AlertCircle,
   Download,
-  Image as ImageIcon,
   File,
   Package,
-  History,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDate, formatMoney, formatFileSize, getInitials } from "@/lib/formatters";
+import { getDocTypeLabel, isAccountingRole, canReviewDocument, getTransactionTypeConfig } from "@/lib/document-config";
+import { cn } from "@/lib/utils";
 import type { SerializedDocument, MemberRole } from "@/types";
 import { SubDocumentList } from "./subdocument-list";
 import { WHTTrackingList } from "@/components/wht/wht-tracking-list";
@@ -76,17 +75,6 @@ function getStatusDisplay(doc: SerializedDocument) {
   return { label: `${percent}%`, color: "bg-orange-100 text-orange-700", icon: AlertCircle };
 }
 
-const docTypeLabels: Record<string, string> = {
-  SLIP: "สลิปโอนเงิน",
-  RECEIPT: "ใบเสร็จ",
-  TAX_INVOICE: "ใบกำกับภาษี",
-  INVOICE: "ใบแจ้งหนี้",
-  QUOTATION: "ใบเสนอราคา",
-  PURCHASE_ORDER: "ใบสั่งซื้อ",
-  DELIVERY_NOTE: "ใบส่งของ",
-  OTHER: "อื่นๆ",
-};
-
 interface FilePreviewCardProps {
   file: {
     id: string;
@@ -101,12 +89,6 @@ interface FilePreviewCardProps {
 function FilePreviewCard({ file, onClick }: FilePreviewCardProps) {
   const isImage = file.mimeType.startsWith("image/");
   const isPdf = file.mimeType === "application/pdf";
-  
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   return (
     <button
@@ -133,7 +115,7 @@ function FilePreviewCard({ file, onClick }: FilePreviewCardProps) {
       )}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <p className="text-xs text-white truncate">{file.fileName}</p>
-        <p className="text-xs text-white/70">{formatSize(file.fileSize)}</p>
+        <p className="text-xs text-white/70">{formatFileSize(file.fileSize)}</p>
       </div>
     </button>
   );
@@ -148,13 +130,7 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
 
   const canEdit = document.status === "DRAFT" || document.status === "NEED_INFO";
   const canSubmit = document.status === "DRAFT";
-  const canReview = ["ACCOUNTING", "ADMIN", "OWNER"].includes(userRole) && 
-                   ["PENDING_REVIEW", "NEED_INFO"].includes(document.status);
-
-  const getInitials = (name: string | null) => {
-    if (!name) return "U";
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  };
+  const canReview = isAccountingRole(userRole) && canReviewDocument(document.status);
 
   const handleSubmit = () => {
     startTransition(async () => {
@@ -226,17 +202,39 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Header Card */}
-          <Card>
+          <Card className={cn(
+            "border-l-4",
+            document.transactionType === "INCOME" ? "border-l-primary" : "border-l-rose-400"
+          )}>
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
-                    <FileText className="h-7 w-7 text-primary" />
+                  <div className={cn(
+                    "flex h-14 w-14 items-center justify-center rounded-xl",
+                    document.transactionType === "INCOME" ? "bg-primary/10" : "bg-rose-100"
+                  )}>
+                    <Package className={cn(
+                      "h-7 w-7",
+                      document.transactionType === "INCOME" ? "text-primary" : "text-rose-600"
+                    )} />
                   </div>
                   <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      {/* Transaction Type Badge */}
+                      {(() => {
+                        const txConfig = getTransactionTypeConfig(document.transactionType);
+                        const TxIcon = txConfig.icon;
+                        return (
+                          <Badge className={cn("gap-1", txConfig.badgeClass)}>
+                            <TxIcon className="h-3 w-3" />
+                            {txConfig.label}
+                          </Badge>
+                        );
+                      })()}
+                    </div>
                     <h2 className="text-2xl font-bold">{document.docNumber}</h2>
                     <p className="text-muted-foreground">
-                      {docTypeLabels[document.docType] || document.docType}
+                      {getDocTypeLabel(document.docType)}
                     </p>
                   </div>
                 </div>
@@ -246,15 +244,25 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
                 </Badge>
               </div>
 
-              {/* Amount */}
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-sm text-muted-foreground mb-1">ยอดรวมสุทธิ</p>
-                <p className="text-3xl font-bold text-primary">
-                  ฿{document.totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+              {/* Amount - colored by transaction type */}
+              <div className={cn(
+                "p-4 rounded-lg border",
+                document.transactionType === "INCOME" 
+                  ? "bg-primary/5 border-primary/20" 
+                  : "bg-rose-50 border-rose-200"
+              )}>
+                <p className="text-sm text-muted-foreground mb-1">
+                  {document.transactionType === "INCOME" ? "ยอดรับสุทธิ" : "ยอดจ่ายสุทธิ"}
+                </p>
+                <p className={cn(
+                  "text-3xl font-bold",
+                  document.transactionType === "INCOME" ? "text-emerald-600" : "text-orange-600"
+                )}>
+                  {document.transactionType === "INCOME" ? "+" : "-"}฿{formatMoney(document.totalAmount)}
                 </p>
                 {document.vatAmount > 0 && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    รวม VAT ฿{document.vatAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                    รวม VAT ฿{formatMoney(document.vatAmount)}
                   </p>
                 )}
               </div>
@@ -273,11 +281,7 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
                   <div>
                     <p className="text-sm text-muted-foreground">วันที่เอกสาร</p>
                     <p className="font-medium">
-                      {new Date(document.docDate).toLocaleDateString("th-TH", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
+                      {formatDate(document.docDate, "long")}
                     </p>
                   </div>
                 </div>
@@ -493,7 +497,7 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
               </div>
               {document.submittedAt && (
                 <p className="text-xs text-muted-foreground mt-3">
-                  ส่งเมื่อ {new Date(document.submittedAt).toLocaleString("th-TH")}
+                  ส่งเมื่อ {formatDate(document.submittedAt!, "full")}
                 </p>
               )}
             </CardContent>
@@ -525,7 +529,7 @@ export function DocumentDetail({ document, userRole }: DocumentDetailProps) {
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium">{comment.user.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(comment.createdAt).toLocaleDateString("th-TH")}
+                            {formatDate(comment.createdAt, "short")}
                           </p>
                         </div>
                         <p className="text-sm text-muted-foreground">{comment.content}</p>

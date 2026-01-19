@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,7 +13,6 @@ import {
   Inbox,
   FileCheck,
   CheckCircle,
-  FileText,
   CheckCircle2,
   Download,
   Plus,
@@ -21,6 +20,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { reviewDocument } from "@/server/actions/document";
+import { useDocumentSelection } from "@/hooks/use-document-selection";
+import { useDocumentFilters, type TabValue } from "@/hooks/use-document-filters";
+import { isAccountingRole } from "@/lib/document-config";
 import type { MemberRole, SerializedDocumentListItem } from "@/types";
 
 interface UnifiedDocumentViewProps {
@@ -38,114 +40,73 @@ interface UnifiedDocumentViewProps {
   userId: string;
 }
 
-type TabValue = "mine" | "pending" | "ready" | "done" | "all";
-
 export function UnifiedDocumentView({ documents, counts, userRole, userId }: UnifiedDocumentViewProps) {
   const router = useRouter();
-  const isAccounting = ["ACCOUNTING", "ADMIN", "OWNER"].includes(userRole);
+  const [isPending, startTransition] = useTransition();
+  const isAccounting = isAccountingRole(userRole);
+  
+  // Use custom hooks for filtering and selection
+  const { myDocs, pendingDocs, readyDocs, doneDocs, getDocsForTab } = useDocumentFilters(documents, userId);
   
   // Default tab based on role
   const defaultTab: TabValue = isAccounting ? "pending" : "mine";
   const [activeTab, setActiveTab] = useState<TabValue>(defaultTab);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  // Filter documents by tab
-  const myDocs = documents.filter(d => d.submittedById === userId);
-  const pendingDocs = documents.filter(d => ["PENDING_REVIEW", "NEED_INFO"].includes(d.status));
-  const readyDocs = documents.filter(d => d.status === "READY_TO_EXPORT");
-  const doneDocs = documents.filter(d => ["EXPORTED", "BOOKED"].includes(d.status));
-
-  const getDocsForTab = (tab: TabValue) => {
-    switch (tab) {
-      case "mine": return myDocs;
-      case "pending": return pendingDocs;
-      case "ready": return readyDocs;
-      case "done": return doneDocs;
-      case "all": return documents;
-    }
-  };
-
+  
   const currentDocs = getDocsForTab(activeTab);
-
-  // Selection handlers
-  const handleSelect = (id: string, checked: boolean) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (checked) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(currentDocs.map(d => d.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
-  };
+  
+  // Use selection hook
+  const {
+    selectedIds,
+    handleSelect,
+    handleSelectAll,
+    clearSelection,
+    allSelected,
+    someSelected,
+  } = useDocumentSelection(currentDocs);
 
   // Action handler
   const handleAction = async (id: string, action: "approve" | "reject" | "need_info") => {
-    setIsProcessing(true);
-    try {
-      const result = await reviewDocument(id, action);
-      if (result.success) {
-        toast.success(
-          action === "approve" ? "อนุมัติเรียบร้อย" :
-          action === "reject" ? "ปฏิเสธเรียบร้อย" : "ส่งขอข้อมูลเพิ่มแล้ว"
-        );
-        router.refresh();
-      } else {
-        toast.error(result.error || "เกิดข้อผิดพลาด");
+    startTransition(async () => {
+      try {
+        const result = await reviewDocument(id, action);
+        if (result.success) {
+          toast.success(
+            action === "approve" ? "อนุมัติเรียบร้อย" :
+            action === "reject" ? "ปฏิเสธเรียบร้อย" : "ส่งขอข้อมูลเพิ่มแล้ว"
+          );
+          router.refresh();
+        } else {
+          toast.error(result.error || "เกิดข้อผิดพลาด");
+        }
+      } catch {
+        toast.error("เกิดข้อผิดพลาด");
       }
-    } catch {
-      toast.error("เกิดข้อผิดพลาด");
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   };
 
   // Bulk action
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     
-    setIsProcessing(true);
-    let successCount = 0;
-    
-    for (const id of selectedIds) {
-      const doc = documents.find(d => d.id === id);
-      if (doc && ["PENDING_REVIEW", "NEED_INFO"].includes(doc.status)) {
-        const result = await reviewDocument(id, "approve");
-        if (result.success) successCount++;
+    startTransition(async () => {
+      let successCount = 0;
+      
+      for (const id of selectedIds) {
+        const doc = documents.find(d => d.id === id);
+        if (doc && ["PENDING_REVIEW", "NEED_INFO"].includes(doc.status)) {
+          const result = await reviewDocument(id, "approve");
+          if (result.success) successCount++;
+        }
       }
-    }
-    
-    toast.success(`อนุมัติ ${successCount} รายการเรียบร้อย`);
-    setSelectedIds(new Set());
-    router.refresh();
-    setIsProcessing(false);
+      
+      toast.success(`อนุมัติ ${successCount} รายการเรียบร้อย`);
+      clearSelection();
+      router.refresh();
+    });
   };
 
-  const allSelected = currentDocs.length > 0 && currentDocs.every(d => selectedIds.has(d.id));
-  const someSelected = selectedIds.size > 0;
   const showActions = isAccounting && (activeTab === "pending" || activeTab === "all");
   const showCheckbox = isAccounting && activeTab === "pending";
-
-  // Tab counts
-  const getTabCount = (tab: TabValue) => {
-    switch (tab) {
-      case "mine": return myDocs.length;
-      case "pending": return pendingDocs.length;
-      case "ready": return readyDocs.length;
-      case "done": return doneDocs.length;
-      case "all": return documents.length;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -205,7 +166,7 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
                 <Button 
                   size="sm" 
                   onClick={handleBulkApprove}
-                  disabled={isProcessing}
+                  disabled={isPending}
                   className="bg-primary hover:bg-primary/90"
                 >
                   <CheckCircle2 className="mr-1 h-4 w-4" />

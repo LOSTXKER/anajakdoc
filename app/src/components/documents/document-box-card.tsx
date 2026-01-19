@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   DropdownMenu,
@@ -11,6 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatDate, formatMoney } from "@/lib/formatters";
+import { canReviewDocument, getTransactionTypeConfig } from "@/lib/document-config";
+import { cn } from "@/lib/utils";
 import type { SerializedDocumentListItem } from "@/types";
 
 interface DocumentBoxCardProps {
@@ -30,26 +34,17 @@ export function DocumentBoxCard({
   showCheckbox = false,
   showActions = false,
 }: DocumentBoxCardProps) {
-  const canReview = ["PENDING_REVIEW", "NEED_INFO"].includes(doc.status);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("th-TH", {
-      day: "numeric",
-      month: "short",
-      year: "2-digit",
-    });
-  };
-
-  const formatAmount = (amount: number) => {
-    return amount.toLocaleString("th-TH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
+  const canReview = canReviewDocument(doc.status);
+  const txConfig = getTransactionTypeConfig(doc.transactionType);
+  const TxIcon = txConfig.icon;
 
   return (
-    <div className="group relative border rounded-xl p-4 bg-white hover:border-primary/50 hover:shadow-sm transition-all duration-200">
+    <div className={cn(
+      "group relative border rounded-xl p-4 bg-white hover:shadow-sm transition-all duration-200",
+      doc.transactionType === "INCOME" 
+        ? "hover:border-primary/50 border-l-4 border-l-primary" 
+        : "hover:border-rose-300 border-l-4 border-l-rose-400"
+    )}>
       <div className="flex items-start gap-4">
         {/* Checkbox */}
         {showCheckbox && onSelect && (
@@ -61,16 +56,29 @@ export function DocumentBoxCard({
           </div>
         )}
 
-        {/* Box Icon */}
+        {/* Box Icon - colored by transaction type */}
         <Link href={`/documents/${doc.id}`} className="shrink-0">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-            <Package className="w-6 h-6 text-primary" />
+          <div className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
+            doc.transactionType === "INCOME"
+              ? "bg-primary/10 group-hover:bg-primary/20"
+              : "bg-rose-100 group-hover:bg-rose-200"
+          )}>
+            <Package className={cn(
+              "w-6 h-6",
+              doc.transactionType === "INCOME" ? "text-primary" : "text-rose-600"
+            )} />
           </div>
         </Link>
 
         {/* Content */}
         <Link href={`/documents/${doc.id}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Transaction type badge */}
+            <Badge variant="secondary" className={cn("text-xs gap-1", txConfig.badgeClass)}>
+              <TxIcon className="w-3 h-3" />
+              {txConfig.label}
+            </Badge>
             <span className="font-semibold text-gray-900">{doc.docNumber}</span>
             <StatusBadge status={doc.status} />
           </div>
@@ -84,7 +92,7 @@ export function DocumentBoxCard({
                 <span className="text-gray-300">•</span>
               </>
             )}
-            <span>{formatDate(doc.docDate)}</span>
+            <span>{formatDate(doc.docDate, "short")}</span>
             {doc.submittedBy?.name && (
               <>
                 <span className="text-gray-300">•</span>
@@ -97,8 +105,11 @@ export function DocumentBoxCard({
         {/* Amount & Actions */}
         <div className="flex items-start gap-2 shrink-0">
           <div className="text-right">
-            <p className="text-lg font-bold text-gray-900">
-              ฿{formatAmount(doc.totalAmount)}
+            <p className={cn(
+              "text-lg font-bold",
+              doc.transactionType === "INCOME" ? "text-primary" : "text-rose-600"
+            )}>
+              {doc.transactionType === "INCOME" ? "+" : "-"}฿{formatMoney(doc.totalAmount)}
             </p>
             {doc.category?.name && (
               <p className="text-sm text-gray-500">{doc.category.name}</p>

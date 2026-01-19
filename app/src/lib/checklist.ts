@@ -205,3 +205,61 @@ export function getStatusColor(completionPercent: number, isExported: boolean, i
   if (completionPercent >= 50) return "bg-yellow-100 text-yellow-700";
   return "bg-orange-100 text-orange-700";
 }
+
+// ==================== Server-side Helpers ====================
+
+/**
+ * Calculate completion percentage for server-side use
+ * This is a simplified version that can be called from server actions
+ */
+export function calculateServerCompletionPercent(params: {
+  transactionType: TransactionType;
+  hasVat: boolean;
+  hasWht: boolean;
+  checklist: DocumentChecklist;
+  uploadedDocTypes: Set<SubDocType>;
+}): { completionPercent: number; isComplete: boolean } {
+  const { transactionType, hasVat, hasWht, checklist, uploadedDocTypes } = params;
+  
+  const items = getDocumentChecklist(
+    transactionType,
+    hasVat,
+    hasWht,
+    checklist,
+    uploadedDocTypes
+  );
+  
+  const completionPercent = calculateCompletionPercent(items);
+  const isComplete = isAllRequiredComplete(items);
+  
+  return { completionPercent, isComplete };
+}
+
+/**
+ * Get auto-updates based on uploaded doc types
+ * Returns partial checklist updates that should be applied
+ */
+export function getAutoChecklistUpdates(uploadedDocTypes: Set<SubDocType>): Partial<DocumentChecklist> {
+  const updates: Partial<DocumentChecklist> = {};
+  
+  if (uploadedDocTypes.has("SLIP")) {
+    updates.hasPaymentProof = true;
+  }
+  if (uploadedDocTypes.has("TAX_INVOICE")) {
+    updates.hasTaxInvoice = true;
+  }
+  if (uploadedDocTypes.has("INVOICE")) {
+    updates.hasInvoice = true;
+  }
+  if (uploadedDocTypes.has("WHT_CERT_SENT")) {
+    updates.whtIssued = true;
+  }
+  if (uploadedDocTypes.has("WHT_CERT_RECEIVED")) {
+    updates.whtReceived = true;
+  }
+  if (uploadedDocTypes.has("RECEIPT")) {
+    updates.hasPaymentProof = true;
+  }
+  
+  return updates;
+}

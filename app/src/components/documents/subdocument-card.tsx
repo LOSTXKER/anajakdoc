@@ -19,10 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   FileText,
-  Receipt,
-  FileCheck,
-  FileWarning,
-  File,
   MoreVertical,
   Trash2,
   Edit,
@@ -31,8 +27,9 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDate, formatMoney } from "@/lib/formatters";
+import { getSubDocTypeConfig } from "@/lib/document-config";
 import type { SerializedSubDocument } from "@/types";
-import { SubDocType } from "@/types";
 import { deleteSubDocument } from "@/server/actions/subdocument";
 
 interface SubDocumentCardProps {
@@ -41,24 +38,12 @@ interface SubDocumentCardProps {
   onAddFile?: () => void;
 }
 
-const subDocTypeConfig: Record<SubDocType, { label: string; icon: typeof FileText; color: string }> = {
-  SLIP: { label: "สลิปโอนเงิน", icon: Receipt, color: "bg-blue-100 text-blue-700" },
-  TAX_INVOICE: { label: "ใบกำกับภาษี", icon: FileCheck, color: "bg-green-100 text-green-700" },
-  INVOICE: { label: "ใบแจ้งหนี้", icon: FileText, color: "bg-purple-100 text-purple-700" },
-  RECEIPT: { label: "ใบเสร็จรับเงิน", icon: Receipt, color: "bg-cyan-100 text-cyan-700" },
-  WHT_CERT_SENT: { label: "หัก ณ ที่จ่าย (ออก)", icon: FileWarning, color: "bg-orange-100 text-orange-700" },
-  WHT_CERT_RECEIVED: { label: "หัก ณ ที่จ่าย (รับ)", icon: FileWarning, color: "bg-amber-100 text-amber-700" },
-  QUOTATION: { label: "ใบเสนอราคา", icon: FileText, color: "bg-indigo-100 text-indigo-700" },
-  CONTRACT: { label: "สัญญา/ใบสั่งซื้อ", icon: File, color: "bg-slate-100 text-slate-700" },
-  OTHER: { label: "อื่นๆ", icon: File, color: "bg-gray-100 text-gray-700" },
-};
-
 export function SubDocumentCard({ subDocument, onEdit, onAddFile }: SubDocumentCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const config = subDocTypeConfig[subDocument.docType] || subDocTypeConfig.OTHER;
+  const config = getSubDocTypeConfig(subDocument.docType);
   const Icon = config.icon;
   const primaryFile = subDocument.files.find(f => f.isPrimary) || subDocument.files[0];
 
@@ -171,7 +156,7 @@ export function SubDocumentCard({ subDocument, onEdit, onAddFile }: SubDocumentC
                   {subDocument.docNumber && <span>{subDocument.docNumber}</span>}
                   {subDocument.docNumber && subDocument.docDate && <span className="mx-1">•</span>}
                   {subDocument.docDate && (
-                    <span>{new Date(subDocument.docDate).toLocaleDateString("th-TH")}</span>
+                    <span>{formatDate(subDocument.docDate!, "short")}</span>
                   )}
                 </div>
               )}
@@ -179,7 +164,7 @@ export function SubDocumentCard({ subDocument, onEdit, onAddFile }: SubDocumentC
               {/* Amount */}
               {subDocument.amount !== null && (
                 <div className="mt-1 font-medium">
-                  ฿{subDocument.amount.toLocaleString()}
+                  ฿{formatMoney(subDocument.amount)}
                 </div>
               )}
 

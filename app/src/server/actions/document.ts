@@ -10,6 +10,7 @@ import { DocumentStatus } from ".prisma/client";
 import { createNotification, notifyAccountingTeam } from "./notification";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
+import { calculateServerCompletionPercent, getAutoChecklistUpdates } from "@/lib/checklist";
 
 async function generateDocNumber(orgId: string, type: "EXPENSE" | "INCOME"): Promise<string> {
   const prefix = type === "EXPENSE" ? "EXP" : "INC";
@@ -714,62 +715,34 @@ export async function updateDocumentChecklist(
     return { success: false, error: "ไม่พบเอกสาร" };
   }
 
-  // Calculate new completion percent
+  // Calculate new completion percent using shared checklist logic
   const hasVat = document.hasValidVat || Number(document.vatAmount) > 0;
   const hasWht = document.hasWht;
-  const isExpense = document.transactionType === "EXPENSE";
   const uploadedDocTypes = new Set(document.subDocuments.map((d) => d.docType));
 
-  // Merge updates with existing values
+  // Get auto-updates from uploaded docs
+  const autoUpdates = getAutoChecklistUpdates(uploadedDocTypes);
+
+  // Merge updates with existing values and auto-updates
   const newChecklist = {
     isPaid: updates.isPaid ?? document.isPaid,
-    hasPaymentProof: updates.hasPaymentProof ?? document.hasPaymentProof ?? uploadedDocTypes.has("SLIP"),
-    hasTaxInvoice: updates.hasTaxInvoice ?? document.hasTaxInvoice ?? uploadedDocTypes.has("TAX_INVOICE"),
-    hasInvoice: updates.hasInvoice ?? document.hasInvoice ?? uploadedDocTypes.has("INVOICE"),
-    whtIssued: updates.whtIssued ?? document.whtIssued ?? uploadedDocTypes.has("WHT_CERT_SENT"),
+    hasPaymentProof: updates.hasPaymentProof ?? document.hasPaymentProof ?? autoUpdates.hasPaymentProof ?? false,
+    hasTaxInvoice: updates.hasTaxInvoice ?? document.hasTaxInvoice ?? autoUpdates.hasTaxInvoice ?? false,
+    hasInvoice: updates.hasInvoice ?? document.hasInvoice ?? autoUpdates.hasInvoice ?? false,
+    whtIssued: updates.whtIssued ?? document.whtIssued ?? autoUpdates.whtIssued ?? false,
     whtSent: updates.whtSent ?? document.whtSent,
-    whtReceived: updates.whtReceived ?? document.whtReceived ?? uploadedDocTypes.has("WHT_CERT_RECEIVED"),
+    whtReceived: updates.whtReceived ?? document.whtReceived ?? autoUpdates.whtReceived ?? false,
   };
 
-  // Calculate completion
-  let requiredCount = 0;
-  let completedCount = 0;
+  // Use shared function to calculate completion
+  const { completionPercent, isComplete } = calculateServerCompletionPercent({
+    transactionType: document.transactionType,
+    hasVat,
+    hasWht,
+    checklist: newChecklist,
+    uploadedDocTypes,
+  });
 
-  if (isExpense) {
-    // EXPENSE checklist
-    requiredCount += 2; // isPaid + hasPaymentProof
-    if (newChecklist.isPaid) completedCount++;
-    if (newChecklist.hasPaymentProof || uploadedDocTypes.has("SLIP")) completedCount++;
-
-    if (hasVat) {
-      requiredCount++;
-      if (newChecklist.hasTaxInvoice || uploadedDocTypes.has("TAX_INVOICE")) completedCount++;
-    }
-
-    if (hasWht) {
-      requiredCount += 2; // whtIssued + whtSent
-      if (newChecklist.whtIssued || uploadedDocTypes.has("WHT_CERT_SENT")) completedCount++;
-      if (newChecklist.whtSent) completedCount++;
-    }
-  } else {
-    // INCOME checklist
-    requiredCount += 2; // hasInvoice + isPaid
-    if (newChecklist.hasInvoice || uploadedDocTypes.has("INVOICE")) completedCount++;
-    if (newChecklist.isPaid) completedCount++;
-
-    if (hasVat) {
-      requiredCount++;
-      if (newChecklist.hasTaxInvoice || uploadedDocTypes.has("TAX_INVOICE")) completedCount++;
-    }
-
-    if (hasWht) {
-      requiredCount++;
-      if (newChecklist.whtReceived || uploadedDocTypes.has("WHT_CERT_RECEIVED")) completedCount++;
-    }
-  }
-
-  const completionPercent = requiredCount > 0 ? Math.round((completedCount / requiredCount) * 100) : 100;
-  const isComplete = completionPercent === 100;
   const newStatus = isComplete ? "COMPLETE" : "IN_PROGRESS";
 
   await prisma.document.update({
@@ -812,65 +785,30 @@ export async function recalculateDocumentChecklist(documentId: string): Promise<
 
   const hasVat = document.hasValidVat || Number(document.vatAmount) > 0;
   const hasWht = document.hasWht;
-  const isExpense = document.transactionType === "EXPENSE";
   const uploadedDocTypes = new Set(document.subDocuments.map((d) => d.docType));
 
-  // Auto-update checklist based on uploaded docs
-  const autoUpdates: Record<string, boolean> = {};
+  // Get auto-updates from uploaded docs using shared function
+  const autoUpdates = getAutoChecklistUpdates(uploadedDocTypes);
 
-  if (uploadedDocTypes.has("SLIP")) autoUpdates.hasPaymentProof = true;
-  if (uploadedDocTypes.has("TAX_INVOICE")) autoUpdates.hasTaxInvoice = true;
-  if (uploadedDocTypes.has("INVOICE")) autoUpdates.hasInvoice = true;
-  if (uploadedDocTypes.has("WHT_CERT_SENT")) autoUpdates.whtIssued = true;
-  if (uploadedDocTypes.has("WHT_CERT_RECEIVED")) autoUpdates.whtReceived = true;
-
-  // Calculate completion
-  let requiredCount = 0;
-  let completedCount = 0;
-
+  // Build checklist state
   const checklist = {
     isPaid: document.isPaid,
-    hasPaymentProof: autoUpdates.hasPaymentProof ?? document.hasPaymentProof,
-    hasTaxInvoice: autoUpdates.hasTaxInvoice ?? document.hasTaxInvoice,
-    hasInvoice: autoUpdates.hasInvoice ?? document.hasInvoice,
-    whtIssued: autoUpdates.whtIssued ?? document.whtIssued,
+    hasPaymentProof: autoUpdates.hasPaymentProof ?? document.hasPaymentProof ?? false,
+    hasTaxInvoice: autoUpdates.hasTaxInvoice ?? document.hasTaxInvoice ?? false,
+    hasInvoice: autoUpdates.hasInvoice ?? document.hasInvoice ?? false,
+    whtIssued: autoUpdates.whtIssued ?? document.whtIssued ?? false,
     whtSent: document.whtSent,
-    whtReceived: autoUpdates.whtReceived ?? document.whtReceived,
+    whtReceived: autoUpdates.whtReceived ?? document.whtReceived ?? false,
   };
 
-  if (isExpense) {
-    requiredCount += 2;
-    if (checklist.isPaid) completedCount++;
-    if (checklist.hasPaymentProof) completedCount++;
-
-    if (hasVat) {
-      requiredCount++;
-      if (checklist.hasTaxInvoice) completedCount++;
-    }
-
-    if (hasWht) {
-      requiredCount += 2;
-      if (checklist.whtIssued) completedCount++;
-      if (checklist.whtSent) completedCount++;
-    }
-  } else {
-    requiredCount += 2;
-    if (checklist.hasInvoice) completedCount++;
-    if (checklist.isPaid) completedCount++;
-
-    if (hasVat) {
-      requiredCount++;
-      if (checklist.hasTaxInvoice) completedCount++;
-    }
-
-    if (hasWht) {
-      requiredCount++;
-      if (checklist.whtReceived) completedCount++;
-    }
-  }
-
-  const completionPercent = requiredCount > 0 ? Math.round((completedCount / requiredCount) * 100) : 100;
-  const isComplete = completionPercent === 100;
+  // Use shared function to calculate completion
+  const { completionPercent, isComplete } = calculateServerCompletionPercent({
+    transactionType: document.transactionType,
+    hasVat,
+    hasWht,
+    checklist,
+    uploadedDocTypes,
+  });
 
   await prisma.document.update({
     where: { id: documentId },

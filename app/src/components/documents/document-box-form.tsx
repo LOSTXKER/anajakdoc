@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createDocument, updateDocument, reviewDocument, submitDocument } from "@/server/actions/document";
 import { type DuplicateWarning } from "@/server/actions/file";
-import { createSubDocumentWithFile } from "@/server/actions/subdocument";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,11 +30,8 @@ import {
   Loader2,
   Save,
   ArrowLeft,
-  TrendingDown,
-  TrendingUp,
   Upload,
   Receipt,
-  FileCheck,
   FileText,
   CheckCircle2,
   Check,
@@ -43,26 +39,34 @@ import {
   Edit,
   Send,
   Sparkles,
-  RefreshCw,
   Plus,
   Replace,
-  GripVertical,
   AlertTriangle,
-  Hash,
-  Link2,
-  User,
-  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { DuplicateWarningAlert } from "@/components/documents/duplicate-warning";
 import { ContactInput, type ContactOption } from "@/components/documents/contact-input";
-import { extractDocumentData, type ExtractedDocumentData } from "@/server/actions/ai-classify";
+import { DocumentFileCard, type ExtractedFile } from "@/components/documents/document-file-card";
+import { ConflictResolver, SourceBadge } from "@/components/documents/conflict-resolver";
 import { getDocumentChecklist, calculateCompletionPercent, type DocumentChecklist as ChecklistState } from "@/lib/checklist";
+import { formatMoney, getTodayForInput } from "@/lib/formatters";
+import { 
+  EXPENSE_DOC_TYPES, 
+  INCOME_DOC_TYPES, 
+  WHT_TYPES,
+  isAccountingRole,
+  isAdminRole,
+  canEditDocument,
+  canReviewDocument,
+  TRANSACTION_TYPE_CONFIG,
+} from "@/lib/document-config";
+import { useTaxCalculation, type AmountInputType } from "@/hooks/use-tax-calculation";
+import { useDocumentExtraction } from "@/hooks/use-document-extraction";
+import { useAggregatedData } from "@/hooks/use-aggregated-data";
 import type { Category, Contact } from ".prisma/client";
 import type { SubDocType, SerializedDocument, MemberRole } from "@/types";
 import Link from "next/link";
-import Image from "next/image";
 
 type FormMode = "create" | "edit" | "view";
 
@@ -75,49 +79,8 @@ interface DocumentBoxFormProps {
   userRole?: MemberRole;
 }
 
-
 // Extended type for UI (includes OTHER which AI might return)
 type DocTypeForUI = SubDocType | "OTHER" | "QUOTATION";
-
-// Document types for tracking
-const expenseDocTypes: { type: DocTypeForUI; label: string; icon: typeof Receipt }[] = [
-  { type: "SLIP", label: "สลิปโอนเงิน", icon: Receipt },
-  { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
-  { type: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
-  { type: "OTHER", label: "อื่นๆ", icon: FileText },
-];
-
-const incomeDocTypes: { type: DocTypeForUI; label: string; icon: typeof Receipt }[] = [
-  { type: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
-  { type: "RECEIPT", label: "ใบเสร็จรับเงิน", icon: Receipt },
-  { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
-  { type: "OTHER", label: "อื่นๆ", icon: FileText },
-];
-
-// WHT Types
-const whtTypes = [
-  { value: "1", label: "1% - ค่าขนส่ง" },
-  { value: "2", label: "2% - ค่าโฆษณา" },
-  { value: "3", label: "3% - ค่าบริการ/จ้างทำของ" },
-  { value: "5", label: "5% - ค่าเช่า" },
-];
-
-interface FilePreview {
-  file: File;
-  preview: string;
-  docType: DocTypeForUI;
-  extractedData?: ExtractedDocumentData;
-}
-
-// Aggregated AI result from all documents
-interface AggregatedAIData {
-  description?: string;
-  amount?: number;
-  contactName?: string;
-  documentDate?: string;
-  taxId?: string;
-  vatAmount?: number;
-}
 
 export function DocumentBoxForm({
   mode,
@@ -152,16 +115,17 @@ export function DocumentBoxForm({
   // Simple form fields
   const [amount, setAmount] = useState(document?.totalAmount?.toString() || "");
   const [docDate, setDocDate] = useState(
-    document?.docDate?.split("T")[0] || new Date().toISOString().split("T")[0]
+    document?.docDate?.split("T")[0] || getTodayForInput()
   );
-  const [dueDate, setDueDate] = useState(document?.dueDate?.split("T")[0] || "");
   const [categoryId, setCategoryId] = useState(document?.categoryId || "");
   const [description, setDescription] = useState(document?.description || "");
   const [notes, setNotes] = useState(document?.notes || "");
-  const [externalRef, setExternalRef] = useState(document?.externalRef || "");
   
   // VAT selection
   const [vatRate, setVatRate] = useState(document?.vatRate || 0);
+  
+  // Amount input type - whether amount includes VAT or not
+  const [amountInputType, setAmountInputType] = useState<AmountInputType>("includeVat");
   
   // WHT state
   const [hasWht, setHasWht] = useState(document?.hasWht || false);
@@ -169,32 +133,81 @@ export function DocumentBoxForm({
   const [whtSent, setWhtSent] = useState(document?.whtSent || false);
   const [whtReceived, setWhtReceived] = useState(document?.whtReceived || false);
 
-  // File upload state (for create mode)
-  const [uploadedFiles, setUploadedFiles] = useState<FilePreview[]>([]);
+  // Track which fields user has manually edited
+  const [editedFields, setEditedFields] = useState<Set<string>>(new Set());
 
   // Duplicate detection
   const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateWarning[]>([]);
 
-  // Permissions
-  // Permission checks
-  const isAccounting = ["ACCOUNTING", "ADMIN", "OWNER"].includes(userRole);
-  const isOwnerOrAdmin = ["ADMIN", "OWNER"].includes(userRole);
+  // Document extraction hook - auto analyzes files on upload
+  const {
+    files: extractedFiles,
+    addFiles,
+    removeFile: removeExtractedFile,
+    reanalyzeFile,
+    isAnalyzing,
+    allAnalyzed,
+    analyzedFiles,
+  } = useDocumentExtraction({
+    autoAnalyze: true,
+    onFileAnalyzed: (file) => {
+      if (file.status === "done") {
+        toast.success(`วิเคราะห์ ${file.file.name} เรียบร้อย`);
+      }
+    },
+  });
+
+  // Aggregated data hook - combines data from all files
+  const { data: aggregatedData, hasConflicts, conflictingFields } = useAggregatedData({
+    files: extractedFiles,
+    editedFields,
+  });
+
+  // Auto-fill form from aggregated data when files are analyzed
+  useEffect(() => {
+    if (!allAnalyzed || extractedFiles.length === 0) return;
+    
+    // Only auto-fill if user hasn't edited the field
+    if (!editedFields.has("amount") && aggregatedData.amount.value && !amount) {
+      setAmount(aggregatedData.amount.value.toString());
+    }
+    if (!editedFields.has("description") && aggregatedData.description.value && !description) {
+      setDescription(aggregatedData.description.value);
+    }
+    if (!editedFields.has("contactName") && aggregatedData.contactName.value && !contactName) {
+      setContactName(aggregatedData.contactName.value);
+    }
+    if (!editedFields.has("docDate") && aggregatedData.documentDate.value && docDate === getTodayForInput()) {
+      setDocDate(aggregatedData.documentDate.value);
+    }
+    if (aggregatedData.hasVat && vatRate === 0) {
+      setVatRate(7);
+    }
+  }, [allAnalyzed, aggregatedData, extractedFiles.length, editedFields, amount, description, contactName, docDate, vatRate]);
+
+  // Mark field as user-edited
+  const markFieldEdited = useCallback((field: string) => {
+    setEditedFields(prev => new Set(prev).add(field));
+  }, []);
+
+  // Permission checks (using shared config)
+  const isAccounting = isAccountingRole(userRole);
+  const isOwnerOrAdmin = isAdminRole(userRole);
   
   // Can edit if not yet exported/booked/void
-  const editableStatuses = ["DRAFT", "NEED_INFO", "PENDING_REVIEW", "READY_TO_EXPORT"];
-  const canEdit = mode === "create" || (document && editableStatuses.includes(document.status));
+  const canEdit = mode === "create" || (document && canEditDocument(document.status));
   
   // Can send to accounting if still in DRAFT
   const canSendToAccounting = document && document.status === "DRAFT";
   
   // Accounting can review pending documents
-  const canReview = document && ["PENDING_REVIEW", "NEED_INFO"].includes(document.status);
+  const canReview = document && canReviewDocument(document.status);
   
   // Can always view/edit button for owner/admin on non-final statuses
   const showEditButton = canEdit || isOwnerOrAdmin;
 
-  // Document types based on transaction type
-  const docTypes = transactionType === "EXPENSE" ? expenseDocTypes : incomeDocTypes;
+  // Document types based on transaction type (using shared config)
+  const docTypes = transactionType === "EXPENSE" ? EXPENSE_DOC_TYPES : INCOME_DOC_TYPES;
 
   // Checklist calculation (for view mode)
   const checklistState: ChecklistState = {
@@ -225,29 +238,19 @@ export function DocumentBoxForm({
   
   const completionPercent = calculateCompletionPercent(checklistItems);
 
-  // AI Analysis state
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isAnalyzed, setIsAnalyzed] = useState(false);
-
   // Merge dialog state
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pendingFile, setPendingFile] = useState<{file: File; preview: string; docType: DocTypeForUI} | null>(null);
   const [existingFileIndex, setExistingFileIndex] = useState<number>(-1);
 
-  // Format money
-  const formatMoney = (value: number) => {
-    return value.toLocaleString("th-TH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  // Calculate amounts
-  const totalAmount = parseFloat(amount) || 0;
-  const subtotal = vatRate > 0 ? totalAmount / (1 + vatRate / 100) : totalAmount;
-  const vatAmount = vatRate > 0 ? totalAmount - subtotal : 0;
-  const whtAmount = hasWht ? subtotal * (whtRate / 100) : 0;
-  const netAmount = totalAmount - whtAmount;
+  // Calculate amounts using shared hook
+  const { totalAmount, subtotal, vatAmount, whtAmount, netAmount } = useTaxCalculation({
+    amount,
+    vatRate,
+    whtRate,
+    hasWht,
+    amountInputType,
+  });
 
   // Handle contact selection
   const handleContactChange = (value: string, contactId?: string) => {
@@ -262,62 +265,24 @@ export function DocumentBoxForm({
     setContactName(newContact.name);
   };
 
-  // Handle file selection
+  // Handle file selection - now uses the extraction hook
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const newFiles: FilePreview[] = [];
-
-    for (const file of Array.from(files)) {
-      // Create preview
-      const preview = URL.createObjectURL(file);
-      
-      // Determine doc type based on file name or default
-      let docType: DocTypeForUI = "OTHER";
-      const fileName = file.name.toLowerCase();
-      if (fileName.includes("slip") || fileName.includes("สลิป")) {
-        docType = "SLIP";
-      } else if (fileName.includes("tax") || fileName.includes("กำกับ")) {
-        docType = "TAX_INVOICE";
-      } else if (fileName.includes("invoice") || fileName.includes("แจ้งหนี้")) {
-        docType = "INVOICE";
-      } else if (fileName.includes("receipt") || fileName.includes("เสร็จ")) {
-        docType = "RECEIPT";
-      }
-
-      // Check for existing file of same type
-      const existingIndex = uploadedFiles.findIndex(f => f.docType === docType);
-      if (existingIndex >= 0 && docType !== "OTHER") {
-        setPendingFile({ file, preview, docType });
-        setExistingFileIndex(existingIndex);
-        setShowMergeDialog(true);
-        continue;
-      }
-
-      newFiles.push({ file, preview, docType });
-    }
-
-    if (newFiles.length > 0) {
-      setUploadedFiles(prev => [...prev, ...newFiles]);
-    }
+    // Add files to the extraction hook (auto-analyzes)
+    await addFiles(Array.from(files));
     
     // Reset input
     e.target.value = "";
   };
 
-  // Handle merge dialog actions
+  // Handle merge dialog actions (for duplicate doc types)
   const handleMergeAction = (action: "merge" | "replace" | "cancel") => {
     if (!pendingFile) return;
 
-    if (action === "merge") {
-      setUploadedFiles(prev => [...prev, pendingFile]);
-    } else if (action === "replace") {
-      setUploadedFiles(prev => {
-        const newFiles = [...prev];
-        newFiles[existingFileIndex] = pendingFile;
-        return newFiles;
-      });
+    if (action === "merge" || action === "replace") {
+      addFiles([pendingFile.file]);
     }
     
     setPendingFile(null);
@@ -325,22 +290,9 @@ export function DocumentBoxForm({
     setShowMergeDialog(false);
   };
 
-  // Update doc type for a file
-  const updateFileDocType = (index: number, newType: DocTypeForUI) => {
-    setUploadedFiles(prev => {
-      const newFiles = [...prev];
-      newFiles[index] = { ...newFiles[index], docType: newType };
-      return newFiles;
-    });
-  };
-
-  // Remove file
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => {
-      const removed = prev[index];
-      URL.revokeObjectURL(removed.preview);
-      return prev.filter((_, i) => i !== index);
-    });
+  // Remove file using the extraction hook
+  const handleRemoveFile = (fileId: string) => {
+    removeExtractedFile(fileId);
   };
 
   // Dismiss duplicate warning
@@ -348,93 +300,16 @@ export function DocumentBoxForm({
     setDuplicateWarnings(prev => prev.filter((_, i) => i !== index));
   };
 
-  // AI Analysis
-  const handleAIAnalysis = async () => {
-    if (uploadedFiles.length === 0) return;
-    
-    setIsAnalyzing(true);
-    
-    try {
-      const aggregatedData: AggregatedAIData = {};
-      
-      for (const filePreview of uploadedFiles) {
-        // Convert file to base64
-        const base64Data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            // Remove the data URL prefix (e.g., "data:image/png;base64,")
-            const base64 = result.split(",")[1];
-            resolve(base64);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(filePreview.file);
-        });
-        
-        const result = await extractDocumentData(base64Data, filePreview.file.type);
-        
-        if (result.success && result.data) {
-          filePreview.extractedData = result.data;
-          
-          // Update document type if detected
-          if (result.data.type) {
-            const typeMap: Record<string, DocTypeForUI> = {
-              "TAX_INVOICE": "TAX_INVOICE",
-              "INVOICE": "INVOICE",
-              "RECEIPT": "RECEIPT",
-              "SLIP": "SLIP",
-              "QUOTATION": "QUOTATION",
-              "OTHER": "OTHER",
-            };
-            const newType = typeMap[result.data.type] || filePreview.docType;
-            if (newType !== filePreview.docType) {
-              const index = uploadedFiles.indexOf(filePreview);
-              updateFileDocType(index, newType);
-            }
-          }
-          
-          // Aggregate extracted data
-          if (result.data.description && !aggregatedData.description) {
-            aggregatedData.description = result.data.description;
-          }
-          if (result.data.amount && !aggregatedData.amount) {
-            aggregatedData.amount = result.data.amount;
-          }
-          if (result.data.contactName && !aggregatedData.contactName) {
-            aggregatedData.contactName = result.data.contactName;
-          }
-          if (result.data.documentDate && !aggregatedData.documentDate) {
-            aggregatedData.documentDate = result.data.documentDate;
-          }
-          if (result.data.vatAmount) {
-            aggregatedData.vatAmount = result.data.vatAmount;
-          }
-        }
-      }
-      
-      if (aggregatedData.description && !description) {
-        setDescription(aggregatedData.description);
-      }
-      if (aggregatedData.amount && !amount) {
-        setAmount(aggregatedData.amount.toString());
-      }
-      if (aggregatedData.contactName && !contactName) {
-        setContactName(aggregatedData.contactName);
-      }
-      if (aggregatedData.documentDate && !docDate) {
-        setDocDate(aggregatedData.documentDate);
-      }
-      if (aggregatedData.vatAmount && aggregatedData.vatAmount > 0) {
-        setVatRate(7);
-      }
-      
-      setIsAnalyzed(true);
-      toast.success("วิเคราะห์เอกสารเรียบร้อย");
-    } catch {
-      toast.error("ไม่สามารถวิเคราะห์เอกสารได้");
-    } finally {
-      setIsAnalyzing(false);
-    }
+  // Handle amount conflict resolution
+  const handleAmountSelect = (value: number) => {
+    setAmount(value.toString());
+    markFieldEdited("amount");
+  };
+
+  // Handle contact conflict resolution
+  const handleContactSelect = (value: string) => {
+    setContactName(value);
+    markFieldEdited("contactName");
   };
 
   // Handle form submission
@@ -444,19 +319,33 @@ export function DocumentBoxForm({
     startTransition(async () => {
       const amountNum = parseFloat(amount) || 0;
       
-      // Calculate VAT amounts
-      let subtotalCalc = amountNum;
+      // Calculate VAT amounts based on input type
+      let subtotalCalc: number;
+      let totalAmountCalc: number;
       let vatAmountCalc = 0;
       
       if (vatRate > 0) {
-        subtotalCalc = amountNum / (1 + vatRate / 100);
-        vatAmountCalc = amountNum - subtotalCalc;
+        if (amountInputType === "includeVat") {
+          // User entered total (including VAT)
+          totalAmountCalc = amountNum;
+          subtotalCalc = amountNum / (1 + vatRate / 100);
+          vatAmountCalc = totalAmountCalc - subtotalCalc;
+        } else {
+          // User entered subtotal (excluding VAT)
+          subtotalCalc = amountNum;
+          vatAmountCalc = subtotalCalc * (vatRate / 100);
+          totalAmountCalc = subtotalCalc + vatAmountCalc;
+        }
+      } else {
+        // No VAT
+        subtotalCalc = amountNum;
+        totalAmountCalc = amountNum;
       }
       
       // Calculate WHT amount
       const whtAmountCalc = hasWht ? subtotalCalc * (whtRate / 100) : 0;
       
-      formData.set("totalAmount", amountNum.toString());
+      formData.set("totalAmount", totalAmountCalc.toString());
       formData.set("subtotal", subtotalCalc.toString());
       formData.set("vatRate", vatRate.toString());
       formData.set("vatAmount", vatAmountCalc.toString());
@@ -466,17 +355,15 @@ export function DocumentBoxForm({
       formData.set("hasWht", hasWht.toString());
       formData.set("whtSent", whtSent.toString());
       formData.set("whtReceived", whtReceived.toString());
-      formData.set("externalRef", externalRef);
-      if (dueDate) {
-        formData.set("dueDate", dueDate);
-      }
 
-      // Add files for create mode
+      // Add files for create mode - use extractedFiles from hook
       if (mode === "create") {
-        for (let i = 0; i < uploadedFiles.length; i++) {
-          const filePreview = uploadedFiles[i];
-          formData.append(`files`, filePreview.file);
-          formData.append(`docTypes`, filePreview.docType === "OTHER" ? "OTHER" : filePreview.docType);
+        for (let i = 0; i < extractedFiles.length; i++) {
+          const extractedFile = extractedFiles[i];
+          formData.append(`files`, extractedFile.file);
+          // Use AI-detected doc type or fallback to OTHER
+          const docType = extractedFile.extractedData?.type || "OTHER";
+          formData.append(`docTypes`, docType);
         }
       }
 
@@ -535,9 +422,9 @@ export function DocumentBoxForm({
     });
   };
 
-  // Count uploaded documents
+  // Count uploaded documents - use extractedFiles from hook
   const docCount = mode === "create" 
-    ? uploadedFiles.length 
+    ? extractedFiles.length 
     : (document?.subDocuments?.length || 0);
 
   return (
@@ -685,23 +572,27 @@ export function DocumentBoxForm({
             <button
               type="button"
               onClick={() => setTransactionType("EXPENSE")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
                 transactionType === "EXPENSE"
-                  ? "bg-primary text-white"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+                  ? "bg-rose-500 text-white"
+                  : "text-gray-500 hover:text-rose-600 hover:bg-rose-50"
+              )}
             >
+              <TRANSACTION_TYPE_CONFIG.EXPENSE.icon className="w-4 h-4" />
               รายจ่าย
             </button>
             <button
               type="button"
               onClick={() => setTransactionType("INCOME")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
                 transactionType === "INCOME"
                   ? "bg-primary text-white"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+                  : "text-gray-500 hover:text-primary hover:bg-primary/10"
+              )}
             >
+              <TRANSACTION_TYPE_CONFIG.INCOME.icon className="w-4 h-4" />
               รายรับ
             </button>
           </div>
@@ -759,7 +650,46 @@ export function DocumentBoxForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>จำนวนเงิน (รวม VAT) *</Label>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Label>จำนวนเงิน *</Label>
+                      {/* Source badge */}
+                      {mode === "create" && aggregatedData.amount.sources.length > 0 && !editedFields.has("amount") && (
+                        <SourceBadge 
+                          source={aggregatedData.amount.sources} 
+                          isUserEdited={editedFields.has("amount")}
+                        />
+                      )}
+                    </div>
+                    {isEditing && vatRate > 0 && (
+                      <div className="flex rounded-md border p-0.5 bg-muted/30">
+                        <button
+                          type="button"
+                          onClick={() => setAmountInputType("includeVat")}
+                          className={cn(
+                            "px-2 py-0.5 text-xs font-medium rounded transition-all",
+                            amountInputType === "includeVat"
+                              ? "bg-white text-primary shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          รวม VAT
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAmountInputType("excludeVat")}
+                          className={cn(
+                            "px-2 py-0.5 text-xs font-medium rounded transition-all",
+                            amountInputType === "excludeVat"
+                              ? "bg-white text-primary shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          ก่อน VAT
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {isEditing ? (
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">฿</span>
@@ -770,9 +700,17 @@ export function DocumentBoxForm({
                         className="pl-8 text-lg font-semibold"
                         placeholder="0.00"
                         value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
+                        onChange={(e) => {
+                          setAmount(e.target.value);
+                          markFieldEdited("amount");
+                        }}
                         required
                       />
+                      {vatRate > 0 && amount && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                          {amountInputType === "includeVat" ? "รวม VAT" : "ก่อน VAT"}
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <p className="py-2 text-lg font-bold text-primary">
@@ -785,12 +723,24 @@ export function DocumentBoxForm({
               {/* Row 2: Contact & Category */}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{transactionType === "EXPENSE" ? "ผู้ติดต่อ / ร้านค้า" : "ลูกค้า"} *</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>{transactionType === "EXPENSE" ? "ผู้ติดต่อ / ร้านค้า" : "ลูกค้า"} *</Label>
+                    {/* Source badge */}
+                    {mode === "create" && aggregatedData.contactName.sources.length > 0 && !editedFields.has("contactName") && (
+                      <SourceBadge 
+                        source={aggregatedData.contactName.sources} 
+                        isUserEdited={editedFields.has("contactName")}
+                      />
+                    )}
+                  </div>
                   {isEditing ? (
                     <>
                       <ContactInput
                         value={contactName}
-                        onChange={handleContactChange}
+                        onChange={(value, contactId) => {
+                          handleContactChange(value, contactId);
+                          markFieldEdited("contactName");
+                        }}
                         contacts={contacts}
                         placeholder={transactionType === "EXPENSE" ? "พิมพ์ชื่อหรือเลือกจากรายชื่อ..." : "พิมพ์ชื่อลูกค้า..."}
                         defaultRole={transactionType === "EXPENSE" ? "VENDOR" : "CUSTOMER"}
@@ -827,14 +777,26 @@ export function DocumentBoxForm({
 
               {/* Row 3: Description */}
               <div className="space-y-2">
-                <Label>รายละเอียด *</Label>
+                <div className="flex items-center gap-2">
+                  <Label>รายละเอียด *</Label>
+                  {/* Source badge */}
+                  {mode === "create" && aggregatedData.description.sources.length > 0 && !editedFields.has("description") && (
+                    <SourceBadge 
+                      source={aggregatedData.description.sources} 
+                      isUserEdited={editedFields.has("description")}
+                    />
+                  )}
+                </div>
                 {isEditing ? (
                   <Textarea
                     name="description"
                     placeholder="เช่น ค่าบริการ IT เดือนมกราคม..."
                     rows={2}
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      markFieldEdited("description");
+                    }}
                     required
                   />
                 ) : (
@@ -842,51 +804,7 @@ export function DocumentBoxForm({
                 )}
               </div>
 
-              {/* Row 4: Reference & Due Date */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>เลขที่อ้างอิง</Label>
-                  {isEditing ? (
-                    <div className="relative">
-                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        name="externalRef"
-                        className="pl-10"
-                        placeholder="เลขที่ใบแจ้งหนี้, PO, ..."
-                        value={externalRef}
-                        onChange={(e) => setExternalRef(e.target.value)}
-                      />
-                    </div>
-                  ) : (
-                    <p className="py-2 font-medium">{document?.externalRef || "-"}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>วันครบกำหนด</Label>
-                  {isEditing ? (
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        name="dueDate"
-                        type="date"
-                        className="pl-10"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                      />
-                    </div>
-                  ) : (
-                    <p className="py-2 font-medium">
-                      {document?.dueDate 
-                        ? new Date(document.dueDate).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })
-                        : "-"
-                      }
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Row 5: Notes */}
+              {/* Row 4: Notes */}
               <div className="space-y-2">
                 <Label>หมายเหตุ</Label>
                 {isEditing ? (
@@ -972,7 +890,7 @@ export function DocumentBoxForm({
                           <SelectValue placeholder="เลือกประเภทภาษีหัก ณ ที่จ่าย" />
                         </SelectTrigger>
                         <SelectContent>
-                          {whtTypes.map((type) => (
+                          {WHT_TYPES.map((type) => (
                             <SelectItem key={type.value} value={type.value}>
                               {type.label}
                             </SelectItem>
@@ -980,8 +898,8 @@ export function DocumentBoxForm({
                         </SelectContent>
                       </Select>
                     ) : (
-                      <p className="font-medium text-orange-600">
-                        {whtTypes.find(t => t.value === whtRate.toString())?.label || `${whtRate}%`}
+                      <p className="font-medium text-rose-600">
+                        {WHT_TYPES.find(t => t.value === whtRate.toString())?.label || `${whtRate}%`}
                       </p>
                     )}
                   </div>
@@ -1011,7 +929,7 @@ export function DocumentBoxForm({
                     <span>฿{formatMoney(totalAmount)}</span>
                   </div>
                   {hasWht && (
-                    <div className="flex justify-between text-orange-600">
+                    <div className="flex justify-between text-rose-600">
                       <span>หัก ณ ที่จ่าย {whtRate}%</span>
                       <span>-฿{formatMoney(whtAmount)}</span>
                     </div>
@@ -1020,8 +938,8 @@ export function DocumentBoxForm({
 
                 <div className="flex justify-between pt-2 border-t mt-2 font-bold">
                   <span className="text-sm">{transactionType === "EXPENSE" ? "ยอดโอนจริง" : "ยอดรับจริง"}</span>
-                  <span className="text-primary">
-                    ฿{formatMoney(netAmount)}
+                  <span className={transactionType === "INCOME" ? "text-primary" : "text-rose-600"}>
+                    {transactionType === "INCOME" ? "+" : "-"}฿{formatMoney(netAmount)}
                   </span>
                 </div>
               </div>
@@ -1030,7 +948,8 @@ export function DocumentBoxForm({
         </div>
 
         {/* RIGHT COLUMN - Documents (2 cols) */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
+          {/* Documents Panel */}
           <div className="rounded-xl border bg-white sticky top-4">
             {/* Header */}
             <div className="px-5 py-4 border-b">
@@ -1039,15 +958,22 @@ export function DocumentBoxForm({
                   <Sparkles className="h-4 w-4 text-primary" />
                   <span className="font-semibold text-gray-900">เอกสารในกล่อง</span>
                 </div>
-                {isAnalyzed && (
+                {allAnalyzed && extractedFiles.length > 0 && (
                   <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />
                     AI วิเคราะห์แล้ว
                   </span>
                 )}
+                {isAnalyzing && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    กำลังวิเคราะห์...
+                  </span>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {docCount} เอกสาร
+                {isAnalyzing && ` (กำลังวิเคราะห์...)`}
               </p>
             </div>
 
@@ -1062,7 +988,7 @@ export function DocumentBoxForm({
                       <span className="text-muted-foreground"> หรือลากไฟล์มาวาง</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      รองรับ: รูปภาพ, PDF
+                      รองรับ: รูปภาพ, PDF • AI วิเคราะห์อัตโนมัติ
                     </span>
                   </div>
                   <input
@@ -1075,54 +1001,18 @@ export function DocumentBoxForm({
                 </label>
               )}
 
-              {/* AI Analysis Button */}
-              {mode === "create" && uploadedFiles.length > 0 && isEditing && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={handleAIAnalysis}
-                  disabled={isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      กำลังวิเคราะห์...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      AI วิเคราะห์เอกสาร
-                    </>
-                  )}
-                </Button>
-              )}
-
-              {/* Uploaded Files (Create Mode) */}
-              {mode === "create" && uploadedFiles.length > 0 && (
+              {/* Uploaded Files (Create Mode) - New DocumentFileCard */}
+              {mode === "create" && extractedFiles.length > 0 && (
                 <div className="space-y-2">
-                  {uploadedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
-                      <div className="w-9 h-9 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                        <FileText className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{file.file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {docTypes.find(d => d.type === file.docType)?.label || file.docType}
-                        </p>
-                      </div>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => removeFile(index)}
-                          className="w-7 h-7 rounded-full hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
+                  {extractedFiles.map((extractedFile) => (
+                    <DocumentFileCard
+                      key={extractedFile.id}
+                      extractedFile={extractedFile}
+                      onRemove={() => handleRemoveFile(extractedFile.id)}
+                      onReanalyze={() => reanalyzeFile(extractedFile.id)}
+                      isEditable={isEditing}
+                      compact={extractedFiles.length > 3}
+                    />
                   ))}
                 </div>
               )}
@@ -1150,15 +1040,53 @@ export function DocumentBoxForm({
               )}
 
               {/* Empty state */}
-              {uploadedFiles.length === 0 && mode === "create" && (
+              {extractedFiles.length === 0 && mode === "create" && (
                 <div className="text-center py-6 text-muted-foreground">
                   <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">ยังไม่มีเอกสาร</p>
-                  <p className="text-xs mt-1">อัปโหลดเอกสารเพื่อเริ่มต้น</p>
+                  <p className="text-xs mt-1">อัปโหลดเอกสาร AI จะวิเคราะห์อัตโนมัติ</p>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Conflict Resolution Panel */}
+          {mode === "create" && hasConflicts && (
+            <div className="rounded-xl border bg-white overflow-hidden">
+              <div className="px-5 py-4 border-b bg-amber-50">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="font-semibold">พบข้อมูลต่างกัน</span>
+                </div>
+                <p className="text-xs text-amber-600 mt-1">
+                  กรุณาเลือกค่าที่ถูกต้อง
+                </p>
+              </div>
+              <div className="p-4 space-y-4">
+                {/* Amount Conflict */}
+                {aggregatedData.amount.hasConflict && (
+                  <ConflictResolver
+                    field={aggregatedData.amount}
+                    label="ยอดเงิน"
+                    fieldType="amount"
+                    value={parseFloat(amount) || undefined}
+                    onChange={handleAmountSelect}
+                  />
+                )}
+                
+                {/* Contact Conflict */}
+                {aggregatedData.contactName.hasConflict && (
+                  <ConflictResolver
+                    field={aggregatedData.contactName}
+                    label="ผู้ขาย/ร้านค้า"
+                    fieldType="text"
+                    value={contactName || undefined}
+                    onChange={handleContactSelect}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
