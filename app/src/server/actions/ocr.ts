@@ -51,7 +51,7 @@ export async function extractDocumentData(
             role: "system",
             content: `You are an expert at extracting information from Thai receipts, invoices, and tax invoices.
 Extract the following information from the document image and return as JSON:
-- docType: "SLIP" | "RECEIPT" | "TAX_INVOICE" | "INVOICE" | "OTHER"
+- docType: "SLIP_TRANSFER" | "RECEIPT" | "TAX_INVOICE" | "INVOICE" | "OTHER" (use SLIP_TRANSFER for bank transfer slips)
 - docDate: date in YYYY-MM-DD format
 - externalRef: the receipt/invoice number
 - vendorName: vendor/store name
@@ -128,10 +128,17 @@ If a field is not found, omit it. Return only valid JSON.`,
       }
     }
 
+    // Map docType to correct enum values
+    let docType = extractedData.docType;
+    if (docType === "SLIP") {
+      docType = "SLIP_TRANSFER";
+    }
+
     return {
       success: true,
       data: {
         ...extractedData,
+        docType,
         confidence: extractedData.confidence || 0.8,
       },
     };

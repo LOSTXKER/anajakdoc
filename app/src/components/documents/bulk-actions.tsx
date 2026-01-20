@@ -29,7 +29,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
-import { bulkApprove, bulkReject, bulkExport } from "@/server/actions/bulk";
+import { bulkApproveBoxes, bulkRejectBoxes, bulkExportBoxes } from "@/server/actions/bulk";
 import type { MemberRole } from ".prisma/client";
 
 interface BulkActionsProps {
@@ -56,8 +56,8 @@ export function BulkActions({ selectedIds, onClearSelection, userRole }: BulkAct
 
     startTransition(async () => {
       const result = dialogAction === "approve"
-        ? await bulkApprove(selectedIds, comment || undefined)
-        : await bulkReject(selectedIds, comment);
+        ? await bulkApproveBoxes(selectedIds, comment || undefined)
+        : await bulkRejectBoxes(selectedIds, comment);
 
       if (result.success) {
         toast.success(
@@ -76,7 +76,7 @@ export function BulkActions({ selectedIds, onClearSelection, userRole }: BulkAct
 
   const handleExport = () => {
     startTransition(async () => {
-      const result = await bulkExport(selectedIds);
+      const result = await bulkExportBoxes(selectedIds);
       if (result.success && result.data?.downloadUrl) {
         toast.success(`Export ${selectedIds.length} รายการเรียบร้อย`);
         window.open(result.data.downloadUrl, "_blank");

@@ -12,11 +12,11 @@ import {
   Receipt,
 } from "lucide-react";
 import { WHTTrackingCard } from "./wht-tracking-card";
-import type { SerializedWHTTracking } from "@/types";
+import type { SerializedWhtTracking } from "@/types";
 
 interface WHTTrackingDashboardProps {
-  outgoingTrackings: SerializedWHTTracking[];
-  incomingTrackings: SerializedWHTTracking[];
+  outgoingTrackings: SerializedWhtTracking[];
+  incomingTrackings: SerializedWhtTracking[];
   summary: {
     outgoing: { pending: number; sent: number };
     incoming: { pending: number; received: number };

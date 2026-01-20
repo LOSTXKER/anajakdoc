@@ -25,8 +25,8 @@ export async function getFiscalPeriods(): Promise<FiscalPeriodData[]> {
   const periods = await prisma.fiscalPeriod.findMany({
     where: { organizationId: session.currentOrganization.id },
     include: {
-      _count: { select: { documents: true } },
-      documents: {
+      _count: { select: { boxes: true } },
+      boxes: {
         select: { totalAmount: true },
       },
     },
@@ -42,8 +42,8 @@ export async function getFiscalPeriods(): Promise<FiscalPeriodData[]> {
     endDate: p.endDate.toISOString(),
     status: p.status,
     closedAt: p.closedAt?.toISOString() || null,
-    documentCount: p._count.documents,
-    totalAmount: p.documents.reduce((sum, d) => sum + d.totalAmount.toNumber(), 0),
+    documentCount: p._count.boxes,
+    totalAmount: p.boxes.reduce((sum, d) => sum + d.totalAmount.toNumber(), 0),
   }));
 }
 
@@ -164,14 +164,14 @@ export async function deleteFiscalPeriod(periodId: string): Promise<ApiResponse>
       id: periodId,
       organizationId: session.currentOrganization.id,
     },
-    include: { _count: { select: { documents: true } } },
+    include: { _count: { select: { boxes: true } } },
   });
 
   if (!period) {
     return { success: false, error: "ไม่พบงวดบัญชี" };
   }
 
-  if (period._count.documents > 0) {
+  if (period._count.boxes > 0) {
     return { success: false, error: "ไม่สามารถลบงวดที่มีเอกสารได้" };
   }
 
@@ -199,8 +199,8 @@ export async function ensureCurrentPeriod(): Promise<FiscalPeriodData | null> {
       },
     },
     include: {
-      _count: { select: { documents: true } },
-      documents: { select: { totalAmount: true } },
+      _count: { select: { boxes: true } },
+      boxes: { select: { totalAmount: true } },
     },
   });
 
@@ -221,7 +221,7 @@ export async function ensureCurrentPeriod(): Promise<FiscalPeriodData | null> {
     endDate: period.endDate.toISOString(),
     status: period.status,
     closedAt: period.closedAt?.toISOString() || null,
-    documentCount: period._count.documents,
-    totalAmount: period.documents.reduce((sum, d) => sum + d.totalAmount.toNumber(), 0),
+    documentCount: period._count.boxes,
+    totalAmount: period.boxes.reduce((sum, d) => sum + d.totalAmount.toNumber(), 0),
   };
 }

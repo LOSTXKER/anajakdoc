@@ -14,26 +14,26 @@ async function getReportData(orgId: string) {
     { month: number; expense: number; income: number }[]
   >`
     SELECT 
-      EXTRACT(MONTH FROM doc_date) as month,
-      SUM(CASE WHEN transaction_type = 'EXPENSE' THEN total_amount ELSE 0 END) as expense,
-      SUM(CASE WHEN transaction_type = 'INCOME' THEN total_amount ELSE 0 END) as income
-    FROM documents
+      EXTRACT(MONTH FROM box_date) as month,
+      SUM(CASE WHEN box_type = 'EXPENSE' THEN total_amount ELSE 0 END) as expense,
+      SUM(CASE WHEN box_type = 'INCOME' THEN total_amount ELSE 0 END) as income
+    FROM boxes
     WHERE organization_id = ${orgId}
-      AND doc_date >= ${startOfYear}
-      AND doc_date <= ${endOfYear}
-      AND status NOT IN ('VOID', 'REJECTED')
-    GROUP BY EXTRACT(MONTH FROM doc_date)
+      AND box_date >= ${startOfYear}
+      AND box_date <= ${endOfYear}
+      AND status NOT IN ('CANCELLED')
+    GROUP BY EXTRACT(MONTH FROM box_date)
     ORDER BY month
   `;
 
   // Get category breakdown
-  const categoryData = await prisma.document.groupBy({
+  const categoryData = await prisma.box.groupBy({
     by: ["categoryId"],
     where: {
       organizationId: orgId,
-      transactionType: "EXPENSE",
-      status: { notIn: ["VOID", "REJECTED"] },
-      docDate: { gte: startOfYear, lte: endOfYear },
+      boxType: "EXPENSE",
+      status: { notIn: ["CANCELLED"] },
+      boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },
     _count: true,
@@ -53,13 +53,13 @@ async function getReportData(orgId: string) {
   }).sort((a, b) => b.amount - a.amount);
 
   // Get cost center breakdown
-  const costCenterData = await prisma.document.groupBy({
+  const costCenterData = await prisma.box.groupBy({
     by: ["costCenterId"],
     where: {
       organizationId: orgId,
-      transactionType: "EXPENSE",
-      status: { notIn: ["VOID", "REJECTED"] },
-      docDate: { gte: startOfYear, lte: endOfYear },
+      boxType: "EXPENSE",
+      status: { notIn: ["CANCELLED"] },
+      boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },
     _count: true,
@@ -79,32 +79,32 @@ async function getReportData(orgId: string) {
   }).sort((a, b) => b.amount - a.amount);
 
   // Get totals
-  const totals = await prisma.document.aggregate({
+  const totals = await prisma.box.aggregate({
     where: {
       organizationId: orgId,
-      status: { notIn: ["VOID", "REJECTED"] },
-      docDate: { gte: startOfYear, lte: endOfYear },
+      status: { notIn: ["CANCELLED"] },
+      boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true, vatAmount: true, whtAmount: true },
     _count: true,
   });
 
-  const expenseTotal = await prisma.document.aggregate({
+  const expenseTotal = await prisma.box.aggregate({
     where: {
       organizationId: orgId,
-      transactionType: "EXPENSE",
-      status: { notIn: ["VOID", "REJECTED"] },
-      docDate: { gte: startOfYear, lte: endOfYear },
+      boxType: "EXPENSE",
+      status: { notIn: ["CANCELLED"] },
+      boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },
   });
 
-  const incomeTotal = await prisma.document.aggregate({
+  const incomeTotal = await prisma.box.aggregate({
     where: {
       organizationId: orgId,
-      transactionType: "INCOME",
-      status: { notIn: ["VOID", "REJECTED"] },
-      docDate: { gte: startOfYear, lte: endOfYear },
+      boxType: "INCOME",
+      status: { notIn: ["CANCELLED"] },
+      boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },
   });
@@ -121,7 +121,7 @@ async function getReportData(orgId: string) {
       totalAmount: totals._sum.totalAmount?.toNumber() || 0,
       vatAmount: totals._sum.vatAmount?.toNumber() || 0,
       whtAmount: totals._sum.whtAmount?.toNumber() || 0,
-      documentCount: totals._count,
+      boxCount: totals._count,
       expenseTotal: expenseTotal._sum.totalAmount?.toNumber() || 0,
       incomeTotal: incomeTotal._sum.totalAmount?.toNumber() || 0,
     },

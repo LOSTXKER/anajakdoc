@@ -15,7 +15,7 @@ export async function getSession(): Promise<SessionUser | null> {
   }
 
   // Get user from database with organizations
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { supabaseId: supabaseUser.id },
     include: {
       memberships: {
@@ -32,6 +32,31 @@ export async function getSession(): Promise<SessionUser | null> {
       },
     },
   });
+
+  // Auto-create user in database if exists in Supabase but not in DB
+  if (!user && supabaseUser.email) {
+    user = await prisma.user.create({
+      data: {
+        email: supabaseUser.email,
+        name: supabaseUser.user_metadata?.name || supabaseUser.email.split("@")[0],
+        supabaseId: supabaseUser.id,
+      },
+      include: {
+        memberships: {
+          where: { isActive: true },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 
   if (!user) {
     return null;

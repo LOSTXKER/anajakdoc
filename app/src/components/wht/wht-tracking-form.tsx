@@ -21,8 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { toast } from "sonner";
-import { createWHTTracking } from "@/server/actions/wht-tracking";
-import type { WHTTrackingType } from "@/types";
+import { createWhtTracking } from "@/server/actions/wht-tracking";
+import type { WhtType } from "@/types";
 
 interface Contact {
   id: string;
@@ -30,8 +30,8 @@ interface Contact {
 }
 
 interface WHTTrackingFormProps {
-  documentId: string;
-  defaultTrackingType?: WHTTrackingType;
+  boxId: string;
+  defaultTrackingType?: WhtType;
   contacts: Contact[];
   defaultContactId?: string;
   open: boolean;
@@ -47,7 +47,7 @@ const whtRates = [
 ];
 
 export function WHTTrackingForm({
-  documentId,
+  boxId,
   defaultTrackingType = "OUTGOING",
   contacts,
   defaultContactId,
@@ -56,7 +56,7 @@ export function WHTTrackingForm({
   onSuccess,
 }: WHTTrackingFormProps) {
   const [isPending, startTransition] = useTransition();
-  const [trackingType, setTrackingType] = useState<WHTTrackingType>(defaultTrackingType);
+  const [trackingType, setTrackingType] = useState<WhtType>(defaultTrackingType);
   const [whtRate, setWhtRate] = useState("3");
   const [whtAmount, setWhtAmount] = useState("");
   const [contactId, setContactId] = useState(defaultContactId || "");
@@ -77,13 +77,12 @@ export function WHTTrackingForm({
     }
 
     startTransition(async () => {
-      const result = await createWHTTracking({
-        documentId,
-        trackingType,
-        whtAmount: parseFloat(whtAmount),
-        whtRate: parseFloat(whtRate),
+      const result = await createWhtTracking({
+        boxId,
+        type: trackingType,
+        amount: parseFloat(whtAmount),
+        rate: parseFloat(whtRate),
         contactId: contactId || undefined,
-        counterpartyName: counterpartyName || undefined,
         notes: notes || undefined,
       });
 

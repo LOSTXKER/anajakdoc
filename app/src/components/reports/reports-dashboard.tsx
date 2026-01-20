@@ -33,7 +33,7 @@ interface ReportData {
     totalAmount: number;
     vatAmount: number;
     whtAmount: number;
-    documentCount: number;
+    boxCount: number;
     expenseTotal: number;
     incomeTotal: number;
   };
@@ -136,7 +136,7 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totals.documentCount.toLocaleString()}
+              {data.totals.boxCount.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
               รายการ

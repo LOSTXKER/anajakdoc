@@ -23,23 +23,22 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { updateWHTStatus } from "@/server/actions/wht-tracking";
-import type { SerializedWHTTracking } from "@/types";
-import { WHTStatus } from "@/types";
+import { updateWhtStatus } from "@/server/actions/wht-tracking";
+import type { SerializedWhtTracking } from "@/types";
+import { WhtStatus } from "@prisma/client";
 import Link from "next/link";
 
 interface WHTTrackingCardProps {
-  tracking: SerializedWHTTracking;
+  tracking: SerializedWhtTracking;
   showDocument?: boolean;
 }
 
-const statusConfig: Record<WHTStatus, { label: string; color: string; icon: typeof Clock }> = {
+const statusConfig: Record<WhtStatus, { label: string; color: string; icon: typeof Clock }> = {
   PENDING: { label: "รอดำเนินการ", color: "bg-yellow-100 text-yellow-700", icon: Clock },
   ISSUED: { label: "ออกเอกสารแล้ว", color: "bg-blue-100 text-blue-700", icon: FileText },
   SENT: { label: "ส่งแล้ว", color: "bg-indigo-100 text-indigo-700", icon: Send },
   CONFIRMED: { label: "ยืนยันรับแล้ว", color: "bg-green-100 text-green-700", icon: CheckCircle },
   RECEIVED: { label: "ได้รับแล้ว", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  CANCELLED: { label: "ยกเลิก", color: "bg-gray-100 text-gray-700", icon: AlertCircle },
 };
 
 const sentMethodLabels: Record<string, { label: string; icon: typeof Mail }> = {
@@ -54,9 +53,9 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
 
   const statusInfo = statusConfig[tracking.status];
   const StatusIcon = statusInfo.icon;
-  const isOutgoing = tracking.trackingType === "OUTGOING";
+  const isOutgoing = tracking.type === "OUTGOING";
 
-  const handleStatusChange = async (newStatus: WHTStatus) => {
+  const handleStatusChange = async (newStatus: WhtStatus) => {
     setIsUpdating(true);
     
     const additionalData: Record<string, Date> = {};
@@ -65,7 +64,7 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
     if (newStatus === "CONFIRMED") additionalData.confirmedDate = new Date();
     if (newStatus === "RECEIVED") additionalData.receivedDate = new Date();
 
-    const result = await updateWHTStatus(tracking.id, newStatus, additionalData);
+    const result = await updateWhtStatus(tracking.id, newStatus, additionalData);
     setIsUpdating(false);
 
     if (result.success) {
@@ -75,17 +74,17 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
     }
   };
 
-  const getNextStatuses = (): WHTStatus[] => {
+  const getNextStatuses = (): WhtStatus[] => {
     if (isOutgoing) {
       switch (tracking.status) {
-        case "PENDING": return ["ISSUED", "CANCELLED"];
-        case "ISSUED": return ["SENT", "CANCELLED"];
-        case "SENT": return ["CONFIRMED", "CANCELLED"];
+        case "PENDING": return ["ISSUED"];
+        case "ISSUED": return ["SENT"];
+        case "SENT": return ["CONFIRMED"];
         default: return [];
       }
     } else {
       switch (tracking.status) {
-        case "PENDING": return ["RECEIVED", "CANCELLED"];
+        case "PENDING": return ["RECEIVED"];
         default: return [];
       }
     }
@@ -122,13 +121,13 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
 
           {/* Contact */}
           <h4 className="font-medium text-gray-900">
-            {tracking.contact?.name || tracking.counterpartyName || "ไม่ระบุคู่ค้า"}
+            {tracking.contact?.name || "ไม่ระบุคู่ค้า"}
           </h4>
 
           {/* Amount */}
           <div className="mt-1 text-sm">
-            <span className="text-gray-500">หัก {tracking.whtRate}%:</span>
-            <span className="font-semibold text-gray-900 ml-1">฿{tracking.whtAmount.toLocaleString()}</span>
+            <span className="text-gray-500">หัก {tracking.rate}%:</span>
+            <span className="font-semibold text-gray-900 ml-1">฿{tracking.amount.toLocaleString()}</span>
           </div>
 
           {/* Dates */}
@@ -143,9 +142,6 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
                   <span>({sentMethodLabels[tracking.sentMethod]?.label || tracking.sentMethod})</span>
                 )}
               </div>
-            )}
-            {tracking.confirmedDate && (
-              <div>ยืนยันรับ: {new Date(tracking.confirmedDate).toLocaleDateString("th-TH")}</div>
             )}
             {tracking.receivedDate && (
               <div>ได้รับ: {new Date(tracking.receivedDate).toLocaleDateString("th-TH")}</div>

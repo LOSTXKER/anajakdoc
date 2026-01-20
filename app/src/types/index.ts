@@ -1,185 +1,204 @@
+// Import types (models)
 import type { 
   Organization, 
   User, 
-  Document, 
-  DocumentFile, 
-  SubDocument,
-  SubDocumentFile,
-  WHTTracking,
+  Box,
+  Document,
+  DocumentFile,
+  Payment,
+  WhtTracking,
   Contact, 
   CostCenter, 
   Category,
   Comment,
   MemberRole,
-  DocumentStatus,
-  TransactionType,
-  DocType,
-  SubDocType,
-  OcrStatus,
-  PaymentMethod,
+  BoxStatus,
+  BoxType,
+  ExpenseType,
+  DocStatus,
   PaymentStatus,
-  WHTTrackingType,
-  WHTStatus,
-  WHTSentMethod
-} from ".prisma/client";
+  PaymentMethod,
+  DocType,
+  WhtType,
+  WhtStatus,
+  WhtSentMethod,
+} from "@prisma/client";
 
-// Re-export enums for convenience
-export { 
-  MemberRole, 
-  DocumentStatus, 
-  TransactionType, 
-  DocType,
-  SubDocType,
-  OcrStatus,
-  PaymentMethod,
+// Re-export enums as types
+export type {
+  MemberRole,
+  BoxStatus,
+  BoxType,
+  ExpenseType,
+  DocStatus,
   PaymentStatus,
-  WHTTrackingType,
-  WHTStatus,
-  WHTSentMethod
+  PaymentMethod,
+  DocType,
+  WhtType,
+  WhtStatus,
+  WhtSentMethod,
+} from "@prisma/client";
+
+// ==========================================
+// Document with files
+// ==========================================
+export type DocumentWithFiles = Document & {
+  files: DocumentFile[];
 };
 
-// SubDocument with files
-export type SubDocumentWithFiles = SubDocument & {
-  files: SubDocumentFile[];
-};
-
-// WHT Tracking with contact (for document relations)
-export type WHTTrackingWithContact = WHTTracking & {
+// ==========================================
+// WHT Tracking types
+// ==========================================
+export type WhtTrackingWithContact = WhtTracking & {
   contact: Contact | null;
 };
 
-// WHT Tracking with document (for WHT tracking list)
-export type WHTTrackingWithDocument = WHTTracking & {
+export type WhtTrackingWithBox = WhtTracking & {
   contact: Contact | null;
-  document: {
+  box: {
     id: string;
-    docNumber: string;
-    description: string | null;
+    boxNumber: string;
+    title: string | null;
     totalAmount: number;
-    docDate: Date;
+    boxDate: Date;
   } | null;
 };
 
-// Extended types with relations
-export type DocumentWithRelations = Document & {
-  files: DocumentFile[];           // Legacy files
-  subDocuments: SubDocumentWithFiles[];  // NEW: เอกสารในกล่อง
-  whtTrackings: WHTTrackingWithContact[]; // NEW: WHT tracking
+// ==========================================
+// Payment types
+// ==========================================
+export type PaymentWithDocument = Payment & {
+  document?: Document | null;
+};
+
+// ==========================================
+// Box with relations
+// ==========================================
+export type BoxWithRelations = Box & {
+  documents: DocumentWithFiles[];     // เอกสารในกล่อง
+  payments: Payment[];                // การจ่ายเงิน
+  whtTrackings: WhtTrackingWithContact[];
   contact: Contact | null;
   costCenter: CostCenter | null;
   category: Category | null;
-  submittedBy: Pick<User, "id" | "name" | "email" | "avatarUrl">;
-  reviewedBy: Pick<User, "id" | "name" | "email" | "avatarUrl"> | null;
+  createdBy: Pick<User, "id" | "name" | "email" | "avatarUrl">;
+  linkedBox?: Box | null;
   comments: (Comment & { user: Pick<User, "id" | "name" | "avatarUrl"> })[];
   _count?: {
-    files: number;
-    subDocuments: number;
+    documents: number;
+    payments: number;
     comments: number;
   };
 };
 
-// Serialized SubDocument for Client Components
-export type SerializedSubDocument = Omit<
-  SubDocumentWithFiles,
-  "amount" | "vatAmount" | "docDate" | "createdAt" | "updatedAt"
+// ==========================================
+// Serialized types for Client Components
+// ==========================================
+
+export type SerializedDocument = Omit<
+  DocumentWithFiles,
+  "amount" | "vatAmount" | "foreignAmount" | "docDate" | "createdAt" | "updatedAt"
 > & {
   amount: number | null;
   vatAmount: number | null;
+  foreignAmount: number | null;
   docDate: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
-// Serialized WHT Tracking for Client Components
-export type SerializedWHTTracking = Omit<
-  WHTTrackingWithContact,
-  "whtAmount" | "whtRate" | "issuedDate" | "sentDate" | "confirmedDate" | "receivedDate" | "createdAt" | "updatedAt"
+export type SerializedPayment = Omit<
+  Payment,
+  "amount" | "paidDate" | "createdAt"
 > & {
-  whtAmount: number;
-  whtRate: number;
+  amount: number;
+  paidDate: string;
+  createdAt: string;
+};
+
+export type SerializedWhtTracking = Omit<
+  WhtTrackingWithContact,
+  "amount" | "rate" | "issuedDate" | "sentDate" | "receivedDate" | "createdAt" | "updatedAt"
+> & {
+  amount: number;
+  rate: number | null;
   issuedDate: string | null;
   sentDate: string | null;
-  confirmedDate: string | null;
   receivedDate: string | null;
   createdAt: string;
   updatedAt: string;
-  document?: {
+  box?: {
     id: string;
-    docNumber: string;
-    description: string | null;
+    boxNumber: string;
+    title: string | null;
     totalAmount: number;
-    docDate: string;
+    boxDate: string;
   } | null;
 };
 
-// Serialized version for Client Components (Decimal -> number)
-export type SerializedDocument = Omit<
-  DocumentWithRelations,
-  "subtotal" | "vatAmount" | "whtAmount" | "totalAmount" | "vatRate" | "whtRate" | "docDate" | "dueDate" | "submittedAt" | "reviewedAt" | "exportedAt" | "bookedAt" | "createdAt" | "updatedAt" | "subDocuments" | "whtTrackings"
+export type SerializedBox = Omit<
+  BoxWithRelations,
+  "totalAmount" | "vatAmount" | "whtAmount" | "paidAmount" | "vatRate" | "whtRate" | "foreignAmount" | "exchangeRate" | "boxDate" | "dueDate" | "exportedAt" | "createdAt" | "updatedAt" | "documents" | "payments" | "whtTrackings"
 > & {
-  subtotal: number;
+  totalAmount: number;
   vatAmount: number;
   whtAmount: number;
-  totalAmount: number;
+  paidAmount: number;
   vatRate: number | null;
   whtRate: number | null;
-  docDate: string;
+  foreignAmount: number | null;
+  exchangeRate: number | null;
+  boxDate: string;
   dueDate: string | null;
-  submittedAt: string | null;
-  reviewedAt: string | null;
   exportedAt: string | null;
-  bookedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  subDocuments: SerializedSubDocument[];
-  whtTrackings: SerializedWHTTracking[];
+  documents: SerializedDocument[];
+  payments: SerializedPayment[];
+  whtTrackings: SerializedWhtTracking[];
 };
 
-// Simplified document type for list views (without all relations)
-export type SerializedDocumentListItem = {
+// Simplified box type for list views
+export type SerializedBoxListItem = {
   id: string;
-  docNumber: string;
-  transactionType: TransactionType;
-  docType: DocType | null;
-  status: DocumentStatus;
-  subtotal: number;
+  boxNumber: string;
+  title: string | null;
+  boxType: BoxType;
+  expenseType: ExpenseType | null;
+  status: BoxStatus;
+  docStatus: DocStatus;
+  paymentStatus: PaymentStatus;
+  totalAmount: number;
   vatAmount: number;
   whtAmount: number;
-  totalAmount: number;
-  vatRate: number | null;
-  whtRate: number | null;
-  docDate: string;
+  paidAmount: number;
+  boxDate: string;
   dueDate: string | null;
+  hasVat: boolean;
+  hasWht: boolean;
+  whtSent: boolean;
   description: string | null;
   notes: string | null;
   externalRef: string | null;
   organizationId: string;
-  submittedById: string;
-  reviewedById: string | null;
+  createdById: string;
   contactId: string | null;
   categoryId: string | null;
   costCenterId: string | null;
-  submittedAt: string | null;
-  reviewedAt: string | null;
   exportedAt: string | null;
-  bookedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  isPaid: boolean;
-  hasPaymentProof: boolean;
-  hasTaxInvoice: boolean;
-  hasInvoice: boolean;
-  whtIssued: boolean;
-  whtSent: boolean;
-  whtReceived: boolean;
   contact: Contact | null;
   costCenter: CostCenter | null;
   category: Category | null;
-  submittedBy: { id: string; name: string | null; email: string; avatarUrl: string | null };
-  subDocuments: SerializedSubDocument[];
-  _count?: { files: number; subDocuments: number; comments: number };
+  createdBy: { id: string; name: string | null; email: string; avatarUrl: string | null };
+  documents: SerializedDocument[];
+  _count?: { documents: number; payments: number; comments: number };
 };
 
+// ==========================================
+// Organization types
+// ==========================================
 export type OrganizationWithMember = Organization & {
   members: {
     role: MemberRole;
@@ -187,23 +206,28 @@ export type OrganizationWithMember = Organization & {
   }[];
 };
 
-// Form types
-export type CreateDocumentInput = {
-  transactionType: TransactionType;
-  docType?: DocType;
-  docDate: Date;
+// ==========================================
+// Form input types
+// ==========================================
+export type CreateBoxInput = {
+  boxType: BoxType;
+  expenseType?: ExpenseType;
+  boxDate: Date;
   dueDate?: Date;
-  subtotal: number;
+  totalAmount?: number;
   vatAmount?: number;
   whtAmount?: number;
-  totalAmount: number;
   vatRate?: number;
   isVatInclusive?: boolean;
+  hasVat?: boolean;
   hasWht?: boolean;
   whtRate?: number;
-  whtType?: string;
-  paymentMethod?: PaymentMethod;
+  foreignCurrency?: string;
+  foreignAmount?: number;
+  exchangeRate?: number;
+  noReceiptReason?: string;
   externalRef?: string;
+  title?: string;
   description?: string;
   notes?: string;
   contactId?: string;
@@ -211,46 +235,57 @@ export type CreateDocumentInput = {
   categoryId?: string;
 };
 
-export type UpdateDocumentInput = Partial<CreateDocumentInput> & {
-  status?: DocumentStatus;
-  isComplete?: boolean;
+export type UpdateBoxInput = Partial<CreateBoxInput> & {
+  status?: BoxStatus;
+  docStatus?: DocStatus;
+  paymentStatus?: PaymentStatus;
 };
 
-// SubDocument input
-export type CreateSubDocumentInput = {
-  documentId: string;
-  docType: SubDocType;
+export type CreateDocumentInput = {
+  boxId: string;
+  docType: DocType;
   docNumber?: string;
   docDate?: Date;
   amount?: number;
   vatAmount?: number;
+  foreignCurrency?: string;
+  foreignAmount?: number;
   notes?: string;
 };
 
-export type UpdateSubDocumentInput = Partial<Omit<CreateSubDocumentInput, "documentId">>;
+export type UpdateDocumentInput = Partial<Omit<CreateDocumentInput, "boxId">>;
 
-// WHT Tracking input
-export type CreateWHTTrackingInput = {
-  documentId: string;
-  trackingType: WHTTrackingType;
-  whtAmount: number;
-  whtRate: number;
+export type CreatePaymentInput = {
+  boxId: string;
+  amount: number;
+  paidDate: Date;
+  method: PaymentMethod;
+  reference?: string;
+  notes?: string;
+  documentId?: string;
+};
+
+export type CreateWhtTrackingInput = {
+  boxId: string;
+  type: WhtType;
+  amount: number;
+  rate?: number;
   contactId?: string;
-  counterpartyName?: string;
   notes?: string;
 };
 
-export type UpdateWHTTrackingInput = Partial<Omit<CreateWHTTrackingInput, "documentId" | "trackingType">> & {
-  status?: WHTStatus;
+export type UpdateWhtTrackingInput = Partial<Omit<CreateWhtTrackingInput, "boxId" | "type">> & {
+  status?: WhtStatus;
   issuedDate?: Date;
   sentDate?: Date;
-  sentMethod?: WHTSentMethod;
-  confirmedDate?: Date;
+  sentMethod?: WhtSentMethod;
   receivedDate?: Date;
-  fileUrl?: string;
+  documentId?: string;
 };
 
+// ==========================================
 // Session types
+// ==========================================
 export type SessionUser = {
   id: string;
   email: string;
@@ -270,7 +305,9 @@ export type SessionUser = {
   }[];
 };
 
+// ==========================================
 // API Response types
+// ==========================================
 export type ApiResponse<T = unknown> = {
   success: boolean;
   data?: T;
@@ -278,7 +315,6 @@ export type ApiResponse<T = unknown> = {
   message?: string;
 };
 
-// Pagination
 export type PaginatedResponse<T> = {
   items: T[];
   total: number;
@@ -287,12 +323,15 @@ export type PaginatedResponse<T> = {
   totalPages: number;
 };
 
+// ==========================================
 // Filter types
-export type DocumentFilters = {
-  status?: DocumentStatus[];
-  transactionType?: TransactionType;
+// ==========================================
+export type BoxFilters = {
+  status?: BoxStatus[];
+  boxType?: BoxType;
+  expenseType?: ExpenseType[];
+  docStatus?: DocStatus[];
   docType?: DocType[];
-  subDocType?: SubDocType[];
   paymentStatus?: PaymentStatus[];
   categoryId?: string;
   costCenterId?: string;
@@ -301,8 +340,9 @@ export type DocumentFilters = {
   dateTo?: Date;
   search?: string;
   hasWht?: boolean;
-  isComplete?: boolean;
 };
 
+// ==========================================
 // Organization role type
+// ==========================================
 export type OrganizationRole = MemberRole;

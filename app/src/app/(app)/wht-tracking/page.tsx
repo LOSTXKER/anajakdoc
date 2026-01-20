@@ -1,9 +1,9 @@
 import { requireOrganization } from "@/server/auth";
-import { getWHTTrackings, getWHTSummary } from "@/server/actions/wht-tracking";
+import { getWhtTrackings, getWhtSummary } from "@/server/actions/wht-tracking";
 import { AppHeader } from "@/components/layout/app-header";
 import { WHTTrackingDashboard } from "@/components/wht/wht-tracking-dashboard";
 import { redirect } from "next/navigation";
-import { serializeWHTTrackings } from "@/lib/utils";
+import { serializeWhtTrackings } from "@/lib/utils";
 
 export default async function WHTTrackingPage() {
   const session = await requireOrganization();
@@ -14,9 +14,9 @@ export default async function WHTTrackingPage() {
   }
 
   const [outgoingTrackings, incomingTrackings, summary] = await Promise.all([
-    getWHTTrackings({ trackingType: "OUTGOING" }),
-    getWHTTrackings({ trackingType: "INCOMING" }),
-    getWHTSummary(),
+    getWhtTrackings({ type: "OUTGOING" }),
+    getWhtTrackings({ type: "INCOMING" }),
+    getWhtSummary(),
   ]);
 
   return (
@@ -29,8 +29,8 @@ export default async function WHTTrackingPage() {
       
       <div className="p-6">
         <WHTTrackingDashboard
-          outgoingTrackings={serializeWHTTrackings(outgoingTrackings)}
-          incomingTrackings={serializeWHTTrackings(incomingTrackings)}
+          outgoingTrackings={serializeWhtTrackings(outgoingTrackings)}
+          incomingTrackings={serializeWhtTrackings(incomingTrackings)}
           summary={summary}
         />
       </div>

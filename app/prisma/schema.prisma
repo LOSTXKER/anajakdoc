@@ -1,6 +1,6 @@
-// Accounting Document Hub - Database Schema
-// Multi-tenant document management system
-// NEW: 1 Document (กล่อง) = 1 Transaction → Multiple SubDocuments
+// Document Hub - Database Schema
+// ระบบจัดการเอกสารบัญชี
+// Core Concept: 1 Box = 1 ธุรกรรม → หลาย Document → หลาย Files
 
 generator client {
   provider = "prisma-client-js"
@@ -31,7 +31,7 @@ model Organization {
 
   // Relations
   members         OrganizationMember[]
-  documents       Document[]
+  boxes           Box[]
   contacts        Contact[]
   costCenters     CostCenter[]
   categories      Category[]
@@ -39,7 +39,6 @@ model Organization {
   exportHistories ExportHistory[]
   savedFilters    SavedFilter[]
   notifications   Notification[]
-  whtTrackings    WHTTracking[]
 
   @@map("organizations")
 }
@@ -63,8 +62,7 @@ model User {
 
   // Relations
   memberships   OrganizationMember[]
-  documents     Document[]           @relation("SubmittedBy")
-  reviewedDocs  Document[]           @relation("ReviewedBy")
+  boxes         Box[]            @relation("CreatedBy")
   comments      Comment[]
   activityLogs  ActivityLog[]
   savedFilters  SavedFilter[]
@@ -109,7 +107,7 @@ model Contact {
   contactType    ContactType   @default(INDIVIDUAL) @map("contact_type")
   contactRole    ContactRole   @default(VENDOR) @map("contact_role")
   taxId          String?       @map("tax_id")
-  branchNo       String?       @map("branch_no") // รหัสสาขา 5 หลัก
+  branchNo       String?       @map("branch_no")
   address        String?
   phone          String?
   email          String?
@@ -120,8 +118,8 @@ model Contact {
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  documents    Document[]
-  whtTrackings WHTTracking[]
+  boxes        Box[]
+  whtTrackings WhtTracking[]
 
   @@map("contacts")
 }
@@ -148,27 +146,27 @@ model CostCenter {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  documents    Document[]
+  boxes        Box[]
 
   @@unique([organizationId, code])
   @@map("cost_centers")
 }
 
 model Category {
-  id              String       @id @default(cuid())
-  organizationId  String       @map("organization_id")
+  id              String        @id @default(cuid())
+  organizationId  String        @map("organization_id")
   code            String
   name            String
-  categoryType    CategoryType @default(EXPENSE) @map("category_type")
-  peakAccountCode String?      @map("peak_account_code")
+  categoryType    CategoryType  @default(EXPENSE) @map("category_type")
+  peakAccountCode String?       @map("peak_account_code")
   whtSuggestion   WhtSuggestion @default(NONE) @map("wht_suggestion")
-  defaultWhtRate  Decimal?     @map("default_wht_rate") @db.Decimal(5, 2)
-  isActive        Boolean      @default(true) @map("is_active")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
+  defaultWhtRate  Decimal?      @map("default_wht_rate") @db.Decimal(5, 2)
+  isActive        Boolean       @default(true) @map("is_active")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  documents    Document[]
+  boxes        Box[]
 
   @@unique([organizationId, code])
   @@map("categories")
@@ -180,15 +178,15 @@ enum CategoryType {
 }
 
 enum WhtSuggestion {
-  NONE      // ไม่แนะนำ WHT
-  SOMETIMES // บางกรณี
-  USUALLY   // มักมี WHT
+  NONE
+  SOMETIMES
+  USUALLY
 }
 
 model FiscalPeriod {
   id             String       @id @default(cuid())
   organizationId String       @map("organization_id")
-  name           String       // e.g., "2024-01", "มกราคม 2567"
+  name           String
   year           Int
   month          Int
   startDate      DateTime     @map("start_date")
@@ -199,7 +197,7 @@ model FiscalPeriod {
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  documents    Document[]
+  boxes        Box[]
 
   @@unique([organizationId, year, month])
   @@map("fiscal_periods")
@@ -212,364 +210,332 @@ enum PeriodStatus {
 }
 
 // ============================================
-// DOCUMENT (กล่องเอกสาร / Transaction)
-// 1 Document = 1 ธุรกรรม (รายจ่าย/รายรับ)
-// มีหลาย SubDocument (เอกสารแต่ละประเภท)
+// BOX (กล่องเอกสาร / Transaction)
+// 1 Box = 1 ธุรกรรม (รายจ่าย/รายรับ/ปรับปรุง)
+// มีหลาย Document (เอกสารแต่ละประเภท)
 // ============================================
 
-model Document {
-  id              String          @id @default(cuid())
-  organizationId  String          @map("organization_id")
-  docNumber       String          @map("doc_number") // TXN-YYYYMM-XXXX
-  transactionType TransactionType @default(EXPENSE) @map("transaction_type")
+model Box {
+  id              String        @id @default(cuid())
+  organizationId  String        @map("organization_id")
   
-  // Legacy field - kept for backward compatibility
-  docType         DocType         @default(RECEIPT) @map("doc_type")
+  // === Basic Info ===
+  boxNumber       String        @map("box_number")  // BOX-YYYYMM-XXXX
+  title           String?                           // "ค่าบริการ IT ม.ค."
+  boxType         BoxType       @default(EXPENSE)   @map("box_type")
+  expenseType     ExpenseType?  @map("expense_type")
   
-  // Description
-  description     String?         // ชื่อรายการ เช่น "ค่าบริการ IT ม.ค."
+  // === Date ===
+  boxDate         DateTime      @map("box_date")    // วันที่ธุรกรรม
+  dueDate         DateTime?     @map("due_date")
+  
+  // === Amount ===
+  totalAmount     Decimal       @default(0) @map("total_amount") @db.Decimal(15, 2)
+  vatAmount       Decimal       @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  whtAmount       Decimal       @default(0) @map("wht_amount") @db.Decimal(15, 2)
+  paidAmount      Decimal       @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  
+  // === VAT Info ===
+  vatRate         Decimal?      @map("vat_rate") @db.Decimal(5, 2)
+  isVatInclusive  Boolean       @default(true) @map("is_vat_inclusive")
+  
+  // === WHT Info ===
+  hasWht          Boolean       @default(false) @map("has_wht")
+  whtRate         Decimal?      @map("wht_rate") @db.Decimal(5, 2)
+  
+  // === Status ===
+  status          BoxStatus     @default(DRAFT)
+  docStatus       DocStatus     @default(INCOMPLETE) @map("doc_status")
+  paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
+  
+  // === Flags ===
+  hasVat          Boolean       @default(true) @map("has_vat")        // คาดว่ามี VAT
+  noReceiptReason String?       @map("no_receipt_reason")             // ถ้าไม่มีเอกสาร
+  whtSent         Boolean       @default(false) @map("wht_sent")      // ส่ง WHT ให้คู่ค้าแล้ว
+  
+  // === Foreign Currency ===
+  foreignCurrency String?       @map("foreign_currency")  // USD, EUR
+  foreignAmount   Decimal?      @map("foreign_amount") @db.Decimal(15, 2)
+  exchangeRate    Decimal?      @map("exchange_rate") @db.Decimal(15, 6)
+  
+  // === Notes ===
+  description     String?
   notes           String?
+  externalRef     String?       @map("external_ref")
   
-  // Date
-  docDate         DateTime        @map("doc_date") // วันที่ธุรกรรม
-  dueDate         DateTime?       @map("due_date")
+  // === Relations ===
+  contactId       String?       @map("contact_id")
+  categoryId      String?       @map("category_id")
+  costCenterId    String?       @map("cost_center_id")
+  fiscalPeriodId  String?       @map("fiscal_period_id")
+  createdById     String        @map("created_by_id")
   
-  // Amounts
-  subtotal        Decimal         @default(0) @db.Decimal(15, 2)
-  vatAmount       Decimal         @default(0) @map("vat_amount") @db.Decimal(15, 2)
-  whtAmount       Decimal         @default(0) @map("wht_amount") @db.Decimal(15, 2)
-  totalAmount     Decimal         @default(0) @map("total_amount") @db.Decimal(15, 2)
+  // === Linked (for refund/adjustment) ===
+  linkedBoxId     String?       @map("linked_box_id")
+  linkedBox       Box?          @relation("LinkedBoxes", fields: [linkedBoxId], references: [id])
+  linkedFrom      Box[]         @relation("LinkedBoxes")
   
-  // VAT Info
-  vatRate         Decimal?        @map("vat_rate") @db.Decimal(5, 2)
-  isVatInclusive  Boolean         @default(true) @map("is_vat_inclusive")
-  hasValidVat     Boolean         @default(false) @map("has_valid_vat")
-  
-  // WHT Info
-  hasWht          Boolean         @default(false) @map("has_wht")
-  whtRate         Decimal?        @map("wht_rate") @db.Decimal(5, 2)
-  whtType         String?         @map("wht_type")
-  
-  // Status
-  status          DocumentStatus  @default(IN_PROGRESS)
-  paymentStatus   PaymentStatus?  @map("payment_status")
-  paymentMethod   PaymentMethod?  @map("payment_method")
-  
-  // Checklist Status (แทน workflow status เดิม)
-  isPaid              Boolean     @default(false) @map("is_paid")              // จ่ายเงิน/รับเงินแล้ว
-  hasPaymentProof     Boolean     @default(false) @map("has_payment_proof")    // มีหลักฐานการจ่าย/รับ
-  hasTaxInvoice       Boolean     @default(false) @map("has_tax_invoice")      // มีใบกำกับภาษี
-  hasInvoice          Boolean     @default(false) @map("has_invoice")          // มีใบแจ้งหนี้ (สำหรับรายรับ)
-  whtIssued           Boolean     @default(false) @map("wht_issued")           // ออกหนังสือ WHT แล้ว (EXPENSE)
-  whtSent             Boolean     @default(false) @map("wht_sent")             // ส่งหนังสือ WHT แล้ว (EXPENSE)
-  whtReceived         Boolean     @default(false) @map("wht_received")         // ได้รับหนังสือ WHT แล้ว (INCOME)
-  completionPercent   Int         @default(0) @map("completion_percent")       // % ความสมบูรณ์
-  isComplete          Boolean     @default(false) @map("is_complete")          // เอกสารครบ 100%
-  
-  // References
-  externalRef     String?         @map("external_ref")
-  
-  // Foreign Keys
-  contactId       String?         @map("contact_id")
-  costCenterId    String?         @map("cost_center_id")
-  categoryId      String?         @map("category_id")
-  fiscalPeriodId  String?         @map("fiscal_period_id")
-  submittedById   String          @map("submitted_by_id")
-  reviewedById    String?         @map("reviewed_by_id")
-  expenseGroupId  String?         @map("expense_group_id") // Legacy - kept for backward compatibility
-  
-  // Timestamps
-  submittedAt     DateTime?       @map("submitted_at")
-  reviewedAt      DateTime?       @map("reviewed_at")
-  exportedAt      DateTime?       @map("exported_at")
-  bookedAt        DateTime?       @map("booked_at")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  // === Timestamps ===
+  exportedAt      DateTime?     @map("exported_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contact       Contact?         @relation(fields: [contactId], references: [id])
-  costCenter    CostCenter?      @relation(fields: [costCenterId], references: [id])
-  category      Category?        @relation(fields: [categoryId], references: [id])
-  fiscalPeriod  FiscalPeriod?    @relation(fields: [fiscalPeriodId], references: [id])
-  submittedBy   User             @relation("SubmittedBy", fields: [submittedById], references: [id])
-  reviewedBy    User?            @relation("ReviewedBy", fields: [reviewedById], references: [id])
-  expenseGroup  ExpenseGroup?    @relation(fields: [expenseGroupId], references: [id]) // Legacy
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact       Contact?       @relation(fields: [contactId], references: [id])
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  costCenter    CostCenter?    @relation(fields: [costCenterId], references: [id])
+  fiscalPeriod  FiscalPeriod?  @relation(fields: [fiscalPeriodId], references: [id])
+  createdBy     User           @relation("CreatedBy", fields: [createdById], references: [id])
   
   // Child entities
-  subDocuments  SubDocument[]    // เอกสารในกล่อง
-  files         DocumentFile[]   // Legacy - ไฟล์ที่ไม่ได้อยู่ใน SubDocument
-  lines         DocumentLine[]   // รายการย่อย (optional)
+  documents     Document[]     // เอกสารในกล่อง
+  payments      Payment[]      // การจ่ายเงิน
+  whtTrackings  WhtTracking[]  // WHT tracking
   comments      Comment[]
   activityLogs  ActivityLog[]
-  whtTrackings  WHTTracking[]
 
-  @@unique([organizationId, docNumber])
+  @@unique([organizationId, boxNumber])
   @@index([organizationId, status])
-  @@index([organizationId, docDate])
-  @@index([organizationId, transactionType])
-  @@map("documents")
+  @@index([organizationId, boxDate])
+  @@index([organizationId, boxType])
+  @@index([organizationId, docStatus])
+  @@index([contactId])
+  @@map("boxes")
 }
 
-// Legacy DocType - kept for backward compatibility
-enum DocType {
-  SLIP          // สลิปโอนเงิน
-  RECEIPT       // ใบเสร็จรับเงิน
-  TAX_INVOICE   // ใบกำกับภาษี
-  INVOICE       // ใบแจ้งหนี้
-  QUOTATION     // ใบเสนอราคา
-  PURCHASE_ORDER // ใบสั่งซื้อ
-  DELIVERY_NOTE // ใบส่งของ
-  OTHER
+enum BoxType {
+  EXPENSE     // รายจ่าย
+  INCOME      // รายรับ
+  ADJUSTMENT  // ปรับปรุง (refund, CN, DN)
 }
 
-enum TransactionType {
-  EXPENSE
-  INCOME
+enum ExpenseType {
+  STANDARD      // มีใบกำกับภาษี (เครม VAT ได้)
+  NO_VAT        // ไม่มีใบกำกับภาษี (บิลเงินสด/ร้านไม่จด)
+  PETTY_CASH    // เงินสดย่อย
+  FOREIGN       // จ่ายต่างประเทศ
 }
 
-enum DocumentStatus {
-  IN_PROGRESS     // กำลังดำเนินการ (เอกสารยังไม่ครบ)
-  COMPLETE        // เอกสารครบ 100%
+enum BoxStatus {
+  DRAFT           // แบบร่าง
+  PENDING_REVIEW  // รอตรวจ
+  NEED_INFO       // ขอข้อมูลเพิ่ม
+  APPROVED        // อนุมัติแล้ว
   EXPORTED        // Export แล้ว
-  BOOKED          // บันทึกบัญชีแล้ว
-  VOID            // ยกเลิก
-  
-  // Legacy values - kept for backward compatibility
-  DRAFT           // แบบร่าง (mapped to IN_PROGRESS)
-  PENDING_REVIEW  // รอตรวจ (mapped to IN_PROGRESS)
-  NEED_INFO       // ขอข้อมูลเพิ่ม (mapped to IN_PROGRESS)
-  READY_TO_EXPORT // พร้อม Export (mapped to COMPLETE)
-  REJECTED        // ปฏิเสธ (mapped to VOID)
+  CANCELLED       // ยกเลิก
+}
+
+enum DocStatus {
+  INCOMPLETE  // เอกสารไม่ครบ
+  COMPLETE    // เอกสารครบ
+  NA          // ไม่ต้องมีเอกสาร
 }
 
 enum PaymentStatus {
-  PENDING   // รอชำระ
+  UNPAID    // ยังไม่จ่าย
   PARTIAL   // จ่ายบางส่วน
   PAID      // จ่ายครบ
-  OVERDUE   // เกินกำหนด
-}
-
-enum PaymentMethod {
-  CASH
-  TRANSFER
-  CREDIT_CARD
-  CHEQUE
-  OTHER
+  OVERPAID  // จ่ายเกิน
+  REFUNDED  // ได้คืนแล้ว
 }
 
 // ============================================
-// SUB-DOCUMENT (เอกสารในกล่อง)
-// 1 Document → หลาย SubDocument
-// แต่ละ SubDocument = เอกสารประเภทหนึ่ง (สลิป/ใบกำกับ/WHT)
+// DOCUMENT (เอกสารในกล่อง)
+// 1 Box → หลาย Document
+// แต่ละ Document = เอกสารประเภทหนึ่ง
 // ============================================
 
-model SubDocument {
-  id          String        @id @default(cuid())
-  documentId  String        @map("document_id")
-  docType     SubDocType    @map("doc_type")
-  docNumber   String?       @map("doc_number") // เลขที่เอกสาร (เช่น เลขใบกำกับ)
-  docDate     DateTime?     @map("doc_date")
-  amount      Decimal?      @db.Decimal(15, 2)
-  vatAmount   Decimal?      @map("vat_amount") @db.Decimal(15, 2)
+model Document {
+  id          String     @id @default(cuid())
+  boxId       String     @map("box_id")
+  
+  // === Type ===
+  docType     DocType    @map("doc_type")
+  
+  // === Details ===
+  docNumber   String?    @map("doc_number")  // เลขที่เอกสาร
+  docDate     DateTime?  @map("doc_date")
+  amount      Decimal?   @db.Decimal(15, 2)
+  vatAmount   Decimal?   @map("vat_amount") @db.Decimal(15, 2)
+  
+  // === Foreign Currency ===
+  foreignCurrency String? @map("foreign_currency")
+  foreignAmount   Decimal? @map("foreign_amount") @db.Decimal(15, 2)
+  
+  // === Notes ===
   notes       String?
   
-  // Status for slot
-  slotStatus  SlotStatus    @default(PENDING) @map("slot_status")
-  naReason    String?       @map("na_reason") // เหตุผลที่ไม่มีเอกสาร
+  // === AI Extracted ===
+  aiExtracted  Json?      @map("ai_extracted")   // ข้อมูลที่ AI อ่านได้
+  aiConfidence Float?     @map("ai_confidence")  // ความมั่นใจ 0-1
   
-  // OCR
-  ocrStatus   OcrStatus     @default(NONE) @map("ocr_status")
-  ocrResult   Json?         @map("ocr_result")
-  
-  // Timestamps
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  // === Timestamps ===
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  document    Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  files       SubDocumentFile[]
+  box         Box        @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  files       DocumentFile[]
 
-  @@map("sub_documents")
+  @@index([boxId])
+  @@index([docType])
+  @@map("documents")
 }
 
-// ประเภทเอกสารใน SubDocument
-enum SubDocType {
-  // Expense Documents
-  SLIP              // สลิปโอนเงิน/หลักฐานชำระ
-  TAX_INVOICE       // ใบกำกับภาษี
-  INVOICE           // ใบแจ้งหนี้
-  RECEIPT           // ใบเสร็จรับเงิน
-  WHT_CERT_SENT     // หนังสือหัก ณ ที่จ่าย (เราออก - ต้องส่งให้คู่ค้า)
-  CONTRACT          // สัญญา/ใบสั่งซื้อ
+// ประเภทเอกสาร (25+ types)
+enum DocType {
+  // === หลักฐานจ่ายเงิน (Payment Evidence) ===
+  SLIP_TRANSFER         // สลิปโอนเงิน
+  SLIP_CHEQUE           // สำเนาเช็ค
+  BANK_STATEMENT        // Statement ธนาคาร
+  CREDIT_CARD_STATEMENT // Statement บัตรเครดิต
+  ONLINE_RECEIPT        // Paypal/Stripe
+  PETTY_CASH_VOUCHER    // ใบสำคัญจ่ายเงินสด
   
-  // Income Documents
-  QUOTATION         // ใบเสนอราคา
-  // INVOICE - ใช้ร่วมกัน
-  // RECEIPT - ใช้ร่วมกัน
-  // TAX_INVOICE - ใช้ร่วมกัน
-  WHT_CERT_RECEIVED // หนังสือหัก ณ ที่จ่าย (ถูกหัก - รอรับจากลูกค้า)
+  // === หลักฐานรายจ่าย (Expense Evidence) ===
+  TAX_INVOICE           // ใบกำกับภาษี
+  TAX_INVOICE_ABB       // ใบกำกับภาษีอย่างย่อ
+  RECEIPT               // ใบเสร็จรับเงิน
+  CASH_RECEIPT          // บิลเงินสด
+  INVOICE               // ใบแจ้งหนี้
+  FOREIGN_INVOICE       // Invoice ต่างประเทศ
+  CUSTOMS_FORM          // ใบขนสินค้า
+  DELIVERY_NOTE         // ใบส่งของ
   
-  OTHER             // อื่นๆ
-}
-
-enum OcrStatus {
-  NONE        // ยังไม่ OCR
-  PENDING     // รอ OCR
-  PROCESSING  // กำลัง OCR
-  COMPLETED   // OCR เสร็จ
-  FAILED      // OCR ผิดพลาด
-}
-
-enum SlotStatus {
-  PENDING         // รอเอกสาร
-  COMPLETED       // มีแล้ว (มีไฟล์)
-  NOT_APPLICABLE  // ไม่มี/N/A (ระบุเหตุผล)
-}
-
-// ============================================
-// SUB-DOCUMENT FILE (ไฟล์ของเอกสารในกล่อง)
-// 1 SubDocument → หลายไฟล์ได้ (หน้า-หลัง, หลายหน้า)
-// ============================================
-
-model SubDocumentFile {
-  id            String   @id @default(cuid())
-  subDocumentId String   @map("sub_document_id")
-  fileName      String   @map("file_name")
-  fileUrl       String   @map("file_url")
-  fileSize      Int      @map("file_size")
-  mimeType      String   @map("mime_type")
-  checksum      String?  // MD5 for duplicate detection
-  pageOrder     Int      @default(0) @map("page_order")
-  isPrimary     Boolean  @default(false) @map("is_primary")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  subDocument SubDocument @relation(fields: [subDocumentId], references: [id], onDelete: Cascade)
-
-  @@map("sub_document_files")
+  // === เอกสารปรับปรุง (Adjustment) ===
+  CREDIT_NOTE           // ใบลดหนี้
+  DEBIT_NOTE            // ใบเพิ่มหนี้
+  REFUND_RECEIPT        // หลักฐานคืนเงิน
+  
+  // === WHT ===
+  WHT_SENT              // WHT ที่เราส่งให้
+  WHT_RECEIVED          // WHT ที่ได้รับกลับ (signed)
+  WHT_INCOMING          // WHT ที่เขาหักเรา
+  
+  // === ภาษี/ราชการ ===
+  TAX_PAYMENT_SLIP      // ใบนำส่งภาษี
+  TAX_RECEIPT_GOVT      // ใบเสร็จจากสรรพากร
+  SSO_PAYMENT           // ประกันสังคม
+  GOVT_RECEIPT          // ใบเสร็จราชการอื่นๆ
+  
+  // === อื่นๆ ===
+  CONTRACT              // สัญญา
+  QUOTATION             // ใบเสนอราคา
+  PURCHASE_ORDER        // ใบสั่งซื้อ
+  CLAIM_FORM            // ใบเบิกเงิน
+  OTHER                 // อื่นๆ
 }
 
 // ============================================
-// LEGACY: DOCUMENT FILE (ไฟล์ของเอกสารเดิม)
-// kept for backward compatibility
+// DOCUMENT FILE (ไฟล์ของเอกสาร)
+// 1 Document → หลายไฟล์ (หน้า-หลัง, หลายหน้า)
 // ============================================
 
 model DocumentFile {
   id          String   @id @default(cuid())
   documentId  String   @map("document_id")
+  
   fileName    String   @map("file_name")
   fileUrl     String   @map("file_url")
   fileSize    Int      @map("file_size")
   mimeType    String   @map("mime_type")
   checksum    String?  // MD5 for duplicate detection
-  pageOrder   Int      @default(0) @map("page_order")
-  isPrimary   Boolean  @default(false) @map("is_primary")
+  pageOrder   Int      @default(1) @map("page_order")
+  
   createdAt   DateTime @default(now()) @map("created_at")
 
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
+  @@index([documentId])
+  @@index([checksum])
   @@map("document_files")
 }
 
 // ============================================
-// LEGACY: EXPENSE GROUPS
-// kept for backward compatibility
+// PAYMENT (การจ่ายเงิน)
+// 1 Box → หลาย Payment (จ่ายหลายครั้งได้)
 // ============================================
 
-model ExpenseGroup {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  name           String
-  description    String?
-  totalAmount    Decimal  @default(0) @map("total_amount") @db.Decimal(15, 2)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+model Payment {
+  id          String        @id @default(cuid())
+  boxId       String        @map("box_id")
+  
+  amount      Decimal       @db.Decimal(15, 2)
+  paidDate    DateTime      @map("paid_date")
+  method      PaymentMethod
+  reference   String?       // เลขอ้างอิง
+  notes       String?
+  
+  // Link to slip document (optional)
+  documentId  String?       @map("document_id")
+  
+  createdAt   DateTime      @default(now()) @map("created_at")
 
-  documents Document[]
+  box         Box           @relation(fields: [boxId], references: [id], onDelete: Cascade)
 
-  @@map("expense_groups")
+  @@index([boxId])
+  @@map("payments")
 }
 
-// ============================================
-// DOCUMENT LINE (รายการย่อย - Optional)
-// ============================================
-
-model DocumentLine {
-  id          String   @id @default(cuid())
-  documentId  String   @map("document_id")
-  lineNumber  Int      @map("line_number")
-  description String?
-  quantity    Decimal  @default(1) @db.Decimal(15, 4)
-  unitPrice   Decimal  @default(0) @map("unit_price") @db.Decimal(15, 2)
-  amount      Decimal  @default(0) @db.Decimal(15, 2)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@map("document_lines")
+enum PaymentMethod {
+  TRANSFER    // โอน
+  CHEQUE      // เช็ค
+  CASH        // เงินสด
+  CREDIT_CARD // บัตรเครดิต
+  ONLINE      // Online (Paypal, etc.)
 }
 
 // ============================================
 // WHT TRACKING (ติดตามหัก ณ ที่จ่าย)
 // ============================================
 
-model WHTTracking {
-  id              String          @id @default(cuid())
-  organizationId  String          @map("organization_id")
-  documentId      String          @map("document_id")
-  trackingType    WHTTrackingType @map("tracking_type")
+model WhtTracking {
+  id              String      @id @default(cuid())
+  boxId           String      @map("box_id")
   
-  // WHT Details
-  whtAmount       Decimal         @map("wht_amount") @db.Decimal(15, 2)
-  whtRate         Decimal         @map("wht_rate") @db.Decimal(5, 2)
+  type            WhtType     // outgoing | incoming
+  amount          Decimal     @db.Decimal(15, 2)
+  rate            Decimal?    @db.Decimal(5, 2)  // 1%, 2%, 3%, 5%
+  
+  status          WhtStatus   @default(PENDING)
+  issuedDate      DateTime?   @map("issued_date")
+  sentDate        DateTime?   @map("sent_date")
+  sentMethod      WhtSentMethod? @map("sent_method")
+  receivedDate    DateTime?   @map("received_date")
+  
+  // Link to WHT document
+  documentId      String?     @map("document_id")
   
   // Counterparty
-  contactId       String?         @map("contact_id")
-  counterpartyName String?        @map("counterparty_name")
-  
-  // Status
-  status          WHTStatus       @default(PENDING)
-  
-  // Dates
-  issuedDate      DateTime?       @map("issued_date")
-  sentDate        DateTime?       @map("sent_date")
-  sentMethod      WHTSentMethod?  @map("sent_method")
-  confirmedDate   DateTime?       @map("confirmed_date")
-  receivedDate    DateTime?       @map("received_date")
-  
-  // File
-  fileUrl         String?         @map("file_url")
+  contactId       String?     @map("contact_id")
   
   notes           String?
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  contact      Contact?     @relation(fields: [contactId], references: [id])
+  box             Box         @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  contact         Contact?    @relation(fields: [contactId], references: [id])
 
-  @@index([organizationId, status])
-  @@index([organizationId, trackingType])
+  @@index([boxId])
+  @@index([status])
   @@map("wht_trackings")
 }
 
-enum WHTTrackingType {
-  OUTGOING  // WHT ที่เราออก - ต้องส่งให้คู่ค้า
-  INCOMING  // WHT ที่ถูกหัก - รอรับจากลูกค้า
+enum WhtType {
+  OUTGOING  // เราหักเขา (ส่ง WHT ให้ vendor)
+  INCOMING  // เขาหักเรา (รับ WHT จากลูกค้า)
 }
 
-enum WHTStatus {
+enum WhtStatus {
   PENDING     // รอดำเนินการ
-  ISSUED      // ออกเอกสารแล้ว
-  SENT        // ส่งแล้ว (Outgoing)
-  CONFIRMED   // ยืนยันรับแล้ว (Outgoing)
-  RECEIVED    // ได้รับแล้ว (Incoming)
-  CANCELLED   // ยกเลิก
+  ISSUED      // ออกแล้ว
+  SENT        // ส่งแล้ว
+  CONFIRMED   // ยืนยันแล้ว
+  RECEIVED    // ได้รับแล้ว
 }
 
-enum WHTSentMethod {
+enum WhtSentMethod {
   EMAIL
   MAIL
   HAND_DELIVERY
@@ -582,30 +548,30 @@ enum WHTSentMethod {
 
 model Comment {
   id         String   @id @default(cuid())
-  documentId String   @map("document_id")
+  boxId      String   @map("box_id")
   userId     String   @map("user_id")
   content    String
   isInternal Boolean  @default(false) @map("is_internal")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id])
+  box        Box      @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
 
   @@map("comments")
 }
 
 model ActivityLog {
   id         String   @id @default(cuid())
-  documentId String?  @map("document_id")
+  boxId      String?  @map("box_id")
   userId     String   @map("user_id")
   action     String
   details    Json?
   ipAddress  String?  @map("ip_address")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  document Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user     User      @relation(fields: [userId], references: [id])
+  box        Box?     @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
 
   @@map("activity_logs")
 }
@@ -620,8 +586,8 @@ model ExportHistory {
   exportType     ExportType @map("export_type")
   fileName       String     @map("file_name")
   fileUrl        String?    @map("file_url")
-  documentIds    String[]   @map("document_ids")
-  documentCount  Int        @map("document_count")
+  boxIds         String[]   @map("box_ids")
+  boxCount       Int        @map("box_count")
   exportedById   String     @map("exported_by_id")
   createdAt      DateTime   @default(now()) @map("created_at")
 
@@ -646,7 +612,7 @@ model SavedFilter {
   organizationId String   @map("organization_id")
   userId         String   @map("user_id")
   name           String
-  filters        Json     // Store filter criteria as JSON
+  filters        Json
   isDefault      Boolean  @default(false) @map("is_default")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -669,7 +635,7 @@ model Notification {
   type           NotificationType
   title          String
   message        String
-  data           Json?            // Additional data (documentId, etc.)
+  data           Json?
   isRead         Boolean          @default(false) @map("is_read")
   readAt         DateTime?        @map("read_at")
   createdAt      DateTime         @default(now()) @map("created_at")
@@ -683,15 +649,15 @@ model Notification {
 }
 
 enum NotificationType {
-  DOCUMENT_SUBMITTED    // กล่องใหม่รอตรวจ
-  DOCUMENT_APPROVED     // กล่องถูก approve
-  DOCUMENT_REJECTED     // กล่องถูกปฏิเสธ
-  DOCUMENT_NEED_INFO    // ขอข้อมูลเพิ่ม
-  SUBDOC_ADDED          // มีเอกสารใหม่ในกล่อง
-  DUE_DATE_REMINDER     // ใกล้ครบกำหนด
-  DUE_DATE_OVERDUE      // เกินกำหนด
-  WHT_PENDING           // WHT รอส่ง
-  WHT_OVERDUE           // WHT เกินกำหนด
-  COMMENT_ADDED         // มี comment ใหม่
-  MEMBER_INVITED        // ถูกเชิญเข้าองค์กร
+  BOX_SUBMITTED       // กล่องใหม่รอตรวจ
+  BOX_APPROVED        // กล่องถูก approve
+  BOX_REJECTED        // กล่องถูกปฏิเสธ
+  BOX_NEED_INFO       // ขอข้อมูลเพิ่ม
+  DOCUMENT_ADDED      // มีเอกสารใหม่ในกล่อง
+  DUE_DATE_REMINDER   // ใกล้ครบกำหนด
+  DUE_DATE_OVERDUE    // เกินกำหนด
+  WHT_PENDING         // WHT รอส่ง
+  WHT_OVERDUE         // WHT เกินกำหนด
+  COMMENT_ADDED       // มี comment ใหม่
+  MEMBER_INVITED      // ถูกเชิญเข้าองค์กร
 }

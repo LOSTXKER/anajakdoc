@@ -17,58 +17,92 @@ import {
   Download,
   Plus,
   Package,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { reviewDocument } from "@/server/actions/document";
-import { useDocumentSelection } from "@/hooks/use-document-selection";
-import { useDocumentFilters, type TabValue } from "@/hooks/use-document-filters";
+import { reviewBox } from "@/server/actions/box";
 import { isAccountingRole } from "@/lib/document-config";
-import type { MemberRole, SerializedDocumentListItem } from "@/types";
+import type { MemberRole, SerializedBoxListItem } from "@/types";
+
+type TabValue = "mine" | "pending" | "incomplete" | "ready" | "done" | "all";
 
 interface UnifiedDocumentViewProps {
-  documents: SerializedDocumentListItem[];
+  boxes: SerializedBoxListItem[];
   counts: {
-    myDocs: number;
+    myBoxes: number;
     pendingReview: number;
     needInfo: number;
-    readyToExport: number;
+    approved: number;
     exported: number;
-    booked: number;
     total: number;
+    incomplete: number;
+    complete: number;
   };
   userRole: MemberRole;
   userId: string;
 }
 
-export function UnifiedDocumentView({ documents, counts, userRole, userId }: UnifiedDocumentViewProps) {
+export function UnifiedDocumentView({ boxes, counts, userRole, userId }: UnifiedDocumentViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isAccounting = isAccountingRole(userRole);
   
-  // Use custom hooks for filtering and selection
-  const { myDocs, pendingDocs, readyDocs, doneDocs, getDocsForTab } = useDocumentFilters(documents, userId);
+  // Filter boxes by tab
+  const myBoxes = boxes.filter(b => b.createdById === userId);
+  const pendingBoxes = boxes.filter(b => ["PENDING_REVIEW", "NEED_INFO"].includes(b.status));
+  const incompleteBoxes = boxes.filter(b => b.docStatus === "INCOMPLETE");
+  const readyBoxes = boxes.filter(b => b.status === "APPROVED");
+  const doneBoxes = boxes.filter(b => ["EXPORTED"].includes(b.status));
+  
+  const getBoxesForTab = (tab: TabValue) => {
+    switch (tab) {
+      case "mine": return myBoxes;
+      case "pending": return pendingBoxes;
+      case "incomplete": return incompleteBoxes;
+      case "ready": return readyBoxes;
+      case "done": return doneBoxes;
+      default: return boxes;
+    }
+  };
   
   // Default tab based on role
   const defaultTab: TabValue = isAccounting ? "pending" : "mine";
   const [activeTab, setActiveTab] = useState<TabValue>(defaultTab);
   
-  const currentDocs = getDocsForTab(activeTab);
+  const currentBoxes = getBoxesForTab(activeTab);
   
-  // Use selection hook
-  const {
-    selectedIds,
-    handleSelect,
-    handleSelectAll,
-    clearSelection,
-    allSelected,
-    someSelected,
-  } = useDocumentSelection(currentDocs);
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  const handleSelect = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+  
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(currentBoxes.map(b => b.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+  
+  const clearSelection = () => setSelectedIds(new Set());
+  const allSelected = currentBoxes.length > 0 && selectedIds.size === currentBoxes.length;
+  const someSelected = selectedIds.size > 0;
 
   // Action handler
   const handleAction = async (id: string, action: "approve" | "reject" | "need_info") => {
     startTransition(async () => {
       try {
-        const result = await reviewDocument(id, action);
+        const result = await reviewBox(id, action);
         if (result.success) {
           toast.success(
             action === "approve" ? "อนุมัติเรียบร้อย" :
@@ -92,9 +126,9 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
       let successCount = 0;
       
       for (const id of selectedIds) {
-        const doc = documents.find(d => d.id === id);
-        if (doc && ["PENDING_REVIEW", "NEED_INFO"].includes(doc.status)) {
-          const result = await reviewDocument(id, "approve");
+        const box = boxes.find(b => b.id === id);
+        if (box && ["PENDING_REVIEW", "NEED_INFO"].includes(box.status)) {
+          const result = await reviewBox(id, "approve");
           if (result.success) successCount++;
         }
       }
@@ -118,27 +152,36 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">ของฉัน</span>
               <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded-full">
-                {myDocs.length}
+                {myBoxes.length}
               </span>
             </TabsTrigger>
             {isAccounting && (
               <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-white">
                 <Inbox className="h-4 w-4" />
                 <span className="hidden sm:inline">รอตรวจ</span>
-                {pendingDocs.length > 0 && (
+                {pendingBoxes.length > 0 && (
                   <span className="text-xs bg-sky-500 text-white px-1.5 py-0.5 rounded-full">
-                    {pendingDocs.length}
+                    {pendingBoxes.length}
                   </span>
                 )}
               </TabsTrigger>
             )}
+            <TabsTrigger value="incomplete" className="gap-2 data-[state=active]:bg-white">
+              <AlertCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">รอเอกสาร</span>
+              {incompleteBoxes.length > 0 && (
+                <span className="text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                  {incompleteBoxes.length}
+                </span>
+              )}
+            </TabsTrigger>
             {isAccounting && (
               <TabsTrigger value="ready" className="gap-2 data-[state=active]:bg-white">
                 <FileCheck className="h-4 w-4" />
                 <span className="hidden sm:inline">พร้อม</span>
-                {readyDocs.length > 0 && (
+                {readyBoxes.length > 0 && (
                   <span className="text-xs bg-violet-500 text-white px-1.5 py-0.5 rounded-full">
-                    {readyDocs.length}
+                    {readyBoxes.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -147,7 +190,7 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
               <CheckCircle className="h-4 w-4" />
               <span className="hidden sm:inline">เสร็จ</span>
               <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded-full">
-                {doneDocs.length}
+                {doneBoxes.length}
               </span>
             </TabsTrigger>
             <TabsTrigger value="all" className="data-[state=active]:bg-white">
@@ -175,7 +218,7 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
               </>
             )}
 
-            {activeTab === "ready" && readyDocs.length > 0 && (
+            {activeTab === "ready" && readyBoxes.length > 0 && (
               <Button size="sm" variant="outline" asChild>
                 <Link href="/export">
                   <Download className="mr-1 h-4 w-4" />
@@ -196,7 +239,7 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
         </div>
 
         {/* Select All Header */}
-        {showCheckbox && currentDocs.length > 0 && (
+        {showCheckbox && currentBoxes.length > 0 && (
           <div className="flex items-center gap-3 py-3 px-1 border-b">
             <Checkbox
               checked={allSelected}
@@ -208,14 +251,14 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
           </div>
         )}
 
-        {/* Document List */}
+        {/* Box List */}
         <div className="mt-4 space-y-3">
           <TabsContent value="mine" className="m-0">
-            {myDocs.length > 0 ? (
-              myDocs.map(doc => (
+            {myBoxes.length > 0 ? (
+              myBoxes.map(box => (
                 <DocumentBoxCard
-                  key={doc.id}
-                  doc={doc}
+                  key={box.id}
+                  box={box}
                   showCheckbox={false}
                   showActions={false}
                 />
@@ -238,12 +281,12 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
           </TabsContent>
 
           <TabsContent value="pending" className="m-0">
-            {pendingDocs.length > 0 ? (
-              pendingDocs.map(doc => (
+            {pendingBoxes.length > 0 ? (
+              pendingBoxes.map(box => (
                 <DocumentBoxCard
-                  key={doc.id}
-                  doc={doc}
-                  selected={selectedIds.has(doc.id)}
+                  key={box.id}
+                  box={box}
+                  selected={selectedIds.has(box.id)}
                   onSelect={handleSelect}
                   onAction={handleAction}
                   showCheckbox={showCheckbox}
@@ -253,18 +296,37 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
             ) : (
               <EmptyState
                 icon={Inbox}
-                title="ไม่มีเอกสารรอตรวจ"
-                description="เอกสารที่ส่งเข้ามาใหม่จะแสดงที่นี่"
+                title="ไม่มีกล่องรอตรวจ"
+                description="กล่องเอกสารที่ส่งเข้ามาใหม่จะแสดงที่นี่"
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="incomplete" className="m-0">
+            {incompleteBoxes.length > 0 ? (
+              incompleteBoxes.map(box => (
+                <DocumentBoxCard
+                  key={box.id}
+                  box={box}
+                  showCheckbox={false}
+                  showActions={false}
+                />
+              ))
+            ) : (
+              <EmptyState
+                icon={AlertCircle}
+                title="ไม่มีกล่องรอเอกสาร"
+                description="กล่องที่เอกสารยังไม่ครบจะแสดงที่นี่"
               />
             )}
           </TabsContent>
 
           <TabsContent value="ready" className="m-0">
-            {readyDocs.length > 0 ? (
-              readyDocs.map(doc => (
+            {readyBoxes.length > 0 ? (
+              readyBoxes.map(box => (
                 <DocumentBoxCard
-                  key={doc.id}
-                  doc={doc}
+                  key={box.id}
+                  box={box}
                   showCheckbox={false}
                   showActions={false}
                 />
@@ -272,18 +334,18 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
             ) : (
               <EmptyState
                 icon={FileCheck}
-                title="ไม่มีเอกสารพร้อม Export"
-                description="เอกสารที่อนุมัติแล้วจะแสดงที่นี่"
+                title="ไม่มีกล่องพร้อม Export"
+                description="กล่องที่อนุมัติแล้วจะแสดงที่นี่"
               />
             )}
           </TabsContent>
 
           <TabsContent value="done" className="m-0">
-            {doneDocs.length > 0 ? (
-              doneDocs.map(doc => (
+            {doneBoxes.length > 0 ? (
+              doneBoxes.map(box => (
                 <DocumentBoxCard
-                  key={doc.id}
-                  doc={doc}
+                  key={box.id}
+                  box={box}
                   showCheckbox={false}
                   showActions={false}
                 />
@@ -291,19 +353,19 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
             ) : (
               <EmptyState
                 icon={CheckCircle}
-                title="ไม่มีเอกสารที่เสร็จแล้ว"
-                description="เอกสารที่ Export หรือบันทึกบัญชีแล้วจะแสดงที่นี่"
+                title="ไม่มีกล่องที่เสร็จแล้ว"
+                description="กล่องที่ Export แล้วจะแสดงที่นี่"
               />
             )}
           </TabsContent>
 
           <TabsContent value="all" className="m-0">
-            {documents.length > 0 ? (
-              documents.map(doc => (
+            {boxes.length > 0 ? (
+              boxes.map(box => (
                 <DocumentBoxCard
-                  key={doc.id}
-                  doc={doc}
-                  selected={selectedIds.has(doc.id)}
+                  key={box.id}
+                  box={box}
+                  selected={selectedIds.has(box.id)}
                   onSelect={handleSelect}
                   onAction={handleAction}
                   showCheckbox={showCheckbox && showActions}
@@ -313,8 +375,8 @@ export function UnifiedDocumentView({ documents, counts, userRole, userId }: Uni
             ) : (
               <EmptyState
                 icon={Package}
-                title="ไม่มีเอกสาร"
-                description="ยังไม่มีเอกสารในระบบ"
+                title="ไม่มีกล่องเอกสาร"
+                description="ยังไม่มีกล่องเอกสารในระบบ"
                 action={
                   <Button asChild>
                     <Link href="/documents/new">

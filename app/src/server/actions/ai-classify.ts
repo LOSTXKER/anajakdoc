@@ -2,14 +2,29 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// AI returns simplified types, we map them to DocType enum
+export type AIDocType = "SLIP" | "TAX_INVOICE" | "INVOICE" | "RECEIPT" | "WHT_CERT" | "QUOTATION" | "OTHER";
+
+// Map AI types to actual DocType enum values (not exported - "use server" files can only export async functions)
+const AI_TO_DOC_TYPE: Record<AIDocType, string> = {
+  SLIP: "SLIP_TRANSFER",
+  TAX_INVOICE: "TAX_INVOICE",
+  INVOICE: "INVOICE",
+  RECEIPT: "RECEIPT",
+  WHT_CERT: "WHT_SENT",
+  QUOTATION: "OTHER", // Quotation is not in our DocType
+  OTHER: "OTHER",
+};
+
 export type DocumentClassification = {
-  type: "SLIP" | "TAX_INVOICE" | "INVOICE" | "RECEIPT" | "WHT_CERT_SENT" | "WHT_CERT_RECEIVED" | "QUOTATION" | "OTHER";
+  type: AIDocType;
   confidence: number;
   reason: string;
 };
 
 export type ExtractedDocumentData = {
-  type: DocumentClassification["type"];
+  type: string; // Mapped DocType value
+  aiType: AIDocType; // Original AI classification
   confidence: number;
   reason: string;
   // Extracted fields
@@ -25,13 +40,12 @@ export type ExtractedDocumentData = {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-const DOCUMENT_TYPES = {
+const DOCUMENT_TYPES: Record<AIDocType, string> = {
   SLIP: "สลิปโอนเงิน/หลักฐานการชำระเงิน",
   TAX_INVOICE: "ใบกำกับภาษี",
   INVOICE: "ใบแจ้งหนี้/Invoice",
   RECEIPT: "ใบเสร็จรับเงิน",
-  WHT_CERT_SENT: "หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)",
-  WHT_CERT_RECEIVED: "หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)",
+  WHT_CERT: "หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)",
   QUOTATION: "ใบเสนอราคา",
   OTHER: "เอกสารอื่นๆ",
 };
@@ -56,13 +70,13 @@ export async function classifyDocument(
 2. TAX_INVOICE - ใบกำกับภาษี (ต้องมีคำว่า "ใบกำกับภาษี" หรือ "Tax Invoice", มีเลขประจำตัวผู้เสียภาษี, มียอด VAT แยก)
 3. INVOICE - ใบแจ้งหนี้ (มีคำว่า "ใบแจ้งหนี้" หรือ "Invoice", รายการสินค้า/บริการ, ยอดเงินที่ต้องชำระ)
 4. RECEIPT - ใบเสร็จรับเงิน (มีคำว่า "ใบเสร็จรับเงิน" หรือ "Receipt", ยืนยันการรับเงินแล้ว)
-5. WHT_CERT_SENT - หนังสือรับรองหัก ณ ที่จ่าย (มีคำว่า "หนังสือรับรองการหักภาษี ณ ที่จ่าย", "50 ทวิ", แบบฟอร์มภาษี)
+5. WHT_CERT - หนังสือรับรองหัก ณ ที่จ่าย (มีคำว่า "หนังสือรับรองการหักภาษี ณ ที่จ่าย", "50 ทวิ", แบบฟอร์มภาษี)
 6. QUOTATION - ใบเสนอราคา (มีคำว่า "ใบเสนอราคา" หรือ "Quotation")
 7. OTHER - เอกสารอื่นๆ ที่ไม่ใช่ข้างต้น
 
 ตอบเป็น JSON format เท่านั้น:
 {
-  "type": "SLIP|TAX_INVOICE|INVOICE|RECEIPT|WHT_CERT_SENT|QUOTATION|OTHER",
+  "type": "SLIP|TAX_INVOICE|INVOICE|RECEIPT|WHT_CERT|QUOTATION|OTHER",
   "confidence": 0.0-1.0,
   "reason": "เหตุผลสั้นๆ ภาษาไทย"
 }`;
@@ -121,7 +135,7 @@ export async function extractDocumentData(
 2. TAX_INVOICE - ใบกำกับภาษี (มีคำว่า "ใบกำกับภาษี", มี VAT แยก)
 3. INVOICE - ใบแจ้งหนี้
 4. RECEIPT - ใบเสร็จรับเงิน
-5. WHT_CERT_SENT - หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)
+5. WHT_CERT - หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)
 6. QUOTATION - ใบเสนอราคา
 7. OTHER - เอกสารอื่นๆ
 
@@ -143,7 +157,7 @@ export async function extractDocumentData(
 
 ตอบเป็น JSON format เท่านั้น:
 {
-  "type": "SLIP|TAX_INVOICE|INVOICE|RECEIPT|WHT_CERT_SENT|QUOTATION|OTHER",
+  "type": "SLIP|TAX_INVOICE|INVOICE|RECEIPT|WHT_CERT|QUOTATION|OTHER",
   "confidence": 0.0-1.0,
   "reason": "เหตุผลสั้นๆ ที่จำแนกเป็นประเภทนี้",
   "description": "รายละเอียดการซื้อ/จ่าย",
@@ -175,20 +189,51 @@ export async function extractDocumentData(
       return { success: false, error: "ไม่สามารถวิเคราะห์เอกสารได้" };
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as ExtractedDocumentData;
+    const rawParsed = JSON.parse(jsonMatch[0]) as {
+      type: string;
+      confidence: number;
+      reason: string;
+      description?: string;
+      amount?: number | string;
+      contactName?: string;
+      documentDate?: string;
+      documentNumber?: string;
+      taxId?: string;
+      vatAmount?: number | string;
+      items?: string[];
+    };
     
-    // Validate the type
-    if (!Object.keys(DOCUMENT_TYPES).includes(parsed.type)) {
-      parsed.type = "OTHER";
-    }
+    // Validate and map the AI type to DocType
+    const aiType = (Object.keys(DOCUMENT_TYPES).includes(rawParsed.type) 
+      ? rawParsed.type 
+      : "OTHER") as AIDocType;
+    
+    const mappedType = AI_TO_DOC_TYPE[aiType];
 
     // Clean up amount - ensure it's a number
-    if (parsed.amount && typeof parsed.amount === "string") {
-      parsed.amount = parseFloat(String(parsed.amount).replace(/[,฿บาท\s]/g, ""));
+    let amount = rawParsed.amount;
+    if (amount && typeof amount === "string") {
+      amount = parseFloat(String(amount).replace(/[,฿บาท\s]/g, ""));
     }
-    if (parsed.vatAmount && typeof parsed.vatAmount === "string") {
-      parsed.vatAmount = parseFloat(String(parsed.vatAmount).replace(/[,฿บาท\s]/g, ""));
+    let vatAmount = rawParsed.vatAmount;
+    if (vatAmount && typeof vatAmount === "string") {
+      vatAmount = parseFloat(String(vatAmount).replace(/[,฿บาท\s]/g, ""));
     }
+
+    const parsed: ExtractedDocumentData = {
+      type: mappedType,
+      aiType,
+      confidence: rawParsed.confidence,
+      reason: rawParsed.reason,
+      description: rawParsed.description,
+      amount: typeof amount === "number" ? amount : undefined,
+      contactName: rawParsed.contactName,
+      documentDate: rawParsed.documentDate,
+      documentNumber: rawParsed.documentNumber,
+      taxId: rawParsed.taxId,
+      vatAmount: typeof vatAmount === "number" ? vatAmount : undefined,
+      items: rawParsed.items,
+    };
 
     return { success: true, data: parsed };
   } catch (error) {
@@ -321,7 +366,7 @@ export async function findMatchingDocumentBox(
     if (docType === "TAX_INVOICE" && !box.hasTaxInvoice) {
       score += 20;
       reasons.push("กล่องยังไม่มีใบกำกับภาษี");
-    } else if (docType === "SLIP" && !box.hasSlip) {
+    } else if (docType === "SLIP_TRANSFER" && !box.hasSlip) {
       score += 15;
       reasons.push("กล่องยังไม่มีสลิป");
     } else if (docType === "TAX_INVOICE" && box.hasTaxInvoice) {

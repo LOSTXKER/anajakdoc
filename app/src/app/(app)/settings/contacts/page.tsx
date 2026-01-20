@@ -10,10 +10,10 @@ async function getContacts(orgId: string) {
       isActive: true,
     },
     include: {
-      _count: { select: { documents: true } },
+      _count: { select: { boxes: true } },
     },
     orderBy: [
-      { documents: { _count: "desc" } },
+      { boxes: { _count: "desc" } },
       { name: "asc" },
     ],
   });

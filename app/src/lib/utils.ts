@@ -1,15 +1,16 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { 
-  DocumentWithRelations, 
-  SerializedDocument, 
-  SubDocumentWithFiles,
-  SerializedSubDocument,
-  WHTTrackingWithContact,
-  SerializedWHTTracking,
-  WHTStatus,
-  WHTTrackingType,
-  SubDocType
+  BoxWithRelations, 
+  SerializedBox, 
+  DocumentWithFiles,
+  SerializedDocument,
+  SerializedPayment,
+  WhtTrackingWithContact,
+  SerializedWhtTracking,
+  WhtStatus,
+  WhtType,
+  DocType
 } from "@/types"
 
 export function cn(...inputs: ClassValue[]) {
@@ -36,115 +37,145 @@ export function toNumberOrNull(value: unknown): number | null {
   return Number(value);
 }
 
-// Serialize SubDocument for Client Components
-export function serializeSubDocument(subDoc: SubDocumentWithFiles): SerializedSubDocument {
+// Serialize Document (within Box) for Client Components
+export function serializeDocument(doc: DocumentWithFiles): SerializedDocument {
   return {
-    ...subDoc,
-    amount: toNumberOrNull(subDoc.amount),
-    vatAmount: toNumberOrNull(subDoc.vatAmount),
-    docDate: subDoc.docDate?.toISOString() || null,
-    createdAt: subDoc.createdAt.toISOString(),
-    updatedAt: subDoc.updatedAt.toISOString(),
+    ...doc,
+    amount: toNumberOrNull(doc.amount),
+    vatAmount: toNumberOrNull(doc.vatAmount),
+    foreignAmount: toNumberOrNull(doc.foreignAmount),
+    docDate: doc.docDate?.toISOString() || null,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
   };
 }
 
-// Serialize multiple SubDocuments
-export function serializeSubDocuments(subDocs: SubDocumentWithFiles[]): SerializedSubDocument[] {
-  return subDocs.map(serializeSubDocument);
+// Serialize multiple Documents
+export function serializeDocuments(docs: DocumentWithFiles[]): SerializedDocument[] {
+  return docs.map(serializeDocument);
+}
+
+// Serialize Payment for Client Components
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function serializePayment(payment: any): SerializedPayment {
+  return {
+    ...payment,
+    amount: toNumber(payment.amount),
+    paidDate: payment.paidDate instanceof Date ? payment.paidDate.toISOString() : payment.paidDate,
+    createdAt: payment.createdAt instanceof Date ? payment.createdAt.toISOString() : payment.createdAt,
+  };
 }
 
 // Serialize WHT Tracking for Client Components
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function serializeWHTTracking(wht: WHTTrackingWithContact & { document?: any }): SerializedWHTTracking {
-  const { document, ...rest } = wht;
+export function serializeWhtTracking(wht: WhtTrackingWithContact & { box?: any }): SerializedWhtTracking {
+  const { box, ...rest } = wht;
   
   return {
     ...rest,
-    whtAmount: toNumber(wht.whtAmount),
-    whtRate: toNumber(wht.whtRate),
+    amount: toNumber(wht.amount),
+    rate: toNumberOrNull(wht.rate),
     issuedDate: wht.issuedDate?.toISOString() || null,
     sentDate: wht.sentDate?.toISOString() || null,
-    confirmedDate: wht.confirmedDate?.toISOString() || null,
     receivedDate: wht.receivedDate?.toISOString() || null,
     createdAt: wht.createdAt.toISOString(),
     updatedAt: wht.updatedAt.toISOString(),
-    document: document ? {
-      id: document.id,
-      docNumber: document.docNumber,
-      description: document.description,
-      totalAmount: toNumber(document.totalAmount),
-      docDate: document.docDate instanceof Date ? document.docDate.toISOString() : document.docDate,
+    box: box ? {
+      id: box.id,
+      boxNumber: box.boxNumber,
+      title: box.title,
+      totalAmount: toNumber(box.totalAmount),
+      boxDate: box.boxDate instanceof Date ? box.boxDate.toISOString() : box.boxDate,
     } : null,
   };
 }
 
 // Serialize multiple WHT Trackings
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function serializeWHTTrackings(whts: (WHTTrackingWithContact & { document?: any })[]): SerializedWHTTracking[] {
-  return whts.map(serializeWHTTracking);
+export function serializeWhtTrackings(whts: (WhtTrackingWithContact & { box?: any })[]): SerializedWhtTracking[] {
+  return whts.map(serializeWhtTracking);
 }
 
-// Serialize document for Client Components
-export function serializeDocument(doc: DocumentWithRelations): SerializedDocument {
+// Serialize Box for Client Components
+export function serializeBox(box: BoxWithRelations): SerializedBox {
   return {
-    ...doc,
-    subtotal: toNumber(doc.subtotal),
-    vatAmount: toNumber(doc.vatAmount),
-    whtAmount: toNumber(doc.whtAmount),
-    totalAmount: toNumber(doc.totalAmount),
-    vatRate: toNumber(doc.vatRate),
-    whtRate: doc.whtRate ? toNumber(doc.whtRate) : null,
-    docDate: doc.docDate.toISOString(),
-    dueDate: doc.dueDate?.toISOString() || null,
-    submittedAt: doc.submittedAt?.toISOString() || null,
-    reviewedAt: doc.reviewedAt?.toISOString() || null,
-    exportedAt: doc.exportedAt?.toISOString() || null,
-    bookedAt: doc.bookedAt?.toISOString() || null,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
-    subDocuments: doc.subDocuments ? serializeSubDocuments(doc.subDocuments) : [],
-    whtTrackings: doc.whtTrackings ? serializeWHTTrackings(doc.whtTrackings) : [],
+    ...box,
+    totalAmount: toNumber(box.totalAmount),
+    vatAmount: toNumber(box.vatAmount),
+    whtAmount: toNumber(box.whtAmount),
+    paidAmount: toNumber(box.paidAmount),
+    vatRate: toNumberOrNull(box.vatRate),
+    whtRate: toNumberOrNull(box.whtRate),
+    foreignAmount: toNumberOrNull(box.foreignAmount),
+    exchangeRate: toNumberOrNull(box.exchangeRate),
+    boxDate: box.boxDate.toISOString(),
+    dueDate: box.dueDate?.toISOString() || null,
+    exportedAt: box.exportedAt?.toISOString() || null,
+    createdAt: box.createdAt.toISOString(),
+    updatedAt: box.updatedAt.toISOString(),
+    documents: box.documents ? serializeDocuments(box.documents) : [],
+    payments: box.payments ? box.payments.map(serializePayment) : [],
+    whtTrackings: box.whtTrackings ? serializeWhtTrackings(box.whtTrackings) : [],
   };
 }
 
-// Serialize multiple documents
-export function serializeDocuments(docs: DocumentWithRelations[]): SerializedDocument[] {
-  return docs.map(serializeDocument);
+// Serialize multiple Boxes
+export function serializeBoxes(boxes: BoxWithRelations[]): SerializedBox[] {
+  return boxes.map(serializeBox);
 }
 
 // Get WHT Status label
-export function getWHTStatusLabel(status: WHTStatus): string {
-  const labels: Record<WHTStatus, string> = {
+export function getWhtStatusLabel(status: WhtStatus): string {
+  const labels: Record<WhtStatus, string> = {
     PENDING: "รอดำเนินการ",
     ISSUED: "ออกเอกสารแล้ว",
     SENT: "ส่งแล้ว",
     CONFIRMED: "ยืนยันรับแล้ว",
     RECEIVED: "ได้รับแล้ว",
-    CANCELLED: "ยกเลิก",
   };
   return labels[status] || status;
 }
 
-// Get WHT Tracking Type label
-export function getWHTTrackingTypeLabel(type: WHTTrackingType): string {
-  const labels: Record<WHTTrackingType, string> = {
+// Get WHT Type label
+export function getWhtTypeLabel(type: WhtType): string {
+  const labels: Record<WhtType, string> = {
     OUTGOING: "ต้องส่งออก",
     INCOMING: "รอรับเข้า",
   };
   return labels[type] || type;
 }
 
-// Get SubDocType label
-export function getSubDocTypeLabel(docType: SubDocType): string {
-  const labels: Record<SubDocType, string> = {
-    SLIP: "สลิปโอนเงิน",
+// Get DocType label
+export function getDocTypeLabel(docType: DocType): string {
+  const labels: Record<DocType, string> = {
+    SLIP_TRANSFER: "สลิปโอนเงิน",
+    SLIP_CHEQUE: "สำเนาเช็ค",
+    BANK_STATEMENT: "Statement ธนาคาร",
+    CREDIT_CARD_STATEMENT: "Statement บัตรเครดิต",
+    ONLINE_RECEIPT: "Paypal/Stripe Receipt",
+    PETTY_CASH_VOUCHER: "ใบสำคัญจ่ายเงินสด",
     TAX_INVOICE: "ใบกำกับภาษี",
-    INVOICE: "ใบแจ้งหนี้",
+    TAX_INVOICE_ABB: "ใบกำกับภาษีอย่างย่อ",
     RECEIPT: "ใบเสร็จรับเงิน",
-    WHT_CERT_SENT: "หนังสือหัก ณ ที่จ่าย (ออก)",
-    CONTRACT: "สัญญา/ใบสั่งซื้อ",
+    CASH_RECEIPT: "บิลเงินสด",
+    INVOICE: "ใบแจ้งหนี้",
+    FOREIGN_INVOICE: "Invoice ต่างประเทศ",
+    CUSTOMS_FORM: "ใบขนสินค้า",
+    DELIVERY_NOTE: "ใบส่งของ",
+    CREDIT_NOTE: "ใบลดหนี้",
+    DEBIT_NOTE: "ใบเพิ่มหนี้",
+    REFUND_RECEIPT: "หลักฐานคืนเงิน",
+    WHT_SENT: "หัก ณ ที่จ่าย (ออก)",
+    WHT_RECEIVED: "หัก ณ ที่จ่าย (รับกลับ)",
+    WHT_INCOMING: "หัก ณ ที่จ่าย (เขาหักเรา)",
+    TAX_PAYMENT_SLIP: "ใบนำส่งภาษี",
+    TAX_RECEIPT_GOVT: "ใบเสร็จจากสรรพากร",
+    SSO_PAYMENT: "ประกันสังคม",
+    GOVT_RECEIPT: "ใบเสร็จราชการ",
+    CONTRACT: "สัญญา",
     QUOTATION: "ใบเสนอราคา",
-    WHT_CERT_RECEIVED: "หนังสือหัก ณ ที่จ่าย (รับ)",
+    PURCHASE_ORDER: "ใบสั่งซื้อ",
+    CLAIM_FORM: "ใบเบิกเงิน",
     OTHER: "อื่นๆ",
   };
   return labels[docType] || docType;

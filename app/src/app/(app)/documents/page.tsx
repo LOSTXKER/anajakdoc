@@ -3,8 +3,8 @@ import { AppHeader } from "@/components/layout/app-header";
 import { UnifiedDocumentView } from "@/components/documents/unified-document-view";
 import prisma from "@/lib/prisma";
 
-async function getAllDocuments(orgId: string, userId: string) {
-  const docs = await prisma.document.findMany({
+async function getAllBoxes(orgId: string, userId: string) {
+  const boxes = await prisma.box.findMany({
     where: {
       organizationId: orgId,
     },
@@ -12,90 +12,99 @@ async function getAllDocuments(orgId: string, userId: string) {
       category: true,
       costCenter: true,
       contact: true,
-      submittedBy: {
+      createdBy: {
         select: { id: true, name: true, email: true, avatarUrl: true },
       },
-      subDocuments: {
+      documents: {
         include: {
           files: { orderBy: { pageOrder: "asc" } },
         },
       },
+      payments: true,
       _count: {
-        select: { files: true, subDocuments: true, comments: true },
+        select: { documents: true, payments: true, comments: true },
       },
     },
     orderBy: { createdAt: "desc" },
   });
 
   // Serialize for client
-  return docs.map(doc => ({
-    ...doc,
-    subtotal: doc.subtotal.toNumber(),
-    vatAmount: doc.vatAmount.toNumber(),
-    whtAmount: doc.whtAmount.toNumber(),
-    totalAmount: doc.totalAmount.toNumber(),
-    vatRate: doc.vatRate?.toNumber() ?? null,
-    whtRate: doc.whtRate?.toNumber() ?? null,
-    docDate: doc.docDate.toISOString(),
-    dueDate: doc.dueDate?.toISOString() ?? null,
-    submittedAt: doc.submittedAt?.toISOString() ?? null,
-    reviewedAt: doc.reviewedAt?.toISOString() ?? null,
-    exportedAt: doc.exportedAt?.toISOString() ?? null,
-    bookedAt: doc.bookedAt?.toISOString() ?? null,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
-    subDocuments: doc.subDocuments.map(sub => ({
-      ...sub,
-      amount: sub.amount?.toNumber() ?? null,
-      vatAmount: sub.vatAmount?.toNumber() ?? null,
-      docDate: sub.docDate?.toISOString() ?? null,
-      createdAt: sub.createdAt.toISOString(),
-      updatedAt: sub.updatedAt.toISOString(),
+  return boxes.map(box => ({
+    ...box,
+    totalAmount: box.totalAmount.toNumber(),
+    vatAmount: box.vatAmount.toNumber(),
+    whtAmount: box.whtAmount.toNumber(),
+    paidAmount: box.paidAmount.toNumber(),
+    vatRate: box.vatRate?.toNumber() ?? null,
+    whtRate: box.whtRate?.toNumber() ?? null,
+    foreignAmount: box.foreignAmount?.toNumber() ?? null,
+    exchangeRate: box.exchangeRate?.toNumber() ?? null,
+    boxDate: box.boxDate.toISOString(),
+    dueDate: box.dueDate?.toISOString() ?? null,
+    exportedAt: box.exportedAt?.toISOString() ?? null,
+    createdAt: box.createdAt.toISOString(),
+    updatedAt: box.updatedAt.toISOString(),
+    documents: box.documents.map(doc => ({
+      ...doc,
+      amount: doc.amount?.toNumber() ?? null,
+      vatAmount: doc.vatAmount?.toNumber() ?? null,
+      foreignAmount: doc.foreignAmount?.toNumber() ?? null,
+      docDate: doc.docDate?.toISOString() ?? null,
+      createdAt: doc.createdAt.toISOString(),
+      updatedAt: doc.updatedAt.toISOString(),
+    })),
+    payments: box.payments.map(p => ({
+      ...p,
+      amount: p.amount.toNumber(),
+      paidDate: p.paidDate.toISOString(),
+      createdAt: p.createdAt.toISOString(),
     })),
   }));
 }
 
 async function getStatusCounts(orgId: string, userId: string) {
-  const [myDocs, pendingReview, needInfo, readyToExport, exported, booked, total] = await Promise.all([
-    prisma.document.count({ where: { organizationId: orgId, submittedById: userId } }),
-    prisma.document.count({ where: { organizationId: orgId, status: "PENDING_REVIEW" } }),
-    prisma.document.count({ where: { organizationId: orgId, status: "NEED_INFO" } }),
-    prisma.document.count({ where: { organizationId: orgId, status: "READY_TO_EXPORT" } }),
-    prisma.document.count({ where: { organizationId: orgId, status: "EXPORTED" } }),
-    prisma.document.count({ where: { organizationId: orgId, status: "BOOKED" } }),
-    prisma.document.count({ where: { organizationId: orgId } }),
+  const [myBoxes, pendingReview, needInfo, approved, exported, total, incomplete, complete] = await Promise.all([
+    prisma.box.count({ where: { organizationId: orgId, createdById: userId } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "PENDING_REVIEW" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "NEED_INFO" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "APPROVED" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "EXPORTED" } }),
+    prisma.box.count({ where: { organizationId: orgId } }),
+    prisma.box.count({ where: { organizationId: orgId, docStatus: "INCOMPLETE" } }),
+    prisma.box.count({ where: { organizationId: orgId, docStatus: "COMPLETE" } }),
   ]);
 
   return {
-    myDocs,
+    myBoxes,
     pendingReview,
     needInfo,
-    readyToExport,
+    approved,
     exported,
-    booked,
     total,
+    incomplete,
+    complete,
   };
 }
 
 export default async function DocumentsPage() {
   const session = await requireOrganization();
 
-  const [documents, counts] = await Promise.all([
-    getAllDocuments(session.currentOrganization.id, session.id),
+  const [boxes, counts] = await Promise.all([
+    getAllBoxes(session.currentOrganization.id, session.id),
     getStatusCounts(session.currentOrganization.id, session.id),
   ]);
 
   return (
     <>
       <AppHeader
-        title="เอกสาร"
+        title="กล่องเอกสาร"
         description="จัดการกล่องเอกสารทั้งหมดของคุณ"
         showCreateButton={false}
       />
       
       <div className="p-6">
         <UnifiedDocumentView
-          documents={documents}
+          boxes={boxes}
           counts={counts}
           userRole={session.currentOrganization.role}
           userId={session.id}

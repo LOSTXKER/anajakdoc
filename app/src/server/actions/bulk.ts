@@ -5,10 +5,10 @@ import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 import type { ApiResponse } from "@/types";
-import { DocumentStatus } from ".prisma/client";
+import { BoxStatus } from "@prisma/client";
 
-export async function bulkApprove(
-  documentIds: string[],
+export async function bulkApproveBoxes(
+  boxIds: string[],
   comment?: string
 ): Promise<ApiResponse<{ count: number }>> {
   const session = await requireOrganization();
@@ -17,44 +17,42 @@ export async function bulkApprove(
   if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
     return {
       success: false,
-      error: "คุณไม่มีสิทธิ์อนุมัติเอกสาร",
+      error: "คุณไม่มีสิทธิ์อนุมัติกล่องเอกสาร",
     };
   }
 
-  // Get documents that can be approved
-  const documents = await prisma.document.findMany({
+  // Get boxes that can be approved
+  const boxes = await prisma.box.findMany({
     where: {
-      id: { in: documentIds },
+      id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [DocumentStatus.PENDING_REVIEW, DocumentStatus.NEED_INFO] },
+      status: { in: [BoxStatus.PENDING_REVIEW, BoxStatus.NEED_INFO] },
     },
   });
 
-  if (documents.length === 0) {
+  if (boxes.length === 0) {
     return {
       success: false,
-      error: "ไม่พบเอกสารที่สามารถอนุมัติได้",
+      error: "ไม่พบกล่องเอกสารที่สามารถอนุมัติได้",
     };
   }
 
-  const validIds = documents.map((d) => d.id);
+  const validIds = boxes.map((b) => b.id);
 
   await prisma.$transaction(async (tx) => {
-    // Update documents
-    await tx.document.updateMany({
+    // Update boxes
+    await tx.box.updateMany({
       where: { id: { in: validIds } },
       data: {
-        status: DocumentStatus.READY_TO_EXPORT,
-        reviewedById: session.id,
-        reviewedAt: new Date(),
+        status: BoxStatus.APPROVED,
       },
     });
 
     // Add comments if provided
     if (comment) {
       await tx.comment.createMany({
-        data: validIds.map((docId) => ({
-          documentId: docId,
+        data: validIds.map((boxId) => ({
+          boxId,
           userId: session.id,
           content: comment,
           isInternal: false,
@@ -64,8 +62,8 @@ export async function bulkApprove(
 
     // Log activity
     await tx.activityLog.createMany({
-      data: validIds.map((docId) => ({
-        documentId: docId,
+      data: validIds.map((boxId) => ({
+        boxId,
         userId: session.id,
         action: "BULK_APPROVED",
         details: comment ? { comment } : undefined,
@@ -74,7 +72,6 @@ export async function bulkApprove(
   });
 
   revalidatePath("/documents");
-  revalidatePath("/inbox");
 
   return {
     success: true,
@@ -82,8 +79,8 @@ export async function bulkApprove(
   };
 }
 
-export async function bulkReject(
-  documentIds: string[],
+export async function bulkRejectBoxes(
+  boxIds: string[],
   reason: string
 ): Promise<ApiResponse<{ count: number }>> {
   const session = await requireOrganization();
@@ -92,7 +89,7 @@ export async function bulkReject(
   if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
     return {
       success: false,
-      error: "คุณไม่มีสิทธิ์ปฏิเสธเอกสาร",
+      error: "คุณไม่มีสิทธิ์ปฏิเสธกล่องเอกสาร",
     };
   }
 
@@ -103,39 +100,37 @@ export async function bulkReject(
     };
   }
 
-  // Get documents that can be rejected
-  const documents = await prisma.document.findMany({
+  // Get boxes that can be rejected
+  const boxes = await prisma.box.findMany({
     where: {
-      id: { in: documentIds },
+      id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [DocumentStatus.PENDING_REVIEW, DocumentStatus.NEED_INFO] },
+      status: { in: [BoxStatus.PENDING_REVIEW, BoxStatus.NEED_INFO] },
     },
   });
 
-  if (documents.length === 0) {
+  if (boxes.length === 0) {
     return {
       success: false,
-      error: "ไม่พบเอกสารที่สามารถปฏิเสธได้",
+      error: "ไม่พบกล่องเอกสารที่สามารถปฏิเสธได้",
     };
   }
 
-  const validIds = documents.map((d) => d.id);
+  const validIds = boxes.map((b) => b.id);
 
   await prisma.$transaction(async (tx) => {
-    // Update documents
-    await tx.document.updateMany({
+    // Update boxes
+    await tx.box.updateMany({
       where: { id: { in: validIds } },
       data: {
-        status: DocumentStatus.REJECTED,
-        reviewedById: session.id,
-        reviewedAt: new Date(),
+        status: BoxStatus.CANCELLED,
       },
     });
 
     // Add rejection comments
     await tx.comment.createMany({
-      data: validIds.map((docId) => ({
-        documentId: docId,
+      data: validIds.map((boxId) => ({
+        boxId,
         userId: session.id,
         content: `ปฏิเสธ: ${reason}`,
         isInternal: false,
@@ -144,8 +139,8 @@ export async function bulkReject(
 
     // Log activity
     await tx.activityLog.createMany({
-      data: validIds.map((docId) => ({
-        documentId: docId,
+      data: validIds.map((boxId) => ({
+        boxId,
         userId: session.id,
         action: "BULK_REJECTED",
         details: { reason },
@@ -154,7 +149,6 @@ export async function bulkReject(
   });
 
   revalidatePath("/documents");
-  revalidatePath("/inbox");
 
   return {
     success: true,
@@ -162,56 +156,56 @@ export async function bulkReject(
   };
 }
 
-export async function bulkExport(
-  documentIds: string[]
+export async function bulkExportBoxes(
+  boxIds: string[]
 ): Promise<ApiResponse<{ downloadUrl: string }>> {
   const session = await requireOrganization();
 
-  const documents = await prisma.document.findMany({
+  const boxes = await prisma.box.findMany({
     where: {
-      id: { in: documentIds },
+      id: { in: boxIds },
       organizationId: session.currentOrganization.id,
     },
     include: {
       category: true,
       costCenter: true,
       contact: true,
-      submittedBy: {
+      createdBy: {
         select: { name: true, email: true },
       },
     },
-    orderBy: { docDate: "asc" },
+    orderBy: { boxDate: "asc" },
   });
 
-  if (documents.length === 0) {
+  if (boxes.length === 0) {
     return {
       success: false,
-      error: "ไม่พบเอกสารที่เลือก",
+      error: "ไม่พบกล่องเอกสารที่เลือก",
     };
   }
 
   // Create Excel
   const workbook = XLSX.utils.book_new();
   
-  const data = documents.map((doc) => ({
-    "เลขที่เอกสาร": doc.docNumber,
-    "วันที่": new Date(doc.docDate).toLocaleDateString("th-TH"),
-    "ประเภท": doc.transactionType === "EXPENSE" ? "รายจ่าย" : "รายรับ",
-    "ประเภทเอกสาร": doc.docType,
-    "หมวดหมู่": doc.category?.name || "-",
-    "ศูนย์ต้นทุน": doc.costCenter?.name || "-",
-    "คู่ค้า": doc.contact?.name || "-",
-    "รายละเอียด": doc.description || "-",
-    "ยอดก่อน VAT": doc.subtotal.toNumber(),
-    "VAT": doc.vatAmount.toNumber(),
-    "หัก ณ ที่จ่าย": doc.whtAmount.toNumber(),
-    "ยอดรวม": doc.totalAmount.toNumber(),
-    "สถานะ": doc.status,
-    "ผู้ส่ง": doc.submittedBy.name || doc.submittedBy.email,
+  const data = boxes.map((box) => ({
+    "เลขที่กล่อง": box.boxNumber,
+    "วันที่": new Date(box.boxDate).toLocaleDateString("th-TH"),
+    "ประเภท": box.boxType === "EXPENSE" ? "รายจ่าย" : box.boxType === "INCOME" ? "รายรับ" : "ปรับปรุง",
+    "หมวดหมู่": box.category?.name || "-",
+    "ศูนย์ต้นทุน": box.costCenter?.name || "-",
+    "คู่ค้า": box.contact?.name || "-",
+    "รายละเอียด": box.title || "-",
+    "ยอดรวม": Number(box.totalAmount),
+    "VAT": Number(box.vatAmount),
+    "หัก ณ ที่จ่าย": Number(box.whtAmount),
+    "สถานะ": box.status,
+    "สถานะเอกสาร": box.docStatus,
+    "สถานะชำระ": box.paymentStatus,
+    "ผู้สร้าง": box.createdBy.name || box.createdBy.email,
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.book_append_sheet(workbook, worksheet, "เอกสาร");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "กล่องเอกสาร");
   
   const buffer = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
 
@@ -221,8 +215,8 @@ export async function bulkExport(
       organizationId: session.currentOrganization.id,
       exportType: "EXCEL_GENERIC",
       fileName: `bulk_export_${new Date().toISOString().split("T")[0]}.xlsx`,
-      documentIds,
-      documentCount: documents.length,
+      boxIds,
+      boxCount: boxes.length,
       exportedById: session.id,
     },
   });
@@ -236,7 +230,7 @@ export async function bulkExport(
 }
 
 export async function bulkAssignCategory(
-  documentIds: string[],
+  boxIds: string[],
   categoryId: string
 ): Promise<ApiResponse<{ count: number }>> {
   const session = await requireOrganization();
@@ -256,9 +250,9 @@ export async function bulkAssignCategory(
     };
   }
 
-  const result = await prisma.document.updateMany({
+  const result = await prisma.box.updateMany({
     where: {
-      id: { in: documentIds },
+      id: { in: boxIds },
       organizationId: session.currentOrganization.id,
     },
     data: { categoryId },
@@ -273,7 +267,7 @@ export async function bulkAssignCategory(
 }
 
 export async function bulkAssignCostCenter(
-  documentIds: string[],
+  boxIds: string[],
   costCenterId: string
 ): Promise<ApiResponse<{ count: number }>> {
   const session = await requireOrganization();
@@ -293,9 +287,9 @@ export async function bulkAssignCostCenter(
     };
   }
 
-  const result = await prisma.document.updateMany({
+  const result = await prisma.box.updateMany({
     where: {
-      id: { in: documentIds },
+      id: { in: boxIds },
       organizationId: session.currentOrganization.id,
     },
     data: { costCenterId },

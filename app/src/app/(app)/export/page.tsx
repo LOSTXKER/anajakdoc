@@ -4,40 +4,42 @@ import { AppHeader } from "@/components/layout/app-header";
 import { ExportPanel } from "@/components/export/export-panel";
 import prisma from "@/lib/prisma";
 
-async function getExportableDocuments(orgId: string) {
-  const docs = await prisma.document.findMany({
+async function getExportableBoxes(orgId: string) {
+  const boxes = await prisma.box.findMany({
     where: {
       organizationId: orgId,
-      status: "READY_TO_EXPORT",
+      status: "APPROVED",
     },
     include: {
       category: true,
       costCenter: true,
       contact: true,
-      submittedBy: {
+      createdBy: {
         select: { name: true },
       },
+      documents: {
+        select: { docType: true },
+      },
     },
-    orderBy: { docDate: "desc" },
+    orderBy: { boxDate: "desc" },
   });
 
   // Serialize Decimal to number and Date to string
-  return docs.map(doc => ({
-    ...doc,
-    subtotal: doc.subtotal.toNumber(),
-    vatAmount: doc.vatAmount.toNumber(),
-    whtAmount: doc.whtAmount.toNumber(),
-    totalAmount: doc.totalAmount.toNumber(),
-    vatRate: doc.vatRate?.toNumber() ?? null,
-    whtRate: doc.whtRate?.toNumber() ?? null,
-    docDate: doc.docDate.toISOString(),
-    dueDate: doc.dueDate?.toISOString() ?? null,
-    submittedAt: doc.submittedAt?.toISOString() ?? null,
-    reviewedAt: doc.reviewedAt?.toISOString() ?? null,
-    exportedAt: doc.exportedAt?.toISOString() ?? null,
-    bookedAt: doc.bookedAt?.toISOString() ?? null,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
+  return boxes.map(box => ({
+    ...box,
+    totalAmount: box.totalAmount.toNumber(),
+    vatAmount: box.vatAmount.toNumber(),
+    whtAmount: box.whtAmount.toNumber(),
+    paidAmount: box.paidAmount.toNumber(),
+    vatRate: box.vatRate?.toNumber() ?? null,
+    whtRate: box.whtRate?.toNumber() ?? null,
+    foreignAmount: box.foreignAmount?.toNumber() ?? null,
+    exchangeRate: box.exchangeRate?.toNumber() ?? null,
+    boxDate: box.boxDate.toISOString(),
+    dueDate: box.dueDate?.toISOString() ?? null,
+    exportedAt: box.exportedAt?.toISOString() ?? null,
+    createdAt: box.createdAt.toISOString(),
+    updatedAt: box.updatedAt.toISOString(),
   }));
 }
 
@@ -63,8 +65,8 @@ export default async function ExportPage() {
     redirect("/documents");
   }
 
-  const [documents, history] = await Promise.all([
-    getExportableDocuments(session.currentOrganization.id),
+  const [boxes, history] = await Promise.all([
+    getExportableBoxes(session.currentOrganization.id),
     getExportHistory(session.currentOrganization.id),
   ]);
 
@@ -72,13 +74,13 @@ export default async function ExportPage() {
     <>
       <AppHeader 
         title="Export ข้อมูล" 
-        description="ส่งออกเอกสารเป็น Excel หรือ ZIP"
+        description="ส่งออกกล่องเอกสารเป็น Excel หรือ ZIP"
         showCreateButton={false}
       />
       
       <div className="p-6">
         <ExportPanel 
-          documents={documents} 
+          boxes={boxes} 
           history={history}
         />
       </div>

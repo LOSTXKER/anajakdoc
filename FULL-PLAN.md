@@ -157,6 +157,8 @@ Timeline:
 
 # 3. Use Cases
 
+> **ดูรายละเอียดครบทุก Use Case ที่:** [EXTENDED-USECASES.md](./EXTENDED-USECASES.md)
+
 ## Use Cases หลัก (MVP)
 
 | UC | ชื่อ | Priority | Phase |
@@ -172,14 +174,22 @@ Timeline:
 | UC-09 | WHT Tracking | P1 | MVP Extended |
 | UC-10 | Income Documents | P1 | Phase 2 |
 
-## Use Cases ขั้นสูง (Phase 2)
+## Use Cases ขั้นสูง (Phase 2+)
 
-| UC | ชื่อ | ความซับซ้อน | Priority |
-|----|------|-------------|----------|
-| UC-B | Split Allocation | Medium | P2 |
-| UC-C | WHT (หัก ณ ที่จ่าย) | Low-Medium | P1 |
-| UC-D | Expense Claim | Low | P1 |
-| UC-E | Claim Bundle + WHT | Medium | P2 |
+| Category | Use Cases | Count |
+|----------|-----------|-------|
+| การจ่ายพื้นฐาน | Standard, No VAT, Cash, No Receipt | 4 |
+| การจ่ายซับซ้อน | Deposit, Installment, Batch, Partial | 4 |
+| การคืนเงิน/ปรับปรุง | Refund, CN, DN, Wrong Transfer, Cancel | 5 |
+| เบิกจ่าย | Reimbursement, Travel, Petty Cash | 3 |
+| ค่าใช้จ่ายประจำ | Rent, Subscription, Utility | 3 |
+| ภาษี/รัฐบาล | VAT, WHT, SSO | 3 |
+| ต่างประเทศ | Foreign Payment, Import, Online Services | 3 |
+| ค่าธรรมเนียม | Bank Fee, FX Fee, Interest | 3 |
+| สัญญา/โปรเจค | Milestone, Retention | 2 |
+| กรณีผิดปกติ | Lost Doc, Wrong Amount, Double Payment | 4 |
+
+**รวม: 34 Use Cases** → [ดูรายละเอียดครบ](./EXTENDED-USECASES.md)
 
 ---
 
@@ -217,7 +227,7 @@ Timeline:
          │
          ▼
 ┌─────────────────┐
-│  DocumentFile   │
+│ SubDocumentFile │
 │ (ไฟล์ของเอกสาร) │
 │ หลายหน้าได้     │
 └─────────────────┘
@@ -260,25 +270,61 @@ Timeline:
 | amount | decimal | ยอดเงิน (optional) |
 | notes | text | หมายเหตุ |
 
-#### DocType สำหรับรายจ่าย (Expense)
+#### DocType (Extended - 30+ types)
+
+**หลักฐานการจ่ายเงิน:**
 | Type | ความหมาย |
 |------|----------|
-| SLIP | สลิปโอนเงิน |
+| SLIP_TRANSFER | สลิปโอนเงิน |
+| SLIP_CHEQUE | สำเนาเช็ค |
+| BANK_STATEMENT | Statement ธนาคาร |
+| CREDIT_CARD_STATEMENT | Statement บัตรเครดิต |
+| PAYPAL_RECEIPT | Paypal/Stripe Receipt |
+| PETTY_CASH_VOUCHER | ใบสำคัญจ่ายเงินสด |
+| CASH_PAYMENT | หลักฐานจ่ายเงินสด |
+
+**หลักฐานรายจ่าย:**
+| Type | ความหมาย |
+|------|----------|
 | TAX_INVOICE | ใบกำกับภาษี |
-| INVOICE | ใบแจ้งหนี้ |
+| TAX_INVOICE_ABB | ใบกำกับภาษีอย่างย่อ |
 | RECEIPT | ใบเสร็จรับเงิน |
-| WHT_CERT_SENT | หนังสือหัก ณ ที่จ่าย (เราออก) |
+| CASH_RECEIPT | บิลเงินสด |
+| INVOICE | ใบแจ้งหนี้ |
+| FOREIGN_INVOICE | Invoice ต่างประเทศ |
+| CUSTOMS_FORM | ใบขนสินค้า |
+| NO_RECEIPT | ไม่มีหลักฐาน + เหตุผล |
 
-### DocumentFile (ไฟล์ของเอกสาร)
+**เอกสารปรับปรุง:**
+| Type | ความหมาย |
+|------|----------|
+| CREDIT_NOTE | ใบลดหนี้ |
+| DEBIT_NOTE | ใบเพิ่มหนี้ |
+| CANCELLATION | ใบยกเลิก |
+| REFUND_RECEIPT | หลักฐานคืนเงิน |
 
-> 1 เอกสาร → หลายไฟล์ได้ (หน้า-หลัง, หลายหน้า)
+**WHT:**
+| Type | ความหมาย |
+|------|----------|
+| WHT_CERT_SENT | WHT ที่เราส่งให้ผู้รับ |
+| WHT_CERT_RECEIVED | WHT ที่เราได้รับกลับ (signed) |
+| WHT_CERT_INCOMING | WHT ที่เขาหักเรา |
+
+> **ดูรายละเอียดครบ:** [EXTENDED-USECASES.md](./EXTENDED-USECASES.md#1-document-types-ทั้งหมด)
+
+### SubDocumentFile (ไฟล์ของเอกสาร)
+
+> 1 SubDocument → หลายไฟล์ได้ (หน้า-หลัง, หลายหน้า)
 
 | Field | Type | Description |
 |-------|------|-------------|
 | id | UUID | Primary key |
-| sub_document_id | FK | เอกสารที่เป็นเจ้าของ |
+| sub_document_id | FK | เอกสาร (SubDocument) ที่เป็นเจ้าของ |
+| file_name | string | ชื่อไฟล์ |
 | file_url | string | URL ไฟล์ |
-| file_checksum | string | สำหรับ duplicate detection |
+| file_size | int | ขนาดไฟล์ (bytes) |
+| mime_type | string | ประเภทไฟล์ |
+| checksum | string | MD5 สำหรับ duplicate detection |
 | page_order | int | ลำดับหน้า |
 | is_primary | boolean | เป็นไฟล์หลักหรือไม่ |
 
@@ -452,9 +498,28 @@ Timeline:
 | Adapter | Status | Format | Use Case |
 |---------|--------|--------|----------|
 | Generic Excel | ✅ Active | XLSX | ส่งสำนักงานบัญชี |
+| Generic CSV | ✅ Active | CSV | Import เข้าระบบอื่น |
 | PEAK | ✅ Active | XLSX | ผู้ใช้ PEAK |
 | Express | 📋 Planned | CSV | ผู้ใช้ Express |
 | FlowAccount | 📋 Planned | CSV | ผู้ใช้ FlowAccount |
+| QuickBooks | 📋 Planned | IIF/CSV | ผู้ใช้ QuickBooks |
+| ZIP + Files | ✅ Active | ZIP | Export พร้อมไฟล์ |
+
+### Export Fields (Extended)
+
+```typescript
+interface ExportRecord {
+  // Basic: txn_number, txn_date, description
+  // Amount: total_amount, vat_amount, net_amount, wht_amount, paid_amount
+  // Contact: contact_name, contact_tax_id, contact_type
+  // Classification: category_code, cost_center_code
+  // Document Refs: invoice_number, invoice_date, receipt_number
+  // WHT: wht_type, wht_rate, wht_status
+  // Foreign Currency: foreign_currency, foreign_amount, exchange_rate
+  // Accounting: debit_account, credit_account
+  // Files: file_urls[]
+}
+```
 
 ---
 

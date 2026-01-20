@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle } from "lucide-react";
+import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle, AlertCircle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/ui/status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDate, formatMoney } from "@/lib/formatters";
-import { canReviewDocument, getTransactionTypeConfig } from "@/lib/document-config";
+import { canReviewBox, getBoxTypeConfig, getBoxStatusConfig, getDocStatusConfig, getExpenseTypeLabel } from "@/lib/document-config";
 import { cn } from "@/lib/utils";
-import type { SerializedDocumentListItem } from "@/types";
+import type { SerializedBoxListItem } from "@/types";
 
 interface DocumentBoxCardProps {
-  doc: SerializedDocumentListItem;
+  box: SerializedBoxListItem;
   selected?: boolean;
   onSelect?: (id: string, checked: boolean) => void;
   onAction?: (id: string, action: "approve" | "reject" | "need_info") => void;
@@ -27,22 +26,26 @@ interface DocumentBoxCardProps {
 }
 
 export function DocumentBoxCard({
-  doc,
+  box,
   selected = false,
   onSelect,
   onAction,
   showCheckbox = false,
   showActions = false,
 }: DocumentBoxCardProps) {
-  const canReview = canReviewDocument(doc.status);
-  const txConfig = getTransactionTypeConfig(doc.transactionType);
-  const TxIcon = txConfig.icon;
+  const canReview = canReviewBox(box.status);
+  const boxTypeConfig = getBoxTypeConfig(box.boxType);
+  const boxStatusConfig = getBoxStatusConfig(box.status);
+  const docStatusConfig = getDocStatusConfig(box.docStatus);
+  const BoxTypeIcon = boxTypeConfig.icon;
 
   return (
     <div className={cn(
       "group relative border rounded-xl p-4 bg-white hover:shadow-sm transition-all duration-200",
-      doc.transactionType === "INCOME" 
-        ? "hover:border-primary/50 border-l-4 border-l-primary" 
+      box.boxType === "INCOME" 
+        ? "hover:border-emerald-300 border-l-4 border-l-emerald-400" 
+        : box.boxType === "ADJUSTMENT"
+        ? "hover:border-purple-300 border-l-4 border-l-purple-400"
         : "hover:border-rose-300 border-l-4 border-l-rose-400"
     )}>
       <div className="flex items-start gap-4">
@@ -51,52 +54,81 @@ export function DocumentBoxCard({
           <div className="pt-1">
             <Checkbox
               checked={selected}
-              onCheckedChange={(checked) => onSelect(doc.id, checked === true)}
+              onCheckedChange={(checked) => onSelect(box.id, checked === true)}
             />
           </div>
         )}
 
-        {/* Box Icon - colored by transaction type */}
-        <Link href={`/documents/${doc.id}`} className="shrink-0">
+        {/* Box Icon */}
+        <Link href={`/documents/${box.id}`} className="shrink-0">
           <div className={cn(
             "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
-            doc.transactionType === "INCOME"
-              ? "bg-primary/10 group-hover:bg-primary/20"
-              : "bg-rose-100 group-hover:bg-rose-200"
+            boxTypeConfig.bgLight,
+            "group-hover:opacity-80"
           )}>
-            <Package className={cn(
-              "w-6 h-6",
-              doc.transactionType === "INCOME" ? "text-primary" : "text-rose-600"
-            )} />
+            <Package className={cn("w-6 h-6", boxTypeConfig.iconColor)} />
           </div>
         </Link>
 
         {/* Content */}
-        <Link href={`/documents/${doc.id}`} className="flex-1 min-w-0">
+        <Link href={`/documents/${box.id}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Transaction type badge */}
-            <Badge variant="secondary" className={cn("text-xs gap-1", txConfig.badgeClass)}>
-              <TxIcon className="w-3 h-3" />
-              {txConfig.label}
+            {/* Box type badge */}
+            <Badge variant="secondary" className={cn("text-xs gap-1", boxTypeConfig.badgeClass)}>
+              <BoxTypeIcon className="w-3 h-3" />
+              {boxTypeConfig.label}
             </Badge>
-            <span className="font-semibold text-gray-900">{doc.docNumber}</span>
-            <StatusBadge status={doc.status} />
+            
+            {/* Expense type */}
+            {box.expenseType && (
+              <Badge variant="outline" className="text-xs">
+                {getExpenseTypeLabel(box.expenseType)}
+              </Badge>
+            )}
+            
+            <span className="font-semibold text-gray-900">{box.boxNumber}</span>
+            
+            {/* Status badge */}
+            <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
+              {boxStatusConfig.label}
+            </Badge>
+            
+            {/* Doc status indicator */}
+            {box.docStatus === "INCOMPLETE" ? (
+              <span className="flex items-center gap-1 text-xs text-amber-600">
+                <AlertCircle className="w-3 h-3" />
+                รอเอกสาร
+              </span>
+            ) : box.docStatus === "COMPLETE" ? (
+              <span className="flex items-center gap-1 text-xs text-emerald-600">
+                <CheckCircle className="w-3 h-3" />
+                ครบแล้ว
+              </span>
+            ) : null}
           </div>
+          
           <p className="text-gray-600 truncate mt-1">
-            {doc.description || "ไม่มีรายละเอียด"}
+            {box.title || box.description || "ไม่มีรายละเอียด"}
           </p>
+          
           <div className="flex items-center gap-2 mt-2 text-sm text-gray-500 flex-wrap">
-            {doc.contact?.name && (
+            {box.contact?.name && (
               <>
-                <span>{doc.contact.name}</span>
+                <span>{box.contact.name}</span>
                 <span className="text-gray-300">•</span>
               </>
             )}
-            <span>{formatDate(doc.docDate, "short")}</span>
-            {doc.submittedBy?.name && (
+            <span>{formatDate(box.boxDate, "short")}</span>
+            {box.createdBy?.name && (
               <>
                 <span className="text-gray-300">•</span>
-                <span>โดย {doc.submittedBy.name}</span>
+                <span>โดย {box.createdBy.name}</span>
+              </>
+            )}
+            {box._count && box._count.documents > 0 && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span>{box._count.documents} เอกสาร</span>
               </>
             )}
           </div>
@@ -105,14 +137,19 @@ export function DocumentBoxCard({
         {/* Amount & Actions */}
         <div className="flex items-start gap-2 shrink-0">
           <div className="text-right">
-            <p className={cn(
-              "text-lg font-bold",
-              doc.transactionType === "INCOME" ? "text-primary" : "text-rose-600"
-            )}>
-              {doc.transactionType === "INCOME" ? "+" : "-"}฿{formatMoney(doc.totalAmount)}
+            <p className={cn("text-lg font-bold", boxTypeConfig.amountColor)}>
+              {box.boxType === "INCOME" ? "+" : "-"}฿{formatMoney(box.totalAmount)}
             </p>
-            {doc.category?.name && (
-              <p className="text-sm text-gray-500">{doc.category.name}</p>
+            {box.category?.name && (
+              <p className="text-sm text-gray-500">{box.category.name}</p>
+            )}
+            {/* Payment status indicator */}
+            {box.paymentStatus === "PAID" ? (
+              <span className="text-xs text-emerald-600">จ่ายแล้ว</span>
+            ) : box.paymentStatus === "PARTIAL" ? (
+              <span className="text-xs text-amber-600">จ่ายบางส่วน</span>
+            ) : box.totalAmount > 0 && (
+              <span className="text-xs text-gray-400">รอจ่าย</span>
             )}
           </div>
 
@@ -129,22 +166,22 @@ export function DocumentBoxCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
-                <Link href={`/documents/${doc.id}`}>
+                <Link href={`/documents/${box.id}`}>
                   <Eye className="mr-2 h-4 w-4" />
                   ดูรายละเอียด
                 </Link>
               </DropdownMenuItem>
               {showActions && canReview && onAction && (
                 <>
-                  <DropdownMenuItem onClick={() => onAction(doc.id, "approve")}>
+                  <DropdownMenuItem onClick={() => onAction(box.id, "approve")}>
                     <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
                     อนุมัติ
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAction(doc.id, "need_info")}>
+                  <DropdownMenuItem onClick={() => onAction(box.id, "need_info")}>
                     <HelpCircle className="mr-2 h-4 w-4 text-amber-600" />
                     ขอข้อมูลเพิ่ม
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAction(doc.id, "reject")}>
+                  <DropdownMenuItem onClick={() => onAction(box.id, "reject")}>
                     <XCircle className="mr-2 h-4 w-4 text-red-600" />
                     ปฏิเสธ
                   </DropdownMenuItem>

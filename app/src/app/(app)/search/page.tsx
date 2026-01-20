@@ -7,42 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileText, Calendar, DollarSign, Loader2 } from "lucide-react";
+import { Search, Package, Calendar, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { searchDocuments } from "@/server/actions/document";
+import { searchBoxes } from "@/server/actions/box";
+import { getBoxStatusConfig, getDocStatusConfig, getBoxTypeConfig } from "@/lib/document-config";
 
 interface SearchResult {
   id: string;
-  docNumber: string;
-  description: string | null;
-  docDate: Date;
+  boxNumber: string;
+  title: string | null;
+  boxDate: Date;
   totalAmount: { toString(): string } | number;
   status: string;
+  docStatus: string;
   category: { name: string } | null;
-  submittedBy: { name: string | null };
+  createdBy: { name: string | null };
 }
-
-const statusLabels: Record<string, string> = {
-  DRAFT: "แบบร่าง",
-  PENDING_REVIEW: "รอตรวจ",
-  NEED_INFO: "ขอข้อมูลเพิ่ม",
-  READY_TO_EXPORT: "พร้อม Export",
-  EXPORTED: "Export แล้ว",
-  BOOKED: "บันทึกแล้ว",
-  REJECTED: "ปฏิเสธ",
-  VOID: "ยกเลิก",
-};
-
-const statusColors: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-700",
-  PENDING_REVIEW: "bg-blue-100 text-blue-700",
-  NEED_INFO: "bg-orange-100 text-orange-700",
-  READY_TO_EXPORT: "bg-green-100 text-green-700",
-  EXPORTED: "bg-purple-100 text-purple-700",
-  BOOKED: "bg-primary/10 text-primary",
-  REJECTED: "bg-red-100 text-red-700",
-  VOID: "bg-gray-100 text-gray-500",
-};
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
@@ -62,7 +42,7 @@ export default function SearchPage() {
     // Update URL
     router.push(`/search?q=${encodeURIComponent(query)}`);
     
-    const result = await searchDocuments(query);
+    const result = await searchBoxes(query);
     setResults(result);
     setIsSearching(false);
   };
@@ -79,8 +59,8 @@ export default function SearchPage() {
   return (
     <>
       <AppHeader 
-        title="ค้นหาเอกสาร" 
-        description="ค้นหาเอกสารด้วยเลขที่เอกสาร รายละเอียด หรือชื่อผู้ติดต่อ"
+        title="ค้นหากล่องเอกสาร" 
+        description="ค้นหาด้วยเลขที่กล่อง รายละเอียด หรือชื่อผู้ติดต่อ"
         showCreateButton={false}
       />
       
@@ -92,7 +72,7 @@ export default function SearchPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาเลขที่เอกสาร, รายละเอียด, ชื่อผู้ติดต่อ..."
+              placeholder="ค้นหาเลขที่กล่อง, รายละเอียด, ชื่อผู้ติดต่อ..."
               className="pl-10 h-12"
               autoFocus
             />
@@ -123,49 +103,56 @@ export default function SearchPage() {
             <p className="text-sm text-muted-foreground">
               พบ {results.length} รายการ
             </p>
-            {results.map((doc) => (
-              <Link key={doc.id} href={`/documents/${doc.id}`}>
-                <Card className="hover:border-primary transition-colors cursor-pointer">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 flex-shrink-0">
-                          <FileText className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold">{doc.docNumber}</h3>
-                            <Badge className={statusColors[doc.status]}>
-                              {statusLabels[doc.status]}
-                            </Badge>
+            {results.map((box) => {
+              const statusConfig = getBoxStatusConfig(box.status as any);
+              const docStatusConfig = getDocStatusConfig(box.docStatus as any);
+              return (
+                <Link key={box.id} href={`/documents/${box.id}`}>
+                  <Card className="hover:border-primary transition-colors cursor-pointer">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 flex-shrink-0">
+                            <Package className="h-6 w-6 text-primary" />
                           </div>
-                          {doc.description && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                              {doc.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(doc.docDate).toLocaleDateString("th-TH")}
-                            </span>
-                            {doc.category && (
-                              <span>{doc.category.name}</span>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold">{box.boxNumber}</h3>
+                              <Badge className={statusConfig.className}>
+                                {statusConfig.label}
+                              </Badge>
+                              <Badge variant="outline" className={docStatusConfig.className}>
+                                {docStatusConfig.label}
+                              </Badge>
+                            </div>
+                            {box.title && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                                {box.title}
+                              </p>
                             )}
-                            <span>โดย {doc.submittedBy.name || "ไม่ระบุ"}</span>
+                            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {new Date(box.boxDate).toLocaleDateString("th-TH")}
+                              </span>
+                              {box.category && (
+                                <span>{box.category.name}</span>
+                              )}
+                              <span>โดย {box.createdBy.name || "ไม่ระบุ"}</span>
+                            </div>
                           </div>
                         </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-primary">
+                            ฿{Number(box.totalAmount).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-primary">
-                          ฿{Number(doc.totalAmount).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12 text-muted-foreground">

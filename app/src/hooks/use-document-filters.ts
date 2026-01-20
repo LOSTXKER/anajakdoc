@@ -1,117 +1,131 @@
 "use client";
 
 import { useMemo } from "react";
-import type { DocumentStatus } from "@/types";
+import type { BoxStatus, DocStatus } from "@/types";
 
-interface FilterableDocument {
+interface FilterableBox {
   id: string;
-  status: DocumentStatus | string;
-  submittedById?: string;
+  status: BoxStatus | string;
+  docStatus: DocStatus | string;
+  createdById?: string;
 }
 
-interface UseDocumentFiltersResult<T extends FilterableDocument> {
-  /** Documents submitted by current user */
-  myDocs: T[];
-  /** Documents pending review (PENDING_REVIEW, NEED_INFO) */
-  pendingDocs: T[];
-  /** Documents ready to export (READY_TO_EXPORT) */
-  readyDocs: T[];
-  /** Completed documents (EXPORTED, BOOKED) */
-  doneDocs: T[];
-  /** Draft documents */
-  draftDocs: T[];
-  /** Get documents for a specific tab */
-  getDocsForTab: (tab: TabValue) => T[];
-  /** Document counts */
+interface UseBoxFiltersResult<T extends FilterableBox> {
+  /** Boxes created by current user */
+  myBoxes: T[];
+  /** Boxes pending review (PENDING_REVIEW, NEED_INFO) */
+  pendingBoxes: T[];
+  /** Boxes with incomplete documents */
+  incompleteBoxes: T[];
+  /** Boxes ready (APPROVED) */
+  readyBoxes: T[];
+  /** Completed boxes (EXPORTED) */
+  doneBoxes: T[];
+  /** Draft boxes */
+  draftBoxes: T[];
+  /** Get boxes for a specific tab */
+  getBoxesForTab: (tab: TabValue) => T[];
+  /** Box counts */
   counts: {
-    myDocs: number;
-    pendingDocs: number;
-    readyDocs: number;
-    doneDocs: number;
-    draftDocs: number;
+    myBoxes: number;
+    pendingBoxes: number;
+    incompleteBoxes: number;
+    readyBoxes: number;
+    doneBoxes: number;
+    draftBoxes: number;
     total: number;
   };
 }
 
-export type TabValue = "mine" | "pending" | "ready" | "done" | "draft" | "all";
+export type TabValue = "mine" | "pending" | "incomplete" | "ready" | "done" | "draft" | "all";
 
 /**
- * Hook สำหรับ filter documents ตาม status และ user
- * ใช้แทน logic ที่ซ้ำกันใน unified-document-view, document-management
+ * Hook สำหรับ filter boxes ตาม status และ user
  */
-export function useDocumentFilters<T extends FilterableDocument>(
-  documents: T[],
+export function useBoxFilters<T extends FilterableBox>(
+  boxes: T[],
   userId?: string
-): UseDocumentFiltersResult<T> {
-  const myDocs = useMemo(
-    () => (userId ? documents.filter((d) => d.submittedById === userId) : []),
-    [documents, userId]
+): UseBoxFiltersResult<T> {
+  const myBoxes = useMemo(
+    () => (userId ? boxes.filter((b) => b.createdById === userId) : []),
+    [boxes, userId]
   );
 
-  const pendingDocs = useMemo(
+  const pendingBoxes = useMemo(
     () =>
-      documents.filter((d) =>
-        ["PENDING_REVIEW", "NEED_INFO"].includes(d.status)
+      boxes.filter((b) =>
+        ["PENDING_REVIEW", "NEED_INFO"].includes(b.status)
       ),
-    [documents]
+    [boxes]
   );
 
-  const readyDocs = useMemo(
-    () => documents.filter((d) => d.status === "READY_TO_EXPORT"),
-    [documents]
+  const incompleteBoxes = useMemo(
+    () => boxes.filter((b) => b.docStatus === "INCOMPLETE"),
+    [boxes]
   );
 
-  const doneDocs = useMemo(
-    () => documents.filter((d) => ["EXPORTED", "BOOKED"].includes(d.status)),
-    [documents]
+  const readyBoxes = useMemo(
+    () => boxes.filter((b) => b.status === "APPROVED"),
+    [boxes]
   );
 
-  const draftDocs = useMemo(
-    () => documents.filter((d) => d.status === "DRAFT"),
-    [documents]
+  const doneBoxes = useMemo(
+    () => boxes.filter((b) => ["EXPORTED"].includes(b.status)),
+    [boxes]
   );
 
-  const getDocsForTab = useMemo(() => {
+  const draftBoxes = useMemo(
+    () => boxes.filter((b) => b.status === "DRAFT"),
+    [boxes]
+  );
+
+  const getBoxesForTab = useMemo(() => {
     return (tab: TabValue): T[] => {
       switch (tab) {
         case "mine":
-          return myDocs;
+          return myBoxes;
         case "pending":
-          return pendingDocs;
+          return pendingBoxes;
+        case "incomplete":
+          return incompleteBoxes;
         case "ready":
-          return readyDocs;
+          return readyBoxes;
         case "done":
-          return doneDocs;
+          return doneBoxes;
         case "draft":
-          return draftDocs;
+          return draftBoxes;
         case "all":
         default:
-          return documents;
+          return boxes;
       }
     };
-  }, [myDocs, pendingDocs, readyDocs, doneDocs, draftDocs, documents]);
+  }, [myBoxes, pendingBoxes, incompleteBoxes, readyBoxes, doneBoxes, draftBoxes, boxes]);
 
   const counts = useMemo(
     () => ({
-      myDocs: myDocs.length,
-      pendingDocs: pendingDocs.length,
-      readyDocs: readyDocs.length,
-      doneDocs: doneDocs.length,
-      draftDocs: draftDocs.length,
-      total: documents.length,
+      myBoxes: myBoxes.length,
+      pendingBoxes: pendingBoxes.length,
+      incompleteBoxes: incompleteBoxes.length,
+      readyBoxes: readyBoxes.length,
+      doneBoxes: doneBoxes.length,
+      draftBoxes: draftBoxes.length,
+      total: boxes.length,
     }),
-    [myDocs, pendingDocs, readyDocs, doneDocs, draftDocs, documents]
+    [myBoxes, pendingBoxes, incompleteBoxes, readyBoxes, doneBoxes, draftBoxes, boxes]
   );
 
   return {
-    myDocs,
-    pendingDocs,
-    readyDocs,
-    doneDocs,
-    draftDocs,
-    getDocsForTab,
+    myBoxes,
+    pendingBoxes,
+    incompleteBoxes,
+    readyBoxes,
+    doneBoxes,
+    draftBoxes,
+    getBoxesForTab,
     counts,
   };
 }
 
-export default useDocumentFilters;
+// Keep old name for backward compatibility
+export const useDocumentFilters = useBoxFilters;
+export default useBoxFilters;

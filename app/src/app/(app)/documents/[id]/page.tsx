@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { requireOrganization } from "@/server/auth";
-import { getDocument } from "@/server/actions/document";
-import { serializeDocument } from "@/lib/utils";
+import { getBox } from "@/server/actions/box";
+import { getCategories, getContacts, getCostCenters } from "@/server/queries/master-data";
+import { serializeBox } from "@/lib/utils";
 import { BoxDetailWrapper } from "./box-detail-wrapper";
 
 interface DocumentPageProps {
@@ -12,26 +13,43 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const session = await requireOrganization();
   const { id } = await params;
   
-  const doc = await getDocument(id);
+  const [box, categories, contacts, costCenters] = await Promise.all([
+    getBox(id),
+    getCategories(),
+    getContacts(),
+    getCostCenters(),
+  ]);
 
-  if (!doc) {
+  if (!box) {
     notFound();
   }
 
-  const serializedDoc = serializeDocument(doc);
+  const serializedBox = serializeBox(box);
   const userRole = session.currentOrganization.role;
 
   // Determine permissions
   const canEdit = ["OWNER", "ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
-    ["DRAFT", "NEED_INFO"].includes(doc.status);
-  const canSend = ["OWNER", "ADMIN", "STAFF"].includes(userRole) && doc.status === "DRAFT";
+    ["DRAFT", "NEED_INFO"].includes(box.status);
+  const canSend = ["OWNER", "ADMIN", "STAFF"].includes(userRole) && box.status === "DRAFT";
+  const canReview = ["OWNER", "ADMIN", "ACCOUNTING"].includes(userRole) && 
+    ["PENDING_REVIEW", "NEED_INFO"].includes(box.status);
+  // Can delete: only DRAFT boxes, and only owner/admin or the creator
+  const canDelete = box.status === "DRAFT" && (
+    ["OWNER", "ADMIN"].includes(userRole) || 
+    box.createdById === session.id
+  );
 
   return (
-    <div className="p-4 md:p-6 lg:px-8 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 lg:px-8 max-w-7xl mx-auto">
       <BoxDetailWrapper 
-        document={serializedDoc}
+        box={serializedBox}
+        categories={categories}
+        contacts={contacts}
+        costCenters={costCenters}
         canEdit={canEdit}
         canSend={canSend}
+        canReview={canReview}
+        canDelete={canDelete}
       />
     </div>
   );

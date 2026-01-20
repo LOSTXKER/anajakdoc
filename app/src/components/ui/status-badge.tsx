@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
-import type { DocumentStatus } from "@/types";
+import type { BoxStatus } from "@/types";
 
 interface StatusBadgeProps {
-  status: DocumentStatus | string;
+  status: BoxStatus | string;
   size?: "sm" | "md";
   className?: string;
 }

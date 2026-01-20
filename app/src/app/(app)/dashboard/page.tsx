@@ -1,7 +1,7 @@
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { 
   Package, 
   FileText, 
@@ -15,9 +15,11 @@ import {
   Plus,
   Receipt,
   FileCheck,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { getBoxTypeConfig, getDocStatusConfig } from "@/lib/document-config";
 
 async function getDashboardStats(orgId: string) {
   const now = new Date();
@@ -27,120 +29,111 @@ async function getDashboardStats(orgId: string) {
   dueSoon.setDate(dueSoon.getDate() + 7);
 
   const [
-    totalDocs,
-    draftDocs,
-    pendingDocs,
-    approvedDocs,
-    recentDocs,
+    totalBoxes,
+    draftBoxes,
+    pendingBoxes,
+    approvedBoxes,
+    recentBoxes,
     monthlyExpense,
     monthlyIncome,
-    overdueDocs,
-    dueSoonDocs,
-    // New: Get documents waiting for tax invoice
-    docsWaitingTaxInvoice,
-    // New: Get pending WHT tracking
+    overdueBoxes,
+    dueSoonBoxes,
+    incompleteBoxes,
     pendingWht,
   ] = await Promise.all([
-    prisma.document.count({ where: { organizationId: orgId } }),
-    prisma.document.count({ where: { organizationId: orgId, status: "DRAFT" } }),
-    prisma.document.count({ where: { organizationId: orgId, status: "PENDING_REVIEW" } }),
-    prisma.document.count({ where: { organizationId: orgId, status: { in: ["READY_TO_EXPORT", "EXPORTED", "BOOKED"] } } }),
-    prisma.document.findMany({
+    prisma.box.count({ where: { organizationId: orgId } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "DRAFT" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "PENDING_REVIEW" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: { in: ["APPROVED", "EXPORTED"] } } }),
+    prisma.box.findMany({
       where: { organizationId: orgId },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: {
         category: true,
         contact: true,
-        submittedBy: { select: { name: true } },
-        subDocuments: { select: { docType: true } },
+        createdBy: { select: { name: true } },
+        documents: { select: { docType: true } },
       },
     }),
-    prisma.document.aggregate({
+    prisma.box.aggregate({
       where: {
         organizationId: orgId,
-        transactionType: "EXPENSE",
-        docDate: { gte: startOfMonth, lte: endOfMonth },
-        status: { notIn: ["VOID", "REJECTED"] },
+        boxType: "EXPENSE",
+        boxDate: { gte: startOfMonth, lte: endOfMonth },
+        status: { notIn: ["CANCELLED"] },
       },
       _sum: { totalAmount: true },
     }),
-    prisma.document.aggregate({
+    prisma.box.aggregate({
       where: {
         organizationId: orgId,
-        transactionType: "INCOME",
-        docDate: { gte: startOfMonth, lte: endOfMonth },
-        status: { notIn: ["VOID", "REJECTED"] },
+        boxType: "INCOME",
+        boxDate: { gte: startOfMonth, lte: endOfMonth },
+        status: { notIn: ["CANCELLED"] },
       },
       _sum: { totalAmount: true },
     }),
-    prisma.document.findMany({
+    prisma.box.findMany({
       where: {
         organizationId: orgId,
         dueDate: { lt: now },
-        status: { notIn: ["BOOKED", "VOID", "REJECTED", "EXPORTED"] },
+        status: { notIn: ["EXPORTED", "CANCELLED"] },
       },
       orderBy: { dueDate: "asc" },
       take: 5,
       include: { contact: { select: { name: true } } },
     }),
-    prisma.document.findMany({
+    prisma.box.findMany({
       where: {
         organizationId: orgId,
         dueDate: { gte: now, lte: dueSoon },
-        status: { notIn: ["BOOKED", "VOID", "REJECTED", "EXPORTED"] },
+        status: { notIn: ["EXPORTED", "CANCELLED"] },
       },
       orderBy: { dueDate: "asc" },
       take: 5,
       include: { contact: { select: { name: true } } },
     }),
-    // Documents with SLIP but no TAX_INVOICE
-    prisma.document.findMany({
+    // Boxes with incomplete documents
+    prisma.box.findMany({
       where: {
         organizationId: orgId,
-        status: { notIn: ["VOID", "REJECTED", "BOOKED", "EXPORTED"] },
-        subDocuments: {
-          some: { docType: "SLIP" },
-        },
-        NOT: {
-          subDocuments: {
-            some: { docType: "TAX_INVOICE" },
-          },
-        },
+        docStatus: "INCOMPLETE",
+        status: { notIn: ["CANCELLED"] },
       },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { 
         contact: { select: { name: true } },
-        subDocuments: { select: { docType: true } },
+        documents: { select: { docType: true } },
       },
     }),
     // WHT tracking pending
-    prisma.wHTTracking.findMany({
+    prisma.whtTracking.findMany({
       where: {
-        organizationId: orgId,
+        box: { organizationId: orgId },
         status: "PENDING",
       },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { 
-        document: { select: { docNumber: true } },
+        box: { select: { boxNumber: true } },
         contact: { select: { name: true } },
       },
     }),
   ]);
 
   return {
-    totalDocs,
-    draftDocs,
-    pendingDocs,
-    approvedDocs,
-    recentDocs,
+    totalBoxes,
+    draftBoxes,
+    pendingBoxes,
+    approvedBoxes,
+    recentBoxes,
     monthlyExpense: monthlyExpense._sum.totalAmount?.toNumber() || 0,
     monthlyIncome: monthlyIncome._sum.totalAmount?.toNumber() || 0,
-    overdueDocs,
-    dueSoonDocs,
-    docsWaitingTaxInvoice,
+    overdueBoxes,
+    dueSoonBoxes,
+    incompleteBoxes,
     pendingWht,
   };
 }
@@ -198,7 +191,7 @@ export default async function DashboardPage() {
                 <FileText className="h-5 w-5 text-gray-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalDocs}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalBoxes}</p>
                 <p className="text-sm text-gray-500">ทั้งหมด</p>
               </div>
             </div>
@@ -210,7 +203,7 @@ export default async function DashboardPage() {
                 <Clock className="h-5 w-5 text-slate-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.draftDocs}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.draftBoxes}</p>
                 <p className="text-sm text-gray-500">ร่าง</p>
               </div>
             </div>
@@ -222,7 +215,7 @@ export default async function DashboardPage() {
                 <Package className="h-5 w-5 text-sky-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-sky-700">{stats.pendingDocs}</p>
+                <p className="text-2xl font-bold text-sky-700">{stats.pendingBoxes}</p>
                 <p className="text-sm text-sky-600">รอตรวจ</p>
               </div>
             </div>
@@ -234,7 +227,7 @@ export default async function DashboardPage() {
                 <CheckCircle2 className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.approvedDocs}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.approvedBoxes}</p>
                 <p className="text-sm text-gray-500">อนุมัติแล้ว</p>
               </div>
             </div>
@@ -242,37 +235,37 @@ export default async function DashboardPage() {
         </div>
 
         {/* Document Status Alerts */}
-        {(stats.docsWaitingTaxInvoice.length > 0 || stats.pendingWht.length > 0) && (
+        {(stats.incompleteBoxes.length > 0 || stats.pendingWht.length > 0) && (
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Waiting for Tax Invoice */}
-            {stats.docsWaitingTaxInvoice.length > 0 && (
+            {/* Incomplete Documents */}
+            {stats.incompleteBoxes.length > 0 && (
               <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Receipt className="h-5 w-5 text-orange-600" />
-                  <span className="font-medium text-orange-700">รอใบกำกับภาษี ({stats.docsWaitingTaxInvoice.length})</span>
+                  <AlertCircle className="h-5 w-5 text-orange-600" />
+                  <span className="font-medium text-orange-700">รอเอกสาร ({stats.incompleteBoxes.length})</span>
                 </div>
                 <p className="text-xs text-orange-600 mb-3">
-                  กล่องที่มีสลิปแล้ว แต่ยังไม่มีใบกำกับ
+                  กล่องที่ยังมีเอกสารไม่ครบ
                 </p>
                 <div className="space-y-2">
-                  {stats.docsWaitingTaxInvoice.map((doc) => (
+                  {stats.incompleteBoxes.map((box) => (
                     <Link
-                      key={doc.id}
-                      href={`/documents/${doc.id}`}
+                      key={box.id}
+                      href={`/documents/${box.id}`}
                       className="flex items-center justify-between p-3 rounded-lg bg-white border border-orange-100 hover:border-orange-200 transition-colors"
                     >
                       <div>
-                        <p className="font-medium text-sm text-gray-900">{doc.docNumber}</p>
-                        <p className="text-xs text-gray-500">{doc.contact?.name || "-"}</p>
+                        <p className="font-medium text-sm text-gray-900">{box.boxNumber}</p>
+                        <p className="text-xs text-gray-500">{box.contact?.name || "-"}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-sm text-orange-600">
-                          {doc.totalAmount.toNumber() > 0 
-                            ? `฿${doc.totalAmount.toNumber().toLocaleString()}`
+                          {box.totalAmount.toNumber() > 0 
+                            ? `฿${box.totalAmount.toNumber().toLocaleString()}`
                             : "รอยอด"
                           }
                         </p>
-                        <p className="text-xs text-orange-500">มีสลิป</p>
+                        <p className="text-xs text-orange-500">{box.documents.length} เอกสาร</p>
                       </div>
                     </Link>
                   ))}
@@ -294,21 +287,21 @@ export default async function DashboardPage() {
                   {stats.pendingWht.map((wht) => (
                     <Link
                       key={wht.id}
-                      href={wht.documentId ? `/documents/${wht.documentId}` : "/wht-tracking"}
+                      href={wht.boxId ? `/documents/${wht.boxId}` : "/wht-tracking"}
                       className="flex items-center justify-between p-3 rounded-lg bg-white border border-purple-100 hover:border-purple-200 transition-colors"
                     >
                       <div>
                         <p className="font-medium text-sm text-gray-900">
-                          {wht.document?.docNumber || "ไม่ระบุ"}
+                          {wht.box?.boxNumber || "ไม่ระบุ"}
                         </p>
                         <p className="text-xs text-gray-500">{wht.contact?.name || "-"}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-sm text-purple-600">
-                          ฿{wht.whtAmount.toNumber().toLocaleString()}
+                          ฿{wht.amount.toNumber().toLocaleString()}
                         </p>
                         <p className="text-xs text-purple-500">
-                          {wht.trackingType === "OUTGOING" ? "รอส่ง" : "รอรับ"}
+                          {wht.type === "OUTGOING" ? "รอส่ง" : "รอรับ"}
                         </p>
                       </div>
                     </Link>
@@ -320,30 +313,30 @@ export default async function DashboardPage() {
         )}
 
         {/* Payment Alerts */}
-        {(stats.overdueDocs.length > 0 || stats.dueSoonDocs.length > 0) && (
+        {(stats.overdueBoxes.length > 0 || stats.dueSoonBoxes.length > 0) && (
           <div className="grid gap-4 md:grid-cols-2">
-            {stats.overdueDocs.length > 0 && (
+            {stats.overdueBoxes.length > 0 && (
               <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <span className="font-medium text-red-700">เกินกำหนดชำระ ({stats.overdueDocs.length})</span>
+                  <span className="font-medium text-red-700">เกินกำหนดชำระ ({stats.overdueBoxes.length})</span>
                 </div>
                 <div className="space-y-2">
-                  {stats.overdueDocs.map((doc) => {
-                    const days = Math.floor((Date.now() - new Date(doc.dueDate!).getTime()) / 86400000);
+                  {stats.overdueBoxes.map((box) => {
+                    const days = Math.floor((Date.now() - new Date(box.dueDate!).getTime()) / 86400000);
                     return (
                       <Link
-                        key={doc.id}
-                        href={`/documents/${doc.id}`}
+                        key={box.id}
+                        href={`/documents/${box.id}`}
                         className="flex items-center justify-between p-3 rounded-lg bg-white border border-red-100 hover:border-red-200 transition-colors"
                       >
                         <div>
-                          <p className="font-medium text-sm text-gray-900">{doc.docNumber}</p>
-                          <p className="text-xs text-gray-500">{doc.contact?.name || "-"}</p>
+                          <p className="font-medium text-sm text-gray-900">{box.boxNumber}</p>
+                          <p className="text-xs text-gray-500">{box.contact?.name || "-"}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-sm text-red-600">
-                            ฿{doc.totalAmount.toNumber().toLocaleString()}
+                            ฿{box.totalAmount.toNumber().toLocaleString()}
                           </p>
                           <p className="text-xs text-red-500">เกิน {days} วัน</p>
                         </div>
@@ -354,28 +347,28 @@ export default async function DashboardPage() {
               </div>
             )}
 
-            {stats.dueSoonDocs.length > 0 && (
+            {stats.dueSoonBoxes.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <CalendarClock className="h-5 w-5 text-amber-600" />
-                  <span className="font-medium text-amber-700">ใกล้ครบกำหนด ({stats.dueSoonDocs.length})</span>
+                  <span className="font-medium text-amber-700">ใกล้ครบกำหนด ({stats.dueSoonBoxes.length})</span>
                 </div>
                 <div className="space-y-2">
-                  {stats.dueSoonDocs.map((doc) => {
-                    const days = Math.ceil((new Date(doc.dueDate!).getTime() - Date.now()) / 86400000);
+                  {stats.dueSoonBoxes.map((box) => {
+                    const days = Math.ceil((new Date(box.dueDate!).getTime() - Date.now()) / 86400000);
                     return (
                       <Link
-                        key={doc.id}
-                        href={`/documents/${doc.id}`}
+                        key={box.id}
+                        href={`/documents/${box.id}`}
                         className="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-100 hover:border-primary/30 transition-colors"
                       >
                         <div>
-                          <p className="font-medium text-sm text-gray-900">{doc.docNumber}</p>
-                          <p className="text-xs text-gray-500">{doc.contact?.name || "-"}</p>
+                          <p className="font-medium text-sm text-gray-900">{box.boxNumber}</p>
+                          <p className="text-xs text-gray-500">{box.contact?.name || "-"}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-sm text-gray-900">
-                            ฿{doc.totalAmount.toNumber().toLocaleString()}
+                            ฿{box.totalAmount.toNumber().toLocaleString()}
                           </p>
                           <p className="text-xs text-amber-600">
                             {days === 0 ? "วันนี้" : `อีก ${days} วัน`}
@@ -426,10 +419,10 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Recent Documents */}
+          {/* Recent Boxes */}
           <div className="lg:col-span-2 rounded-xl border bg-white p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">เอกสารล่าสุด</h3>
+              <h3 className="font-semibold text-gray-900">กล่องล่าสุด</h3>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/documents">
                   ดูทั้งหมด
@@ -438,12 +431,12 @@ export default async function DashboardPage() {
               </Button>
             </div>
 
-            {stats.recentDocs.length === 0 ? (
+            {stats.recentBoxes.length === 0 ? (
               <div className="flex flex-col items-center py-10">
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                   <Package className="h-7 w-7 text-primary" />
                 </div>
-                <p className="text-gray-500 mb-4">ยังไม่มีเอกสาร</p>
+                <p className="text-gray-500 mb-4">ยังไม่มีกล่องเอกสาร</p>
                 <Button size="sm" asChild>
                   <Link href="/documents/new">
                     <Plus className="mr-1.5 h-4 w-4" />
@@ -453,29 +446,35 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {stats.recentDocs.map((doc) => (
-                  <Link
-                    key={doc.id}
-                    href={`/documents/${doc.id}`}
-                    className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Package className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{doc.docNumber}</span>
-                        <StatusBadge status={doc.status} />
+                {stats.recentBoxes.map((box) => {
+                  const config = getBoxTypeConfig(box.boxType);
+                  const docStatusConfig = getDocStatusConfig(box.docStatus);
+                  return (
+                    <Link
+                      key={box.id}
+                      href={`/documents/${box.id}`}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className={`w-10 h-10 rounded-lg ${config.bgLight} flex items-center justify-center`}>
+                        <Package className={`h-5 w-5 ${config.iconColor}`} />
                       </div>
-                      <p className="text-sm text-gray-500 truncate">
-                        {doc.contact?.name || "-"} • ฿{doc.totalAmount.toNumber().toLocaleString()}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {new Date(doc.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
-                    </span>
-                  </Link>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{box.boxNumber}</span>
+                          <Badge variant="secondary" className={`text-xs ${docStatusConfig.className}`}>
+                            {docStatusConfig.label}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">
+                          {box.contact?.name || "-"} • ฿{box.totalAmount.toNumber().toLocaleString()}
+                        </p>
+                      </div>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {new Date(box.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>

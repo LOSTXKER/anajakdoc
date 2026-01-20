@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Receipt, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { WHTTrackingCard } from "./wht-tracking-card";
 import { WHTTrackingForm } from "./wht-tracking-form";
-import type { SerializedWHTTracking } from "@/types";
+import type { SerializedWhtTracking } from "@/types";
 
 interface Contact {
   id: string;
@@ -14,15 +14,15 @@ interface Contact {
 }
 
 interface WHTTrackingListProps {
-  documentId: string;
-  whtTrackings: SerializedWHTTracking[];
+  boxId: string;
+  whtTrackings: SerializedWhtTracking[];
   contacts: Contact[];
   defaultContactId?: string;
   canEdit?: boolean;
 }
 
 export function WHTTrackingList({
-  documentId,
+  boxId,
   whtTrackings,
   contacts,
   defaultContactId,
@@ -30,8 +30,8 @@ export function WHTTrackingList({
 }: WHTTrackingListProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const outgoingCount = whtTrackings.filter(t => t.trackingType === "OUTGOING").length;
-  const incomingCount = whtTrackings.filter(t => t.trackingType === "INCOMING").length;
+  const outgoingCount = whtTrackings.filter(t => t.type === "OUTGOING").length;
+  const incomingCount = whtTrackings.filter(t => t.type === "INCOMING").length;
   const pendingCount = whtTrackings.filter(t => ["PENDING", "ISSUED", "SENT"].includes(t.status)).length;
 
   return (
@@ -102,7 +102,7 @@ export function WHTTrackingList({
 
       {/* Form Dialog */}
       <WHTTrackingForm
-        documentId={documentId}
+        boxId={boxId}
         contacts={contacts}
         defaultContactId={defaultContactId}
         open={isFormOpen}

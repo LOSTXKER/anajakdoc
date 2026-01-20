@@ -6,8 +6,8 @@ import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import type { ApiResponse } from "@/types";
 
-export async function exportDocumentsToExcel(
-  documentIds: string[],
+export async function exportBoxesToExcel(
+  boxIds: string[],
   format: "generic" | "peak" = "generic"
 ): Promise<ApiResponse<{ fileName: string; data: string }>> {
   const session = await requireOrganization();
@@ -16,30 +16,33 @@ export async function exportDocumentsToExcel(
   if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
     return {
       success: false,
-      error: "คุณไม่มีสิทธิ์ Export เอกสาร",
+      error: "คุณไม่มีสิทธิ์ Export",
     };
   }
 
-  const documents = await prisma.document.findMany({
+  const boxes = await prisma.box.findMany({
     where: {
-      id: { in: documentIds },
+      id: { in: boxIds },
       organizationId: session.currentOrganization.id,
     },
     include: {
       category: true,
       costCenter: true,
       contact: true,
-      submittedBy: {
+      createdBy: {
         select: { name: true, email: true },
       },
+      documents: {
+        include: { files: true },
+      },
     },
-    orderBy: { docDate: "asc" },
+    orderBy: { boxDate: "asc" },
   });
 
-  if (documents.length === 0) {
+  if (boxes.length === 0) {
     return {
       success: false,
-      error: "ไม่พบเอกสารที่เลือก",
+      error: "ไม่พบกล่องที่เลือก",
     };
   }
 
@@ -48,39 +51,43 @@ export async function exportDocumentsToExcel(
 
   if (format === "generic") {
     // Generic Excel format
-    const data = documents.map((doc) => ({
-      "เลขที่เอกสาร": doc.docNumber,
-      "วันที่": new Date(doc.docDate).toLocaleDateString("th-TH"),
-      "ประเภท": doc.transactionType === "EXPENSE" ? "รายจ่าย" : "รายรับ",
-      "ประเภทเอกสาร": doc.docType,
-      "หมวดหมู่": doc.category?.name || "-",
-      "ศูนย์ต้นทุน": doc.costCenter?.name || "-",
-      "คู่ค้า": doc.contact?.name || "-",
-      "รายละเอียด": doc.description || "-",
-      "ยอดก่อน VAT": doc.subtotal.toString(),
-      "VAT": doc.vatAmount.toString(),
-      "หัก ณ ที่จ่าย": doc.whtAmount.toString(),
-      "ยอดรวม": doc.totalAmount.toString(),
-      "สถานะ": doc.status,
-      "ผู้ส่ง": doc.submittedBy.name || doc.submittedBy.email,
+    const data = boxes.map((box) => ({
+      "เลขที่กล่อง": box.boxNumber,
+      "วันที่": new Date(box.boxDate).toLocaleDateString("th-TH"),
+      "ประเภท": box.boxType === "EXPENSE" ? "รายจ่าย" : box.boxType === "INCOME" ? "รายรับ" : "ปรับปรุง",
+      "ประเภทรายจ่าย": box.expenseType || "-",
+      "หมวดหมู่": box.category?.name || "-",
+      "ศูนย์ต้นทุน": box.costCenter?.name || "-",
+      "คู่ค้า": box.contact?.name || "-",
+      "ชื่อกล่อง": box.title || "-",
+      "รายละเอียด": box.description || "-",
+      "ยอดรวม": box.totalAmount.toNumber(),
+      "VAT": box.vatAmount.toNumber(),
+      "หัก ณ ที่จ่าย": box.whtAmount.toNumber(),
+      "ยอดจ่ายแล้ว": box.paidAmount.toNumber(),
+      "สถานะ": box.status,
+      "สถานะเอกสาร": box.docStatus,
+      "สถานะการจ่าย": box.paymentStatus,
+      "ผู้สร้าง": box.createdBy.name || box.createdBy.email,
+      "จำนวนเอกสาร": box.documents.length,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(workbook, worksheet, "เอกสาร");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "กล่องเอกสาร");
   } else {
     // PEAK format
-    const data = documents.map((doc) => ({
-      "วันที่": new Date(doc.docDate).toLocaleDateString("th-TH"),
-      "เลขที่เอกสาร": doc.externalRef || doc.docNumber,
-      "รหัสผู้ติดต่อ": doc.contact?.taxId || "",
-      "ชื่อผู้ติดต่อ": doc.contact?.name || "",
-      "รหัสบัญชี": doc.category?.peakAccountCode || "",
-      "คำอธิบาย": doc.description || doc.category?.name || "",
-      "จำนวนเงิน": doc.subtotal.toString(),
-      "ภาษีมูลค่าเพิ่ม": doc.vatAmount.toString(),
-      "ภาษีหัก ณ ที่จ่าย": doc.whtAmount.toString(),
-      "ยอดสุทธิ": doc.totalAmount.toString(),
-      "ศูนย์ต้นทุน": doc.costCenter?.code || "",
+    const data = boxes.map((box) => ({
+      "วันที่": new Date(box.boxDate).toLocaleDateString("th-TH"),
+      "เลขที่เอกสาร": box.externalRef || box.boxNumber,
+      "รหัสผู้ติดต่อ": box.contact?.taxId || "",
+      "ชื่อผู้ติดต่อ": box.contact?.name || "",
+      "รหัสบัญชี": box.category?.peakAccountCode || "",
+      "คำอธิบาย": box.description || box.title || box.category?.name || "",
+      "จำนวนเงิน": (box.totalAmount.toNumber() - box.vatAmount.toNumber()),
+      "ภาษีมูลค่าเพิ่ม": box.vatAmount.toNumber(),
+      "ภาษีหัก ณ ที่จ่าย": box.whtAmount.toNumber(),
+      "ยอดสุทธิ": box.totalAmount.toNumber(),
+      "ศูนย์ต้นทุน": box.costCenter?.code || "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -99,17 +106,17 @@ export async function exportDocumentsToExcel(
       organizationId: session.currentOrganization.id,
       exportType: format === "generic" ? "EXCEL_GENERIC" : "EXCEL_PEAK",
       fileName,
-      documentIds,
-      documentCount: documents.length,
+      boxIds: boxIds,
+      boxCount: boxes.length,
       exportedById: session.id,
     },
   });
 
-  // Update document status if needed
-  await prisma.document.updateMany({
+  // Update box status if needed
+  await prisma.box.updateMany({
     where: {
-      id: { in: documentIds },
-      status: "READY_TO_EXPORT",
+      id: { in: boxIds },
+      status: "APPROVED",
     },
     data: {
       status: "EXPORTED",
@@ -138,8 +145,8 @@ export async function getExportHistory() {
   });
 }
 
-export async function exportDocuments(
-  documentIds: string[],
+export async function exportBoxes(
+  boxIds: string[],
   format: "EXCEL_GENERIC" | "EXCEL_PEAK" | "ZIP"
 ): Promise<ApiResponse<{ downloadUrl?: string }>> {
   const session = await requireOrganization();
@@ -148,38 +155,42 @@ export async function exportDocuments(
   if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
     return {
       success: false,
-      error: "คุณไม่มีสิทธิ์ Export เอกสาร",
+      error: "คุณไม่มีสิทธิ์ Export",
     };
   }
 
-  if (documentIds.length === 0) {
+  if (boxIds.length === 0) {
     return {
       success: false,
-      error: "กรุณาเลือกเอกสาร",
+      error: "กรุณาเลือกกล่อง",
     };
   }
 
-  const documents = await prisma.document.findMany({
+  const boxes = await prisma.box.findMany({
     where: {
-      id: { in: documentIds },
+      id: { in: boxIds },
       organizationId: session.currentOrganization.id,
     },
     include: {
       category: true,
       costCenter: true,
       contact: true,
-      files: true,
-      submittedBy: {
+      documents: {
+        include: {
+          files: true,
+        },
+      },
+      createdBy: {
         select: { name: true, email: true },
       },
     },
-    orderBy: { docDate: "asc" },
+    orderBy: { boxDate: "asc" },
   });
 
-  if (documents.length === 0) {
+  if (boxes.length === 0) {
     return {
       success: false,
-      error: "ไม่พบเอกสารที่เลือก",
+      error: "ไม่พบกล่องที่เลือก",
     };
   }
 
@@ -192,24 +203,28 @@ export async function exportDocuments(
     // Create workbook
     const workbook = XLSX.utils.book_new();
     
-    const data = documents.map((doc) => ({
-      "เลขที่เอกสาร": doc.docNumber,
-      "วันที่": new Date(doc.docDate).toLocaleDateString("th-TH"),
-      "ประเภท": doc.transactionType === "EXPENSE" ? "รายจ่าย" : "รายรับ",
-      "ประเภทเอกสาร": doc.docType,
-      "หมวดหมู่": doc.category?.name || "-",
-      "รหัสบัญชี": doc.category?.peakAccountCode || "-",
-      "ศูนย์ต้นทุน": doc.costCenter?.name || "-",
-      "คู่ค้า": doc.contact?.name || "-",
-      "เลขประจำตัวผู้เสียภาษี": doc.contact?.taxId || "-",
-      "รายละเอียด": doc.description || "-",
-      "ยอดก่อน VAT": doc.subtotal.toNumber(),
-      "VAT": doc.vatAmount.toNumber(),
-      "หัก ณ ที่จ่าย": doc.whtAmount.toNumber(),
-      "ยอดรวม": doc.totalAmount.toNumber(),
-      "วิธีชำระเงิน": doc.paymentMethod || "-",
-      "สถานะ": doc.status,
-      "ผู้ส่ง": doc.submittedBy.name || doc.submittedBy.email,
+    const data = boxes.map((box) => ({
+      "เลขที่กล่อง": box.boxNumber,
+      "วันที่": new Date(box.boxDate).toLocaleDateString("th-TH"),
+      "ประเภท": box.boxType === "EXPENSE" ? "รายจ่าย" : box.boxType === "INCOME" ? "รายรับ" : "ปรับปรุง",
+      "ประเภทรายจ่าย": box.expenseType || "-",
+      "หมวดหมู่": box.category?.name || "-",
+      "รหัสบัญชี": box.category?.peakAccountCode || "-",
+      "ศูนย์ต้นทุน": box.costCenter?.name || "-",
+      "คู่ค้า": box.contact?.name || "-",
+      "เลขประจำตัวผู้เสียภาษี": box.contact?.taxId || "-",
+      "ชื่อกล่อง": box.title || "-",
+      "รายละเอียด": box.description || "-",
+      "ยอดก่อน VAT": (box.totalAmount.toNumber() - box.vatAmount.toNumber()),
+      "VAT": box.vatAmount.toNumber(),
+      "หัก ณ ที่จ่าย": box.whtAmount.toNumber(),
+      "ยอดรวม": box.totalAmount.toNumber(),
+      "ยอดจ่ายแล้ว": box.paidAmount.toNumber(),
+      "สถานะ": box.status,
+      "สถานะเอกสาร": box.docStatus,
+      "สถานะการจ่าย": box.paymentStatus,
+      "ผู้สร้าง": box.createdBy.name || box.createdBy.email,
+      "จำนวนเอกสาร": box.documents.length,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -218,12 +233,13 @@ export async function exportDocuments(
     worksheet["!cols"] = [
       { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 15 },
       { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 25 },
-      { wch: 15 }, { wch: 30 }, { wch: 12 }, { wch: 10 },
-      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 20 }, { wch: 15 },
+      { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 12 },
+      { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 20 },
+      { wch: 10 },
     ];
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "เอกสาร");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "กล่องเอกสาร");
     
     fileName = `export_${timestamp}.xlsx`;
 
@@ -236,17 +252,17 @@ export async function exportDocuments(
         organizationId: session.currentOrganization.id,
         exportType: format,
         fileName,
-        documentIds,
-        documentCount: documents.length,
+        boxIds: boxIds,
+        boxCount: boxes.length,
         exportedById: session.id,
       },
     });
 
-    // Update document status
-    await prisma.document.updateMany({
+    // Update box status
+    await prisma.box.updateMany({
       where: {
-        id: { in: documentIds },
-        status: "READY_TO_EXPORT",
+        id: { in: boxIds },
+        status: "APPROVED",
       },
       data: {
         status: "EXPORTED",
@@ -269,36 +285,40 @@ export async function exportDocuments(
     
     // Create Excel summary
     const workbook = XLSX.utils.book_new();
-    const summaryData = documents.map((doc) => ({
-      "เลขที่เอกสาร": doc.docNumber,
-      "วันที่": new Date(doc.docDate).toLocaleDateString("th-TH"),
-      "ประเภท": doc.transactionType === "EXPENSE" ? "รายจ่าย" : "รายรับ",
-      "หมวดหมู่": doc.category?.name || "-",
-      "คู่ค้า": doc.contact?.name || "-",
-      "รายละเอียด": doc.description || "-",
-      "ยอดรวม": doc.totalAmount.toNumber(),
-      "สถานะ": doc.status,
-      "จำนวนไฟล์": doc.files.length,
+    const summaryData = boxes.map((box) => ({
+      "เลขที่กล่อง": box.boxNumber,
+      "วันที่": new Date(box.boxDate).toLocaleDateString("th-TH"),
+      "ประเภท": box.boxType === "EXPENSE" ? "รายจ่าย" : box.boxType === "INCOME" ? "รายรับ" : "ปรับปรุง",
+      "หมวดหมู่": box.category?.name || "-",
+      "คู่ค้า": box.contact?.name || "-",
+      "ชื่อกล่อง": box.title || "-",
+      "รายละเอียด": box.description || "-",
+      "ยอดรวม": box.totalAmount.toNumber(),
+      "สถานะ": box.status,
+      "จำนวนเอกสาร": box.documents.length,
+      "จำนวนไฟล์": box.documents.reduce((sum, doc) => sum + doc.files.length, 0),
     }));
     const worksheet = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, worksheet, "สรุปเอกสาร");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "สรุปกล่องเอกสาร");
     const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     zip.file("summary.xlsx", excelBuffer);
     
-    // Add files for each document
-    for (const doc of documents) {
-      const folderName = `${doc.docNumber}`;
+    // Add files for each box
+    for (const box of boxes) {
+      const folderName = `${box.boxNumber}`;
       
-      for (const file of doc.files) {
-        try {
-          // Fetch file from URL
-          const response = await fetch(file.fileUrl);
-          if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            zip.file(`${folderName}/${file.fileName}`, arrayBuffer);
+      for (const doc of box.documents) {
+        for (const file of doc.files) {
+          try {
+            // Fetch file from URL
+            const response = await fetch(file.fileUrl);
+            if (response.ok) {
+              const arrayBuffer = await response.arrayBuffer();
+              zip.file(`${folderName}/${doc.docType}_${file.fileName}`, arrayBuffer);
+            }
+          } catch (error) {
+            console.error(`Error fetching file ${file.fileName}:`, error);
           }
-        } catch (error) {
-          console.error(`Error fetching file ${file.fileName}:`, error);
         }
       }
     }
@@ -312,17 +332,17 @@ export async function exportDocuments(
         organizationId: session.currentOrganization.id,
         exportType: "ZIP",
         fileName,
-        documentIds,
-        documentCount: documents.length,
+        boxIds: boxIds,
+        boxCount: boxes.length,
         exportedById: session.id,
       },
     });
 
-    // Update document status
-    await prisma.document.updateMany({
+    // Update box status
+    await prisma.box.updateMany({
       where: {
-        id: { in: documentIds },
-        status: "READY_TO_EXPORT",
+        id: { in: boxIds },
+        status: "APPROVED",
       },
       data: {
         status: "EXPORTED",

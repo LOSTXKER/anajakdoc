@@ -103,7 +103,7 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
       organizationId: session.currentOrganization.id,
     },
     include: {
-      _count: { select: { documents: true } },
+      _count: { select: { boxes: true } },
     },
   });
 
@@ -111,7 +111,7 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
     return { success: false, error: "ไม่พบหมวดหมู่" };
   }
 
-  if (category._count.documents > 0) {
+  if (category._count.boxes > 0) {
     return { success: false, error: "ไม่สามารถลบได้ เนื่องจากมีเอกสารใช้งานอยู่" };
   }
 
@@ -210,7 +210,7 @@ export async function deleteCostCenter(id: string): Promise<ActionResult> {
       organizationId: session.currentOrganization.id,
     },
     include: {
-      _count: { select: { documents: true } },
+      _count: { select: { boxes: true } },
     },
   });
 
@@ -218,7 +218,7 @@ export async function deleteCostCenter(id: string): Promise<ActionResult> {
     return { success: false, error: "ไม่พบศูนย์ต้นทุน" };
   }
 
-  if (costCenter._count.documents > 0) {
+  if (costCenter._count.boxes > 0) {
     return { success: false, error: "ไม่สามารถลบได้ เนื่องจากมีเอกสารใช้งานอยู่" };
   }
 
@@ -382,7 +382,7 @@ export async function deleteContact(id: string): Promise<ActionResult> {
       organizationId: session.currentOrganization.id,
     },
     include: {
-      _count: { select: { documents: true } },
+      _count: { select: { boxes: true } },
     },
   });
 
@@ -390,7 +390,7 @@ export async function deleteContact(id: string): Promise<ActionResult> {
     return { success: false, error: "ไม่พบผู้ติดต่อ" };
   }
 
-  if (contact._count.documents > 0) {
+  if (contact._count.boxes > 0) {
     return { success: false, error: "ไม่สามารถลบได้ เนื่องจากมีเอกสารใช้งานอยู่" };
   }
 

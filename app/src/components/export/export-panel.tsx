@@ -20,29 +20,32 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
-import { exportDocuments } from "@/server/actions/export";
+import { exportBoxes } from "@/server/actions/export";
 import type { Category, CostCenter, Contact, ExportType } from ".prisma/client";
 
-interface SerializedDocument {
+interface SerializedBox {
   id: string;
   organizationId: string;
-  docNumber: string;
-  transactionType: string;
-  docType: string;
-  docDate: string;
+  boxNumber: string;
+  boxType: string;
+  expenseType: string | null;
+  boxDate: string;
   dueDate: string | null;
-  subtotal: number;
+  totalAmount: number;
   vatAmount: number;
   whtAmount: number;
-  totalAmount: number;
+  paidAmount: number;
   vatRate: number | null;
   whtRate: number | null;
   status: string;
+  docStatus: string;
+  title: string | null;
   description: string | null;
   category: Category | null;
   costCenter: CostCenter | null;
   contact: Contact | null;
-  submittedBy: { name: string | null };
+  createdBy: { name: string | null };
+  documents: { docType: string }[];
 }
 
 interface SerializedExportHistory {
@@ -51,14 +54,14 @@ interface SerializedExportHistory {
   exportType: ExportType;
   fileName: string;
   fileUrl: string | null;
-  documentIds: string[];
-  documentCount: number;
+  boxIds: string[];
+  boxCount: number;
   exportedById: string;
   createdAt: string;
 }
 
 interface ExportPanelProps {
-  documents: SerializedDocument[];
+  boxes: SerializedBox[];
   history: SerializedExportHistory[];
 }
 
@@ -68,7 +71,7 @@ const formatOptions = [
   { value: "ZIP", label: "ZIP (รวมไฟล์)", icon: FolderArchive },
 ];
 
-export function ExportPanel({ documents, history }: ExportPanelProps) {
+export function ExportPanel({ boxes, history }: ExportPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [format, setFormat] = useState<string>("EXCEL_GENERIC");
@@ -80,21 +83,21 @@ export function ExportPanel({ documents, history }: ExportPanelProps) {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === documents.length) {
+    if (selectedIds.length === boxes.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(documents.map((d) => d.id));
+      setSelectedIds(boxes.map((b) => b.id));
     }
   };
 
   const handleExport = () => {
     if (selectedIds.length === 0) {
-      toast.error("กรุณาเลือกเอกสารที่ต้องการ Export");
+      toast.error("กรุณาเลือกกล่องที่ต้องการ Export");
       return;
     }
 
     startTransition(async () => {
-      const result = await exportDocuments(selectedIds, format as "EXCEL_GENERIC" | "EXCEL_PEAK" | "ZIP");
+      const result = await exportBoxes(selectedIds, format as "EXCEL_GENERIC" | "EXCEL_PEAK" | "ZIP");
       if (result.success) {
         toast.success(`Export สำเร็จ ${selectedIds.length} รายการ`);
         setSelectedIds([]);
@@ -118,7 +121,7 @@ export function ExportPanel({ documents, history }: ExportPanelProps) {
     <div className="space-y-6 max-w-4xl">
       {/* Export Options */}
       <div className="rounded-xl border bg-white p-5">
-        <h3 className="font-semibold text-gray-900 mb-4">Export เอกสาร</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">Export กล่องเอกสาร</h3>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="space-y-1">
             <p className="text-sm text-gray-500">รูปแบบ</p>
@@ -155,57 +158,60 @@ export function ExportPanel({ documents, history }: ExportPanelProps) {
         </div>
       </div>
 
-      {/* Document Selection */}
+      {/* Box Selection */}
       <div className="rounded-xl border bg-white p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900">
-            เอกสารพร้อม Export 
-            <span className="text-gray-400 font-normal ml-2">({documents.length})</span>
+            กล่องพร้อม Export 
+            <span className="text-gray-400 font-normal ml-2">({boxes.length})</span>
           </h3>
-          {documents.length > 0 && (
+          {boxes.length > 0 && (
             <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
-              {selectedIds.length === documents.length ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
+              {selectedIds.length === boxes.length ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
             </Button>
           )}
         </div>
 
-        {documents.length === 0 ? (
+        {boxes.length === 0 ? (
           <EmptyState
             icon={Package}
-            title="ไม่มีเอกสารที่พร้อม Export"
-            description="เอกสารจะปรากฏที่นี่เมื่อได้รับการอนุมัติแล้ว"
+            title="ไม่มีกล่องที่พร้อม Export"
+            description="กล่องจะปรากฏที่นี่เมื่อได้รับการอนุมัติแล้ว"
           />
         ) : (
           <div className="space-y-2">
-            {documents.map((doc) => (
+            {boxes.map((box) => (
               <div
-                key={doc.id}
-                onClick={() => toggleSelect(doc.id)}
+                key={box.id}
+                onClick={() => toggleSelect(box.id)}
                 className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                  selectedIds.includes(doc.id) 
+                  selectedIds.includes(box.id) 
                     ? "border-primary bg-primary/5" 
                     : "hover:bg-gray-50"
                 }`}
               >
                 <Checkbox
-                  checked={selectedIds.includes(doc.id)}
-                  onCheckedChange={() => toggleSelect(doc.id)}
+                  checked={selectedIds.includes(box.id)}
+                  onCheckedChange={() => toggleSelect(box.id)}
                 />
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                   <Package className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{doc.docNumber}</p>
+                  <p className="font-medium text-gray-900">{box.boxNumber}</p>
                   <p className="text-sm text-gray-500 truncate">
-                    {doc.contact?.name || "-"} • {doc.category?.name || "-"}
+                    {box.title || "-"} • {box.contact?.name || "-"} • {box.category?.name || "-"}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {box.documents.length} เอกสาร
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-semibold text-gray-900">
-                    ฿{doc.totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                    ฿{box.totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-xs text-gray-400">
-                    {new Date(doc.docDate).toLocaleDateString("th-TH")}
+                    {new Date(box.boxDate).toLocaleDateString("th-TH")}
                   </p>
                 </div>
               </div>
@@ -234,7 +240,7 @@ export function ExportPanel({ documents, history }: ExportPanelProps) {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900">{item.fileName}</p>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span>{item.documentCount} เอกสาร</span>
+                    <span>{item.boxCount} กล่อง</span>
                     <span className="text-gray-300">•</span>
                     <Clock className="h-3 w-3" />
                     <span>{new Date(item.createdAt).toLocaleString("th-TH")}</span>

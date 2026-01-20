@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { AlertTriangle, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { DuplicateWarning } from "@/server/actions/file";
+
+export interface DuplicateWarning {
+  type: "exact" | "similar";
+  boxId: string;
+  boxNumber: string;
+  message: string;
+}
 
 interface DuplicateWarningProps {
   warnings: DuplicateWarning[];
@@ -17,7 +23,7 @@ export function DuplicateWarningAlert({ warnings, onDismiss }: DuplicateWarningP
     <div className="space-y-2">
       {warnings.map((warning, index) => (
         <div
-          key={`${warning.documentId}-${index}`}
+          key={`${warning.boxId}-${index}`}
           className={`flex items-start gap-3 p-4 rounded-lg border ${
             warning.type === "exact"
               ? "bg-red-50 border-red-200 text-red-800"
@@ -33,11 +39,11 @@ export function DuplicateWarningAlert({ warnings, onDismiss }: DuplicateWarningP
             </p>
             <p className="text-sm mt-0.5">{warning.message}</p>
             <Link
-              href={`/documents/${warning.documentId}`}
+              href={`/documents/${warning.boxId}`}
               target="_blank"
               className="inline-flex items-center gap-1 text-sm font-medium mt-2 hover:underline"
             >
-              ดูเอกสาร {warning.docNumber}
+              ดูกล่อง {warning.boxNumber}
               <ExternalLink className="h-3 w-3" />
             </Link>
           </div>

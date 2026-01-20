@@ -33,11 +33,11 @@ import {
 import type { NotificationType } from ".prisma/client";
 
 const notificationIcons: Record<NotificationType, typeof FileText> = {
-  DOCUMENT_SUBMITTED: FileText,
-  DOCUMENT_APPROVED: CheckCircle,
-  DOCUMENT_REJECTED: XCircle,
-  DOCUMENT_NEED_INFO: AlertCircle,
-  SUBDOC_ADDED: FileText,
+  BOX_SUBMITTED: FileText,
+  BOX_APPROVED: CheckCircle,
+  BOX_REJECTED: XCircle,
+  BOX_NEED_INFO: AlertCircle,
+  DOCUMENT_ADDED: FileText,
   DUE_DATE_REMINDER: Calendar,
   DUE_DATE_OVERDUE: Calendar,
   WHT_PENDING: AlertCircle,
@@ -47,11 +47,11 @@ const notificationIcons: Record<NotificationType, typeof FileText> = {
 };
 
 const notificationColors: Record<NotificationType, string> = {
-  DOCUMENT_SUBMITTED: "text-blue-500",
-  DOCUMENT_APPROVED: "text-green-500",
-  DOCUMENT_REJECTED: "text-red-500",
-  DOCUMENT_NEED_INFO: "text-orange-500",
-  SUBDOC_ADDED: "text-blue-400",
+  BOX_SUBMITTED: "text-blue-500",
+  BOX_APPROVED: "text-green-500",
+  BOX_REJECTED: "text-red-500",
+  BOX_NEED_INFO: "text-orange-500",
+  DOCUMENT_ADDED: "text-blue-400",
   DUE_DATE_REMINDER: "text-yellow-500",
   DUE_DATE_OVERDUE: "text-red-500",
   WHT_PENDING: "text-orange-500",
