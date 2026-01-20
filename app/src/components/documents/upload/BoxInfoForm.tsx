@@ -9,11 +9,13 @@ import {
   Banknote,
   Globe,
   Layers,
+  Percent,
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -25,6 +27,14 @@ import { ContactInput, type ContactOption } from "@/components/documents/contact
 import { cn } from "@/lib/utils";
 import type { Category } from ".prisma/client";
 import type { BoxType, ExpenseType } from "@/types";
+
+// WHT rate options
+const WHT_RATE_OPTIONS = [
+  { value: "1", label: "1% - ค่าโฆษณา" },
+  { value: "2", label: "2% - ค่าขนส่ง" },
+  { value: "3", label: "3% - ค่าบริการ/จ้างทำของ" },
+  { value: "5", label: "5% - ค่าเช่า" },
+];
 
 // Expense type cards for visual selection
 const EXPENSE_TYPE_CARDS: { 
@@ -75,6 +85,10 @@ interface BoxInfoFormProps {
   setExpenseType: (v: ExpenseType) => void;
   isMultiPayment: boolean;
   setIsMultiPayment: (v: boolean) => void;
+  hasWht: boolean;
+  setHasWht: (v: boolean) => void;
+  whtRate: string;
+  setWhtRate: (v: string) => void;
   slipAmount: string;
   categories: Category[];
   contacts: ContactOption[];
@@ -107,6 +121,10 @@ export function BoxInfoForm({
   setExpenseType,
   isMultiPayment,
   setIsMultiPayment,
+  hasWht,
+  setHasWht,
+  whtRate,
+  setWhtRate,
   slipAmount,
   categories,
   contacts,
@@ -276,6 +294,48 @@ export function BoxInfoForm({
                     </span>
                   </div>
                 </button>
+              </div>
+            </div>
+
+            {/* WHT (หัก ณ ที่จ่าย) */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50/50">
+                <Checkbox
+                  id="hasWht"
+                  checked={hasWht}
+                  onCheckedChange={(checked) => setHasWht(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <label htmlFor="hasWht" className="block font-medium text-sm text-gray-900 cursor-pointer">
+                    มีหัก ณ ที่จ่าย (WHT)
+                  </label>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    เลือกถ้ารายการนี้ต้องออกหนังสือรับรองหัก ณ ที่จ่าย
+                  </p>
+                  
+                  {/* Rate selector - show when hasWht is true */}
+                  {hasWht && (
+                    <div className="mt-3">
+                      <Label className="text-xs text-gray-600">อัตราหัก ณ ที่จ่าย</Label>
+                      <Select value={whtRate} onValueChange={setWhtRate}>
+                        <SelectTrigger className="mt-1 h-9">
+                          <SelectValue placeholder="เลือกอัตรา..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {WHT_RATE_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              <div className="flex items-center gap-2">
+                                <Percent className="h-3 w-3 text-purple-500" />
+                                <span>{opt.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

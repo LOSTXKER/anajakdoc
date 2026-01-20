@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { formatMoney, getTodayForInput } from "@/lib/formatters";
 import { getBoxStatusConfig, getDocStatusConfig, getDocTypeLabel } from "@/lib/document-config";
 import { PaymentSection } from "@/components/payments";
+import { WHTTrackingList } from "@/components/wht/wht-tracking-list";
 import { FileList } from "./FileList";
 import { TaxSummary } from "./TaxSummary";
 import type { SerializedBox, DocType, ExpenseType } from "@/types";
@@ -154,6 +155,10 @@ export function BoxDetailView({
   const cashReceiptFiles = allFiles.filter(f => ["CASH_RECEIPT", "RECEIPT", "OTHER"].includes(f.docType));
   const hasCashReceipt = cashReceiptFiles.length > 0;
   const noCashReceiptConfirmed = box.noReceiptReason === "NO_CASH_RECEIPT";
+
+  // Foreign invoice status (for FOREIGN expense type)
+  const foreignInvoiceFiles = allFiles.filter(f => f.docType === "FOREIGN_INVOICE");
+  const hasForeignInvoice = foreignInvoiceFiles.length > 0;
 
   // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -505,8 +510,13 @@ export function BoxDetailView({
               if (box.expenseType === "NO_VAT") {
                 items.push({ label: "มีบิลเงินสด", completed: hasCashReceipt || noCashReceiptConfirmed });
               }
+
+              // 4. มี Foreign Invoice (FOREIGN)
+              if (box.expenseType === "FOREIGN") {
+                items.push({ label: "มี Invoice ต่างประเทศ", completed: hasForeignInvoice });
+              }
               
-              // 4. WHT (ถ้ามี)
+              // 5. WHT (ถ้ามี)
               if (hasWht) {
                 items.push({ label: "ออก WHT", completed: whtIssued });
                 items.push({ label: "ส่ง WHT", completed: whtSent });
@@ -541,13 +551,24 @@ export function BoxDetailView({
             })()}
 
             <div className="p-5 space-y-3">
-              {/* Warning Banner */}
+              {/* Warning Banner - STANDARD */}
               {hasSlip && !hasTaxInvoice && box.expenseType === "STANDARD" && (
                 <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
                   <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-sm text-amber-700">มีสลิปแล้ว แต่ยังไม่มีใบกำกับภาษี</p>
                     <p className="text-xs text-amber-600">เพิ่มใบกำกับเพื่อยืนยันยอดและ VAT</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Warning Banner - FOREIGN */}
+              {hasSlip && !hasForeignInvoice && box.expenseType === "FOREIGN" && (
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-200">
+                  <AlertCircle className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm text-indigo-700">มีสลิปแล้ว แต่ยังไม่มี Invoice ต่างประเทศ</p>
+                    <p className="text-xs text-indigo-600">เพิ่ม Invoice เพื่อยืนยันรายละเอียด</p>
                   </div>
                 </div>
               )}
@@ -719,6 +740,49 @@ export function BoxDetailView({
                 </div>
               )}
 
+              {/* Foreign Invoice (only for FOREIGN expense) */}
+              {box.expenseType === "FOREIGN" && (
+                <div className={cn(
+                  "flex items-start gap-3 p-3 rounded-xl border",
+                  hasForeignInvoice ? "bg-green-50 border-green-200" : "bg-indigo-50 border-indigo-200"
+                )}>
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                    hasForeignInvoice ? "bg-green-100" : "bg-indigo-100"
+                  )}>
+                    {hasForeignInvoice ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-indigo-600" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={cn("font-medium text-sm", hasForeignInvoice ? "text-green-700" : "text-indigo-700")}>
+                      มี Invoice ต่างประเทศ {hasForeignInvoice ? <Check className="inline h-3 w-3 ml-1" /> : <span className="text-red-500 text-xs ml-1">จำเป็น</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {hasForeignInvoice ? "อัปโหลด Invoice ต่างประเทศแล้ว" : "อัปโหลด Invoice จากผู้ขายต่างประเทศ"}
+                    </p>
+                    {/* File Reference */}
+                    {hasForeignInvoice && foreignInvoiceFiles.length > 0 && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        └── {foreignInvoiceFiles[0].fileName}
+                      </div>
+                    )}
+                  </div>
+                  {canEdit && !hasForeignInvoice && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => triggerFileUpload("FOREIGN_INVOICE")}
+                      className="text-xs border-indigo-300 text-indigo-700 hover:bg-indigo-100 shrink-0"
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> เพิ่ม
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* WHT Items (only when hasWht is true) */}
               {hasWht && (
                 <>
@@ -818,6 +882,48 @@ export function BoxDetailView({
             payments={box.payments || []}
             canEdit={canEdit}
           />
+
+          {/* WHT Tracking Section */}
+          {hasWht && (
+            <WHTTrackingList
+              boxId={box.id}
+              whtTrackings={box.whtTrackings || []}
+              contacts={contacts}
+              defaultContactId={box.contactId || undefined}
+              canEdit={canEdit}
+            />
+          )}
+
+          {/* Enable WHT Button - when no WHT yet */}
+          {!hasWht && canEdit && (
+            <div className="rounded-2xl border bg-white p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">หัก ณ ที่จ่าย (WHT)</h3>
+                    <p className="text-sm text-gray-500">ยังไม่ได้เปิดใช้</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => onToggleItem?.("enableWht")}
+                  disabled={isPendingToggle === "enableWht"}
+                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  {isPendingToggle === "enableWht" ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  เพิ่มหัก ณ ที่จ่าย
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Tax Summary */}
           {(box.vatAmount > 0 || box.whtAmount > 0) && (

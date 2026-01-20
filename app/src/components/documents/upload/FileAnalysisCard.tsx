@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/formatters";
 import { getDocTypeConfig } from "@/lib/document-config";
-import type { DocType } from "@/types";
+import type { DocType, ExpenseType } from "@/types";
 import type { ExtractedDocumentData } from "@/server/actions/ai-classify";
 
 export interface ExtractedFile {
@@ -29,12 +29,14 @@ export interface ExtractedFile {
 
 interface FileAnalysisCardProps {
   file: ExtractedFile;
+  expenseType?: ExpenseType;
   onRemove: () => void;
   onReanalyze: () => void;
 }
 
 export function FileAnalysisCard({ 
-  file, 
+  file,
+  expenseType = "STANDARD",
   onRemove, 
   onReanalyze 
 }: FileAnalysisCardProps) {
@@ -224,11 +226,17 @@ export function FileAnalysisCard({
             )}
           </div>
 
-          {/* Show what we don't know for slips */}
-          {(extractedData.type === "SLIP_TRANSFER" || extractedData.type === "SLIP_CHEQUE") && (
+          {/* Show what we don't know for slips - based on ExpenseType */}
+          {(extractedData.type === "SLIP_TRANSFER" || extractedData.type === "SLIP_CHEQUE") && expenseType === "STANDARD" && (
             <div className="mt-3 p-2 rounded bg-amber-50 text-xs text-amber-700">
               <p className="font-medium">⚠️ สลิปไม่มีข้อมูล VAT และหัก ณ ที่จ่าย</p>
               <p>จะรู้เมื่อได้รับใบกำกับภาษี</p>
+            </div>
+          )}
+          {(extractedData.type === "SLIP_TRANSFER" || extractedData.type === "SLIP_CHEQUE") && expenseType === "FOREIGN" && (
+            <div className="mt-3 p-2 rounded bg-indigo-50 text-xs text-indigo-700">
+              <p className="font-medium">⚠️ รอ Invoice ต่างประเทศ</p>
+              <p>เพิ่ม Invoice เพื่อยืนยันรายละเอียด</p>
             </div>
           )}
         </div>
