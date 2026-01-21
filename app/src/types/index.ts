@@ -11,6 +11,8 @@ import type {
   CostCenter, 
   Category,
   Comment,
+  Task,
+  BookingEntry,
   MemberRole,
   BoxStatus,
   BoxType,
@@ -18,10 +20,16 @@ import type {
   DocStatus,
   PaymentStatus,
   PaymentMethod,
+  PaymentMode,
+  ReimbursementStatus,
   DocType,
+  VatDocStatus,
+  WhtDocStatus,
   WhtType,
   WhtStatus,
   WhtSentMethod,
+  TaskType,
+  TaskStatus,
 } from "@prisma/client";
 
 // Re-export enums as types
@@ -33,10 +41,16 @@ export type {
   DocStatus,
   PaymentStatus,
   PaymentMethod,
+  PaymentMode,
+  ReimbursementStatus,
   DocType,
+  VatDocStatus,
+  WhtDocStatus,
   WhtType,
   WhtStatus,
   WhtSentMethod,
+  TaskType,
+  TaskStatus,
 } from "@prisma/client";
 
 // ==========================================
@@ -44,6 +58,25 @@ export type {
 // ==========================================
 export type DocumentWithFiles = Document & {
   files: DocumentFile[];
+};
+
+// ==========================================
+// Task types
+// ==========================================
+export type TaskWithAssignee = Task & {
+  assignee: Pick<User, "id" | "name" | "email" | "avatarUrl"> | null;
+};
+
+export type TaskWithBox = Task & {
+  assignee: Pick<User, "id" | "name" | "email" | "avatarUrl"> | null;
+  box: {
+    id: string;
+    boxNumber: string;
+    title: string | null;
+    totalAmount: number;
+    boxDate: Date;
+    contact: Contact | null;
+  };
 };
 
 // ==========================================
@@ -72,22 +105,34 @@ export type PaymentWithDocument = Payment & {
 };
 
 // ==========================================
+// BookingEntry types
+// ==========================================
+export type BookingEntryWithBoxes = BookingEntry & {
+  boxes: BoxListItem[];
+  bookedBy: Pick<User, "id" | "name" | "email" | "avatarUrl">;
+};
+
+// ==========================================
 // Box with relations
 // ==========================================
 export type BoxWithRelations = Box & {
   documents: DocumentWithFiles[];     // เอกสารในกล่อง
   payments: Payment[];                // การจ่ายเงิน
   whtTrackings: WhtTrackingWithContact[];
+  tasks: TaskWithAssignee[];          // Tasks
   contact: Contact | null;
   costCenter: CostCenter | null;
   category: Category | null;
   createdBy: Pick<User, "id" | "name" | "email" | "avatarUrl">;
+  vatVerifiedBy?: Pick<User, "id" | "name" | "avatarUrl"> | null;
+  bookingEntry?: BookingEntry | null;
   linkedBox?: Box | null;
   comments: (Comment & { user: Pick<User, "id" | "name" | "avatarUrl"> })[];
   _count?: {
     documents: number;
     payments: number;
     comments: number;
+    tasks: number;
   };
 };
 
@@ -118,13 +163,14 @@ export type SerializedPayment = Omit<
 
 export type SerializedWhtTracking = Omit<
   WhtTrackingWithContact,
-  "amount" | "rate" | "issuedDate" | "sentDate" | "receivedDate" | "createdAt" | "updatedAt"
+  "amount" | "rate" | "issuedDate" | "sentDate" | "receivedDate" | "dueDate" | "createdAt" | "updatedAt"
 > & {
   amount: number;
   rate: number | null;
   issuedDate: string | null;
   sentDate: string | null;
   receivedDate: string | null;
+  dueDate: string | null;
   createdAt: string;
   updatedAt: string;
   box?: {
@@ -136,9 +182,27 @@ export type SerializedWhtTracking = Omit<
   } | null;
 };
 
+export type SerializedTask = Omit<
+  TaskWithAssignee,
+  "dueDate" | "completedAt" | "lastReminderAt" | "escalatedAt" | "cancelledAt" | "createdAt" | "updatedAt"
+> & {
+  dueDate: string | null;
+  completedAt: string | null;
+  lastReminderAt: string | null;
+  escalatedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SerializedBox = Omit<
   BoxWithRelations,
-  "totalAmount" | "vatAmount" | "whtAmount" | "paidAmount" | "vatRate" | "whtRate" | "foreignAmount" | "exchangeRate" | "boxDate" | "dueDate" | "exportedAt" | "createdAt" | "updatedAt" | "documents" | "payments" | "whtTrackings"
+  | "totalAmount" | "vatAmount" | "whtAmount" | "paidAmount" 
+  | "vatRate" | "whtRate" | "foreignAmount" | "exchangeRate" 
+  | "boxDate" | "dueDate" | "whtDueDate"
+  | "vatVerifiedAt" | "submittedAt" | "reviewedAt" | "bookedAt" 
+  | "exportedAt" | "archivedAt" | "lockedAt" | "createdAt" | "updatedAt" 
+  | "documents" | "payments" | "whtTrackings" | "tasks"
 > & {
   totalAmount: number;
   vatAmount: number;
@@ -150,16 +214,24 @@ export type SerializedBox = Omit<
   exchangeRate: number | null;
   boxDate: string;
   dueDate: string | null;
+  whtDueDate: string | null;
+  vatVerifiedAt: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  bookedAt: string | null;
   exportedAt: string | null;
+  archivedAt: string | null;
+  lockedAt: string | null;
   createdAt: string;
   updatedAt: string;
   documents: SerializedDocument[];
   payments: SerializedPayment[];
   whtTrackings: SerializedWhtTracking[];
+  tasks: SerializedTask[];
 };
 
-// Simplified box type for list views
-export type SerializedBoxListItem = {
+// Box list item (simplified for list views)
+export type BoxListItem = {
   id: string;
   boxNumber: string;
   title: string | null;
@@ -172,11 +244,19 @@ export type SerializedBoxListItem = {
   vatAmount: number;
   whtAmount: number;
   paidAmount: number;
-  boxDate: string;
-  dueDate: string | null;
+  boxDate: Date;
+  dueDate: Date | null;
   hasVat: boolean;
   hasWht: boolean;
   whtSent: boolean;
+  vatDocStatus: VatDocStatus;
+  whtDocStatus: WhtDocStatus;
+  whtDueDate: Date | null;
+  whtOverdue: boolean;
+  possibleDuplicate: boolean;
+  paymentMode: PaymentMode;
+  reimbursementStatus: ReimbursementStatus | null;
+  isLateDocs: boolean;
   description: string | null;
   notes: string | null;
   externalRef: string | null;
@@ -185,15 +265,30 @@ export type SerializedBoxListItem = {
   contactId: string | null;
   categoryId: string | null;
   costCenterId: string | null;
-  exportedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  bookingEntryId: string | null;
+  exportedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
   contact: Contact | null;
   costCenter: CostCenter | null;
   category: Category | null;
   createdBy: { id: string; name: string | null; email: string; avatarUrl: string | null };
+  documents: DocumentWithFiles[];
+  _count?: { documents: number; payments: number; comments: number; tasks: number };
+};
+
+// Serialized box list item for client
+export type SerializedBoxListItem = Omit<
+  BoxListItem,
+  "boxDate" | "dueDate" | "whtDueDate" | "exportedAt" | "createdAt" | "updatedAt" | "documents"
+> & {
+  boxDate: string;
+  dueDate: string | null;
+  whtDueDate: string | null;
+  exportedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   documents: SerializedDocument[];
-  _count?: { documents: number; payments: number; comments: number };
 };
 
 // ==========================================
@@ -222,6 +317,7 @@ export type CreateBoxInput = {
   hasVat?: boolean;
   hasWht?: boolean;
   whtRate?: number;
+  whtDueDate?: Date;
   foreignCurrency?: string;
   foreignAmount?: number;
   exchangeRate?: number;
@@ -233,12 +329,19 @@ export type CreateBoxInput = {
   contactId?: string;
   costCenterId?: string;
   categoryId?: string;
+  paymentMode?: PaymentMode;
 };
 
 export type UpdateBoxInput = Partial<CreateBoxInput> & {
   status?: BoxStatus;
   docStatus?: DocStatus;
   paymentStatus?: PaymentStatus;
+  vatDocStatus?: VatDocStatus;
+  whtDocStatus?: WhtDocStatus;
+  possibleDuplicate?: boolean;
+  duplicateReason?: string;
+  reimbursementStatus?: ReimbursementStatus;
+  isLateDocs?: boolean;
 };
 
 export type CreateDocumentInput = {
@@ -251,6 +354,7 @@ export type CreateDocumentInput = {
   foreignCurrency?: string;
   foreignAmount?: number;
   notes?: string;
+  isLateDocs?: boolean;
 };
 
 export type UpdateDocumentInput = Partial<Omit<CreateDocumentInput, "boxId">>;
@@ -270,6 +374,7 @@ export type CreateWhtTrackingInput = {
   type: WhtType;
   amount: number;
   rate?: number;
+  dueDate?: Date;
   contactId?: string;
   notes?: string;
 };
@@ -281,6 +386,27 @@ export type UpdateWhtTrackingInput = Partial<Omit<CreateWhtTrackingInput, "boxId
   sentMethod?: WhtSentMethod;
   receivedDate?: Date;
   documentId?: string;
+  isOverdue?: boolean;
+};
+
+export type CreateTaskInput = {
+  boxId: string;
+  taskType: TaskType;
+  title: string;
+  description?: string;
+  dueDate?: Date;
+  assigneeId?: string;
+};
+
+export type UpdateTaskInput = Partial<Omit<CreateTaskInput, "boxId">> & {
+  status?: TaskStatus;
+  cancelReason?: string;
+};
+
+export type CreateBookingEntryInput = {
+  boxIds: string[];
+  description?: string;
+  exportProfile?: string;
 };
 
 // ==========================================
@@ -333,6 +459,8 @@ export type BoxFilters = {
   docStatus?: DocStatus[];
   docType?: DocType[];
   paymentStatus?: PaymentStatus[];
+  vatDocStatus?: VatDocStatus[];
+  whtDocStatus?: WhtDocStatus[];
   categoryId?: string;
   costCenterId?: string;
   contactId?: string;
@@ -340,9 +468,82 @@ export type BoxFilters = {
   dateTo?: Date;
   search?: string;
   hasWht?: boolean;
+  whtOverdue?: boolean;
+  possibleDuplicate?: boolean;
+  paymentMode?: PaymentMode;
+  reimbursementStatus?: ReimbursementStatus;
+  // Aging buckets (days)
+  agingBucket?: "0-3" | "4-7" | "8-14" | "15+";
+};
+
+export type TaskFilters = {
+  status?: TaskStatus[];
+  taskType?: TaskType[];
+  assigneeId?: string;
+  dueDateFrom?: Date;
+  dueDateTo?: Date;
+  escalationLevel?: number;
+  overdue?: boolean;
+};
+
+// ==========================================
+// Dashboard Stats types
+// ==========================================
+export type OwnerDashboardStats = {
+  totalPendingBoxes: number;
+  totalPendingAmount: number;
+  whtOutstanding: number;
+  whtOverdueCount: number;
+  whtOverdueAmount: number;
+  possibleDuplicateCount: number;
+  reimbursementPending: number;
+  agingBuckets: {
+    "0-3": number;
+    "4-7": number;
+    "8-14": number;
+    "15+": number;
+  };
+};
+
+export type AccountantDashboardStats = {
+  inbox: number;           // SUBMITTED
+  needMoreDocs: number;    // NEED_MORE_DOCS
+  readyToBook: number;     // READY_TO_BOOK
+  whtPending: number;      // WHT_PENDING
+  overdueWht: number;      // WHT overdue tasks
+  overdueTasks: number;    // All overdue tasks
 };
 
 // ==========================================
 // Organization role type
 // ==========================================
 export type OrganizationRole = MemberRole;
+
+// ==========================================
+// Status transition types
+// ==========================================
+export type StatusTransition = {
+  from: BoxStatus;
+  to: BoxStatus;
+  allowedRoles: MemberRole[];
+  label: string;
+};
+
+// Valid status transitions (Section 5.3)
+export const STATUS_TRANSITIONS: StatusTransition[] = [
+  { from: "DRAFT", to: "SUBMITTED", allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"], label: "ส่งตรวจ" },
+  { from: "SUBMITTED", to: "IN_REVIEW", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "เริ่มตรวจ" },
+  { from: "IN_REVIEW", to: "NEED_MORE_DOCS", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ขอเอกสารเพิ่ม" },
+  { from: "NEED_MORE_DOCS", to: "SUBMITTED", allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"], label: "ส่งใหม่" },
+  { from: "IN_REVIEW", to: "READY_TO_BOOK", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "พร้อมลงบัญชี" },
+  { from: "IN_REVIEW", to: "WHT_PENDING", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ลงบัญชีได้ (รอ WHT)" },
+  { from: "READY_TO_BOOK", to: "BOOKED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ลงบัญชี" },
+  { from: "WHT_PENDING", to: "BOOKED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ลงบัญชี" },
+  { from: "BOOKED", to: "ARCHIVED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "เก็บเข้าคลัง" },
+  { from: "ARCHIVED", to: "LOCKED", allowedRoles: ["ADMIN", "OWNER"], label: "ล็อคงวด" },
+  // Cancel can happen from most states
+  { from: "DRAFT", to: "CANCELLED", allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
+  { from: "SUBMITTED", to: "CANCELLED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
+  { from: "IN_REVIEW", to: "CANCELLED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
+  { from: "NEED_MORE_DOCS", to: "CANCELLED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
+];

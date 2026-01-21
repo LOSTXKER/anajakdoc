@@ -13,49 +13,64 @@ import {
   AlertTriangle,
   CalendarClock,
   Plus,
-  Receipt,
   FileCheck,
   AlertCircle,
+  Percent,
+  Copy,
+  Hourglass,
+  Users,
+  Eye,
+  Send,
+  BookOpen,
+  FileQuestion,
 } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
-import { getBoxTypeConfig, getDocStatusConfig } from "@/lib/document-config";
+import { getBoxTypeConfig, getBoxStatusConfig, AGING_BUCKET_CONFIG } from "@/lib/document-config";
+import { cn } from "@/lib/utils";
 
-async function getDashboardStats(orgId: string) {
+// Dashboard stats query following Plan V3 Section 14
+async function getDashboardStats(orgId: string, role: string) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const dueSoon = new Date();
-  dueSoon.setDate(dueSoon.getDate() + 7);
+
+  // Calculate aging dates
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
   const [
+    // Basic stats
     totalBoxes,
-    draftBoxes,
-    pendingBoxes,
-    approvedBoxes,
-    recentBoxes,
     monthlyExpense,
     monthlyIncome,
-    overdueBoxes,
-    dueSoonBoxes,
-    incompleteBoxes,
-    pendingWht,
+    recentBoxes,
+    
+    // Owner Dashboard Stats (Section 14)
+    pendingBoxes,
+    pendingAmount,
+    whtOutstanding,
+    whtOverdueCount,
+    duplicateCount,
+    reimbursementPending,
+    
+    // Aging buckets
+    aging0to3,
+    aging4to7,
+    aging8to14,
+    aging15plus,
+    
+    // Accountant Dashboard Stats (Section 14)
+    submittedCount,
+    inReviewCount,
+    needMoreDocsCount,
+    readyToBookCount,
+    whtPendingCount,
+    overdueTasksCount,
   ] = await Promise.all([
+    // Basic
     prisma.box.count({ where: { organizationId: orgId } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "DRAFT" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "PENDING_REVIEW" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: { in: ["APPROVED", "EXPORTED"] } } }),
-    prisma.box.findMany({
-      where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: {
-        category: true,
-        contact: true,
-        createdBy: { select: { name: true } },
-        documents: { select: { docType: true } },
-      },
-    }),
     prisma.box.aggregate({
       where: {
         organizationId: orgId,
@@ -75,72 +90,158 @@ async function getDashboardStats(orgId: string) {
       _sum: { totalAmount: true },
     }),
     prisma.box.findMany({
-      where: {
-        organizationId: orgId,
-        dueDate: { lt: now },
-        status: { notIn: ["EXPORTED", "CANCELLED"] },
-      },
-      orderBy: { dueDate: "asc" },
-      take: 5,
-      include: { contact: { select: { name: true } } },
-    }),
-    prisma.box.findMany({
-      where: {
-        organizationId: orgId,
-        dueDate: { gte: now, lte: dueSoon },
-        status: { notIn: ["EXPORTED", "CANCELLED"] },
-      },
-      orderBy: { dueDate: "asc" },
-      take: 5,
-      include: { contact: { select: { name: true } } },
-    }),
-    // Boxes with incomplete documents
-    prisma.box.findMany({
-      where: {
-        organizationId: orgId,
-        docStatus: "INCOMPLETE",
-        status: { notIn: ["CANCELLED"] },
-      },
+      where: { organizationId: orgId },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { 
-        contact: { select: { name: true } },
+      include: {
+        category: true,
+        contact: true,
+        createdBy: { select: { name: true } },
         documents: { select: { docType: true } },
       },
     }),
-    // WHT tracking pending
-    prisma.whtTracking.findMany({
+    
+    // Owner: Pending boxes (not booked/archived/locked/cancelled)
+    prisma.box.count({
       where: {
-        box: { organizationId: orgId },
-        status: "PENDING",
+        organizationId: orgId,
+        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
       },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: { 
-        box: { select: { boxNumber: true } },
-        contact: { select: { name: true } },
+    }),
+    // Owner: Total pending amount
+    prisma.box.aggregate({
+      where: {
+        organizationId: orgId,
+        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+      },
+      _sum: { totalAmount: true },
+    }),
+    // Owner: WHT outstanding
+    prisma.box.aggregate({
+      where: {
+        organizationId: orgId,
+        hasWht: true,
+        whtDocStatus: { in: ["MISSING", "REQUEST_SENT"] },
+        status: { notIn: ["CANCELLED"] },
+      },
+      _sum: { whtAmount: true },
+    }),
+    // Owner: WHT overdue count
+    prisma.box.count({
+      where: {
+        organizationId: orgId,
+        hasWht: true,
+        whtOverdue: true,
+        status: { notIn: ["CANCELLED"] },
+      },
+    }),
+    // Owner: Possible duplicates
+    prisma.box.count({
+      where: {
+        organizationId: orgId,
+        possibleDuplicate: true,
+        status: { notIn: ["CANCELLED"] },
+      },
+    }),
+    // Owner: Reimbursement pending
+    prisma.box.aggregate({
+      where: {
+        organizationId: orgId,
+        paymentMode: "EMPLOYEE_ADVANCE",
+        reimbursementStatus: "PENDING",
+        status: { notIn: ["CANCELLED"] },
+      },
+      _sum: { totalAmount: true },
+    }),
+    
+    // Aging buckets
+    prisma.box.count({
+      where: {
+        organizationId: orgId,
+        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        createdAt: { gte: threeDaysAgo },
+      },
+    }),
+    prisma.box.count({
+      where: {
+        organizationId: orgId,
+        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        createdAt: { lt: threeDaysAgo, gte: sevenDaysAgo },
+      },
+    }),
+    prisma.box.count({
+      where: {
+        organizationId: orgId,
+        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        createdAt: { lt: sevenDaysAgo, gte: fourteenDaysAgo },
+      },
+    }),
+    prisma.box.count({
+      where: {
+        organizationId: orgId,
+        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        createdAt: { lt: fourteenDaysAgo },
+      },
+    }),
+    
+    // Accountant stats
+    prisma.box.count({ where: { organizationId: orgId, status: "SUBMITTED" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "IN_REVIEW" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "NEED_MORE_DOCS" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "READY_TO_BOOK" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "WHT_PENDING" } }),
+    prisma.task.count({
+      where: {
+        organizationId: orgId,
+        status: { in: ["OPEN", "IN_PROGRESS"] },
+        dueDate: { lt: now },
       },
     }),
   ]);
 
   return {
     totalBoxes,
-    draftBoxes,
-    pendingBoxes,
-    approvedBoxes,
-    recentBoxes,
     monthlyExpense: monthlyExpense._sum.totalAmount?.toNumber() || 0,
     monthlyIncome: monthlyIncome._sum.totalAmount?.toNumber() || 0,
-    overdueBoxes,
-    dueSoonBoxes,
-    incompleteBoxes,
-    pendingWht,
+    recentBoxes,
+    
+    // Owner stats
+    owner: {
+      pendingBoxes,
+      pendingAmount: pendingAmount._sum.totalAmount?.toNumber() || 0,
+      whtOutstanding: whtOutstanding._sum.whtAmount?.toNumber() || 0,
+      whtOverdueCount,
+      duplicateCount,
+      reimbursementPending: reimbursementPending._sum.totalAmount?.toNumber() || 0,
+      agingBuckets: {
+        "0-3": aging0to3,
+        "4-7": aging4to7,
+        "8-14": aging8to14,
+        "15+": aging15plus,
+      },
+    },
+    
+    // Accountant stats
+    accountant: {
+      inbox: submittedCount,
+      inReview: inReviewCount,
+      needMoreDocs: needMoreDocsCount,
+      readyToBook: readyToBookCount,
+      whtPending: whtPendingCount,
+      overdueTasks: overdueTasksCount,
+    },
   };
 }
 
 export default async function DashboardPage() {
   const session = await requireOrganization();
-  const stats = await getDashboardStats(session.currentOrganization.id);
+  const stats = await getDashboardStats(
+    session.currentOrganization.id,
+    session.currentOrganization.role
+  );
+
+  const isAccounting = ["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role);
+  const isOwner = ["ADMIN", "OWNER"].includes(session.currentOrganization.role);
 
   const formatMoney = (amount: number) => 
     amount.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -154,6 +255,194 @@ export default async function DashboardPage() {
       />
       
       <div className="p-6 space-y-6">
+        
+        {/* Owner Dashboard (Section 14) */}
+        {isOwner && (
+          <>
+            {/* Key Metrics */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* Pending Boxes */}
+              <div className="rounded-xl border bg-white p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-500">กล่องค้าง</span>
+                  <Hourglass className="h-4 w-4 text-gray-400" />
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{stats.owner.pendingBoxes}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  ฿{formatMoney(stats.owner.pendingAmount)}
+                </p>
+              </div>
+
+              {/* WHT Outstanding */}
+              <div className={cn(
+                "rounded-xl border p-4",
+                stats.owner.whtOverdueCount > 0 
+                  ? "border-red-200 bg-red-50" 
+                  : "bg-white"
+              )}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-500">WHT ค้าง</span>
+                  <Percent className={cn(
+                    "h-4 w-4",
+                    stats.owner.whtOverdueCount > 0 ? "text-red-500" : "text-gray-400"
+                  )} />
+                </div>
+                <p className={cn(
+                  "text-3xl font-bold",
+                  stats.owner.whtOverdueCount > 0 ? "text-red-600" : "text-gray-900"
+                )}>
+                  ฿{formatMoney(stats.owner.whtOutstanding)}
+                </p>
+                {stats.owner.whtOverdueCount > 0 && (
+                  <p className="text-sm text-red-600 mt-1">
+                    <AlertTriangle className="inline h-3 w-3 mr-1" />
+                    {stats.owner.whtOverdueCount} เกินกำหนด
+                  </p>
+                )}
+              </div>
+
+              {/* Possible Duplicates */}
+              {stats.owner.duplicateCount > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-amber-700">อาจซ้ำ</span>
+                    <Copy className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <p className="text-3xl font-bold text-amber-700">{stats.owner.duplicateCount}</p>
+                  <Link href="/documents?duplicate=true" className="text-sm text-amber-600 hover:underline mt-1 inline-block">
+                    ตรวจสอบ →
+                  </Link>
+                </div>
+              )}
+
+              {/* Reimbursement Pending */}
+              {stats.owner.reimbursementPending > 0 && (
+                <div className="rounded-xl border bg-white p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-500">รอคืนเงินพนักงาน</span>
+                    <Users className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">
+                    ฿{formatMoney(stats.owner.reimbursementPending)}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Aging Buckets */}
+            <div className="rounded-xl border bg-white p-4">
+              <h3 className="font-medium text-gray-900 mb-3">อายุกล่องค้าง</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {(Object.entries(stats.owner.agingBuckets) as [keyof typeof AGING_BUCKET_CONFIG, number][]).map(([bucket, count]) => {
+                  const config = AGING_BUCKET_CONFIG[bucket];
+                  return (
+                    <div 
+                      key={bucket}
+                      className={cn(
+                        "rounded-lg p-3 text-center",
+                        config.className
+                      )}
+                    >
+                      <p className="text-2xl font-bold">{count}</p>
+                      <p className="text-xs">{config.label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Accountant Dashboard (Section 14) */}
+        {isAccounting && (
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+            <Link 
+              href="/documents?status=SUBMITTED"
+              className="rounded-xl border border-sky-200 bg-sky-50 p-4 hover:border-sky-300 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Send className="h-4 w-4 text-sky-600" />
+                <span className="text-sm text-sky-700">Inbox</span>
+              </div>
+              <p className="text-3xl font-bold text-sky-700">{stats.accountant.inbox}</p>
+            </Link>
+
+            <Link 
+              href="/documents?status=IN_REVIEW"
+              className="rounded-xl border bg-white p-4 hover:border-blue-300 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Eye className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-gray-600">กำลังตรวจ</span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{stats.accountant.inReview}</p>
+            </Link>
+
+            <Link 
+              href="/documents?status=NEED_MORE_DOCS"
+              className={cn(
+                "rounded-xl border p-4 transition-colors",
+                stats.accountant.needMoreDocs > 0 
+                  ? "border-amber-200 bg-amber-50 hover:border-amber-300" 
+                  : "bg-white hover:border-gray-300"
+              )}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <FileQuestion className="h-4 w-4 text-amber-600" />
+                <span className="text-sm text-amber-700">ขอเอกสาร</span>
+              </div>
+              <p className={cn(
+                "text-3xl font-bold",
+                stats.accountant.needMoreDocs > 0 ? "text-amber-700" : "text-gray-900"
+              )}>
+                {stats.accountant.needMoreDocs}
+              </p>
+            </Link>
+
+            <Link 
+              href="/documents?status=READY_TO_BOOK"
+              className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 hover:border-emerald-300 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm text-emerald-700">พร้อมลง</span>
+              </div>
+              <p className="text-3xl font-bold text-emerald-700">{stats.accountant.readyToBook}</p>
+            </Link>
+
+            <Link 
+              href="/documents?status=WHT_PENDING"
+              className={cn(
+                "rounded-xl border p-4 transition-colors",
+                stats.accountant.whtPending > 0 
+                  ? "border-orange-200 bg-orange-50 hover:border-orange-300" 
+                  : "bg-white hover:border-gray-300"
+              )}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Percent className="h-4 w-4 text-orange-600" />
+                <span className="text-sm text-orange-700">รอ WHT</span>
+              </div>
+              <p className={cn(
+                "text-3xl font-bold",
+                stats.accountant.whtPending > 0 ? "text-orange-700" : "text-gray-900"
+              )}>
+                {stats.accountant.whtPending}
+              </p>
+            </Link>
+
+            {stats.accountant.overdueTasks > 0 && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <span className="text-sm text-red-700">งานเลยกำหนด</span>
+                </div>
+                <p className="text-3xl font-bold text-red-700">{stats.accountant.overdueTasks}</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Monthly Summary */}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border bg-white p-5">
@@ -182,206 +471,6 @@ export default async function DashboardPage() {
             </p>
           </div>
         </div>
-
-        {/* Stats */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          <Link href="/documents" className="rounded-xl border bg-white p-4 hover:border-primary/50 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-gray-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalBoxes}</p>
-                <p className="text-sm text-gray-500">ทั้งหมด</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/documents" className="rounded-xl border bg-white p-4 hover:border-primary/50 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-slate-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.draftBoxes}</p>
-                <p className="text-sm text-gray-500">ร่าง</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/documents" className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 hover:border-sky-300 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
-                <Package className="h-5 w-5 text-sky-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-sky-700">{stats.pendingBoxes}</p>
-                <p className="text-sm text-sky-600">รอตรวจ</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/documents" className="rounded-xl border bg-white p-4 hover:border-primary/50 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.approvedBoxes}</p>
-                <p className="text-sm text-gray-500">อนุมัติแล้ว</p>
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Document Status Alerts */}
-        {(stats.incompleteBoxes.length > 0 || stats.pendingWht.length > 0) && (
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Incomplete Documents */}
-            {stats.incompleteBoxes.length > 0 && (
-              <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertCircle className="h-5 w-5 text-orange-600" />
-                  <span className="font-medium text-orange-700">รอเอกสาร ({stats.incompleteBoxes.length})</span>
-                </div>
-                <p className="text-xs text-orange-600 mb-3">
-                  กล่องที่ยังมีเอกสารไม่ครบ
-                </p>
-                <div className="space-y-2">
-                  {stats.incompleteBoxes.map((box) => (
-                    <Link
-                      key={box.id}
-                      href={`/documents/${box.id}`}
-                      className="flex items-center justify-between p-3 rounded-lg bg-white border border-orange-100 hover:border-orange-200 transition-colors"
-                    >
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">{box.boxNumber}</p>
-                        <p className="text-xs text-gray-500">{box.contact?.name || "-"}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-sm text-orange-600">
-                          {box.totalAmount.toNumber() > 0 
-                            ? `฿${box.totalAmount.toNumber().toLocaleString()}`
-                            : "รอยอด"
-                          }
-                        </p>
-                        <p className="text-xs text-orange-500">{box.documents.length} เอกสาร</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Pending WHT */}
-            {stats.pendingWht.length > 0 && (
-              <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <FileCheck className="h-5 w-5 text-purple-600" />
-                  <span className="font-medium text-purple-700">รอหนังสือหัก ณ ที่จ่าย ({stats.pendingWht.length})</span>
-                </div>
-                <p className="text-xs text-purple-600 mb-3">
-                  รายการที่รอรับ/ส่งหนังสือรับรอง
-                </p>
-                <div className="space-y-2">
-                  {stats.pendingWht.map((wht) => (
-                    <Link
-                      key={wht.id}
-                      href={wht.boxId ? `/documents/${wht.boxId}` : "/wht-tracking"}
-                      className="flex items-center justify-between p-3 rounded-lg bg-white border border-purple-100 hover:border-purple-200 transition-colors"
-                    >
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">
-                          {wht.box?.boxNumber || "ไม่ระบุ"}
-                        </p>
-                        <p className="text-xs text-gray-500">{wht.contact?.name || "-"}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-sm text-purple-600">
-                          ฿{wht.amount.toNumber().toLocaleString()}
-                        </p>
-                        <p className="text-xs text-purple-500">
-                          {wht.type === "OUTGOING" ? "รอส่ง" : "รอรับ"}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Payment Alerts */}
-        {(stats.overdueBoxes.length > 0 || stats.dueSoonBoxes.length > 0) && (
-          <div className="grid gap-4 md:grid-cols-2">
-            {stats.overdueBoxes.length > 0 && (
-              <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <span className="font-medium text-red-700">เกินกำหนดชำระ ({stats.overdueBoxes.length})</span>
-                </div>
-                <div className="space-y-2">
-                  {stats.overdueBoxes.map((box) => {
-                    const days = Math.floor((Date.now() - new Date(box.dueDate!).getTime()) / 86400000);
-                    return (
-                      <Link
-                        key={box.id}
-                        href={`/documents/${box.id}`}
-                        className="flex items-center justify-between p-3 rounded-lg bg-white border border-red-100 hover:border-red-200 transition-colors"
-                      >
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">{box.boxNumber}</p>
-                          <p className="text-xs text-gray-500">{box.contact?.name || "-"}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-sm text-red-600">
-                            ฿{box.totalAmount.toNumber().toLocaleString()}
-                          </p>
-                          <p className="text-xs text-red-500">เกิน {days} วัน</p>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {stats.dueSoonBoxes.length > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <CalendarClock className="h-5 w-5 text-amber-600" />
-                  <span className="font-medium text-amber-700">ใกล้ครบกำหนด ({stats.dueSoonBoxes.length})</span>
-                </div>
-                <div className="space-y-2">
-                  {stats.dueSoonBoxes.map((box) => {
-                    const days = Math.ceil((new Date(box.dueDate!).getTime() - Date.now()) / 86400000);
-                    return (
-                      <Link
-                        key={box.id}
-                        href={`/documents/${box.id}`}
-                        className="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-100 hover:border-primary/30 transition-colors"
-                      >
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">{box.boxNumber}</p>
-                          <p className="text-xs text-gray-500">{box.contact?.name || "-"}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-sm text-gray-900">
-                            ฿{box.totalAmount.toNumber().toLocaleString()}
-                          </p>
-                          <p className="text-xs text-amber-600">
-                            {days === 0 ? "วันนี้" : `อีก ${days} วัน`}
-                          </p>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Quick Actions & Recent */}
         <div className="grid gap-6 lg:grid-cols-3">
@@ -448,21 +537,21 @@ export default async function DashboardPage() {
               <div className="space-y-2">
                 {stats.recentBoxes.map((box) => {
                   const config = getBoxTypeConfig(box.boxType);
-                  const docStatusConfig = getDocStatusConfig(box.docStatus);
+                  const statusConfig = getBoxStatusConfig(box.status);
                   return (
                     <Link
                       key={box.id}
                       href={`/documents/${box.id}`}
                       className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
                     >
-                      <div className={`w-10 h-10 rounded-lg ${config.bgLight} flex items-center justify-center`}>
-                        <Package className={`h-5 w-5 ${config.iconColor}`} />
+                      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", config.bgLight)}>
+                        <Package className={cn("h-5 w-5", config.iconColor)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">{box.boxNumber}</span>
-                          <Badge variant="secondary" className={`text-xs ${docStatusConfig.className}`}>
-                            {docStatusConfig.label}
+                          <Badge variant="secondary" className={cn("text-xs", statusConfig.className)}>
+                            {statusConfig.labelShort}
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-500 truncate">

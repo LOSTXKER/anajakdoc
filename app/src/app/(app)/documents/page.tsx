@@ -41,6 +41,7 @@ async function getAllBoxes(orgId: string, userId: string) {
     exchangeRate: box.exchangeRate?.toNumber() ?? null,
     boxDate: box.boxDate.toISOString(),
     dueDate: box.dueDate?.toISOString() ?? null,
+    whtDueDate: box.whtDueDate?.toISOString() ?? null,
     exportedAt: box.exportedAt?.toISOString() ?? null,
     createdAt: box.createdAt.toISOString(),
     updatedAt: box.updatedAt.toISOString(),
@@ -63,12 +64,14 @@ async function getAllBoxes(orgId: string, userId: string) {
 }
 
 async function getStatusCounts(orgId: string, userId: string) {
-  const [myBoxes, pendingReview, needInfo, approved, exported, total, incomplete, complete] = await Promise.all([
+  const [myBoxes, submitted, inReview, needMoreDocs, readyToBook, whtPending, booked, total, incomplete, complete] = await Promise.all([
     prisma.box.count({ where: { organizationId: orgId, createdById: userId } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "PENDING_REVIEW" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "NEED_INFO" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "APPROVED" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "EXPORTED" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "SUBMITTED" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "IN_REVIEW" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "NEED_MORE_DOCS" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "READY_TO_BOOK" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "WHT_PENDING" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "BOOKED" } }),
     prisma.box.count({ where: { organizationId: orgId } }),
     prisma.box.count({ where: { organizationId: orgId, docStatus: "INCOMPLETE" } }),
     prisma.box.count({ where: { organizationId: orgId, docStatus: "COMPLETE" } }),
@@ -76,13 +79,20 @@ async function getStatusCounts(orgId: string, userId: string) {
 
   return {
     myBoxes,
-    pendingReview,
-    needInfo,
-    approved,
-    exported,
+    pendingReview: submitted + inReview, // Combined for backward compatibility
+    needInfo: needMoreDocs,
+    approved: readyToBook + whtPending,
+    exported: booked,
     total,
     incomplete,
     complete,
+    // New counts
+    submitted,
+    inReview,
+    needMoreDocs,
+    readyToBook,
+    whtPending,
+    booked,
   };
 }
 

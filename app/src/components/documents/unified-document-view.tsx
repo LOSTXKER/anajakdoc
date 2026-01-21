@@ -49,10 +49,10 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
   
   // Filter boxes by tab
   const myBoxes = boxes.filter(b => b.createdById === userId);
-  const pendingBoxes = boxes.filter(b => ["PENDING_REVIEW", "NEED_INFO"].includes(b.status));
+  const pendingBoxes = boxes.filter(b => ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"].includes(b.status));
   const incompleteBoxes = boxes.filter(b => b.docStatus === "INCOMPLETE");
-  const readyBoxes = boxes.filter(b => b.status === "APPROVED");
-  const doneBoxes = boxes.filter(b => ["EXPORTED"].includes(b.status));
+  const readyBoxes = boxes.filter(b => ["READY_TO_BOOK", "WHT_PENDING"].includes(b.status));
+  const doneBoxes = boxes.filter(b => ["BOOKED", "ARCHIVED", "LOCKED"].includes(b.status));
   
   const getBoxesForTab = (tab: TabValue) => {
     switch (tab) {
@@ -127,7 +127,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
       
       for (const id of selectedIds) {
         const box = boxes.find(b => b.id === id);
-        if (box && ["PENDING_REVIEW", "NEED_INFO"].includes(box.status)) {
+        if (box && ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"].includes(box.status)) {
           const result = await reviewBox(id, "approve");
           if (result.success) successCount++;
         }

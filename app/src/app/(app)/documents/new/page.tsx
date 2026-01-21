@@ -1,19 +1,8 @@
 import { requireOrganization } from "@/server/auth";
-import { getCategories, getContacts } from "@/server/queries/master-data";
 import { UploadFirstForm } from "@/components/documents/upload";
 
 export default async function NewDocumentPage() {
-  const session = await requireOrganization();
-  
-  const [categories, contacts] = await Promise.all([
-    getCategories(),
-    getContacts(),
-  ]);
+  await requireOrganization();
 
-  return (
-    <UploadFirstForm
-      categories={categories}
-      contacts={contacts}
-    />
-  );
+  return <UploadFirstForm />;
 }

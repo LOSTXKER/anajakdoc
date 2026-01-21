@@ -26,7 +26,7 @@ export async function bulkApproveBoxes(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.PENDING_REVIEW, BoxStatus.NEED_INFO] },
+      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW, BoxStatus.NEED_MORE_DOCS] },
     },
   });
 
@@ -44,7 +44,7 @@ export async function bulkApproveBoxes(
     await tx.box.updateMany({
       where: { id: { in: validIds } },
       data: {
-        status: BoxStatus.APPROVED,
+        status: BoxStatus.READY_TO_BOOK,
       },
     });
 
@@ -105,7 +105,7 @@ export async function bulkRejectBoxes(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.PENDING_REVIEW, BoxStatus.NEED_INFO] },
+      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW, BoxStatus.NEED_MORE_DOCS] },
     },
   });
 

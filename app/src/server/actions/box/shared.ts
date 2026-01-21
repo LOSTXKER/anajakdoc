@@ -11,8 +11,32 @@ export { calculateServerCompletionPercent, getAutoChecklistUpdates, determineDoc
 export { createAutoPaymentFromSlip, recalculateBoxPaymentStatus } from "../payment-helpers";
 
 // Re-export types
-export type { ApiResponse, BoxFilters, PaginatedResponse, BoxWithRelations, DocType } from "@/types";
-export { BoxStatus, DocStatus, PaymentStatus, ExpenseType } from "@prisma/client";
+export type { 
+  ApiResponse, 
+  BoxFilters, 
+  PaginatedResponse, 
+  BoxWithRelations, 
+  DocType,
+  TaskType,
+  TaskStatus,
+  VatDocStatus,
+  WhtDocStatus,
+  PaymentMode,
+  ReimbursementStatus,
+} from "@/types";
+
+export { 
+  BoxStatus, 
+  DocStatus, 
+  PaymentStatus, 
+  ExpenseType,
+  TaskType as TaskTypeEnum,
+  TaskStatus as TaskStatusEnum,
+  VatDocStatus as VatDocStatusEnum,
+  WhtDocStatus as WhtDocStatusEnum,
+  PaymentMode as PaymentModeEnum,
+  ReimbursementStatus as ReimbursementStatusEnum,
+} from "@prisma/client";
 
 // Re-export crypto for file hashing
 export { default as crypto } from "crypto";

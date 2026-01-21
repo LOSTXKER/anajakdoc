@@ -947,3 +947,10 @@ export { BoxSummaryCard } from "./BoxSummaryCard";
 export { DocumentProgress } from "./DocumentProgress";
 export { FileList } from "./FileList";
 export { TaxSummary } from "./TaxSummary";
+
+// New redesigned components
+export { BoxDetailSimple } from "./BoxDetailSimple";
+export { FullWidthProgress } from "./FullWidthProgress";
+export { BoxDetailsCard } from "./BoxDetailsCard";
+export { BoxSettingsDialog } from "./BoxSettingsDialog";
+export { SimpleFileList } from "./SimpleFileList";

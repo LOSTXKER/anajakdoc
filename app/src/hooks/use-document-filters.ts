@@ -13,13 +13,13 @@ interface FilterableBox {
 interface UseBoxFiltersResult<T extends FilterableBox> {
   /** Boxes created by current user */
   myBoxes: T[];
-  /** Boxes pending review (PENDING_REVIEW, NEED_INFO) */
+  /** Boxes pending review (SUBMITTED, IN_REVIEW, NEED_MORE_DOCS) */
   pendingBoxes: T[];
   /** Boxes with incomplete documents */
   incompleteBoxes: T[];
-  /** Boxes ready (APPROVED) */
+  /** Boxes ready (READY_TO_BOOK, WHT_PENDING) */
   readyBoxes: T[];
-  /** Completed boxes (EXPORTED) */
+  /** Completed boxes (BOOKED, ARCHIVED) */
   doneBoxes: T[];
   /** Draft boxes */
   draftBoxes: T[];
@@ -54,7 +54,7 @@ export function useBoxFilters<T extends FilterableBox>(
   const pendingBoxes = useMemo(
     () =>
       boxes.filter((b) =>
-        ["PENDING_REVIEW", "NEED_INFO"].includes(b.status)
+        ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"].includes(b.status)
       ),
     [boxes]
   );
@@ -65,12 +65,12 @@ export function useBoxFilters<T extends FilterableBox>(
   );
 
   const readyBoxes = useMemo(
-    () => boxes.filter((b) => b.status === "APPROVED"),
+    () => boxes.filter((b) => ["READY_TO_BOOK", "WHT_PENDING"].includes(b.status)),
     [boxes]
   );
 
   const doneBoxes = useMemo(
-    () => boxes.filter((b) => ["EXPORTED"].includes(b.status)),
+    () => boxes.filter((b) => ["BOOKED", "ARCHIVED", "LOCKED"].includes(b.status)),
     [boxes]
   );
 

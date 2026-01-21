@@ -32,32 +32,52 @@ import {
 } from "@/server/actions/notification";
 import type { NotificationType } from ".prisma/client";
 
-const notificationIcons: Record<NotificationType, typeof FileText> = {
+const notificationIcons: Partial<Record<NotificationType, typeof FileText>> = {
   BOX_SUBMITTED: FileText,
-  BOX_APPROVED: CheckCircle,
-  BOX_REJECTED: XCircle,
-  BOX_NEED_INFO: AlertCircle,
+  BOX_IN_REVIEW: FileText,
+  BOX_NEED_MORE_DOCS: AlertCircle,
+  BOX_READY_TO_BOOK: CheckCircle,
+  BOX_BOOKED: CheckCircle,
+  BOX_ARCHIVED: FileText,
+  BOX_CANCELLED: XCircle,
   DOCUMENT_ADDED: FileText,
+  TASK_ASSIGNED: AlertCircle,
+  TASK_REMINDER: Calendar,
+  TASK_ESCALATED: AlertCircle,
+  TASK_COMPLETED: CheckCircle,
   DUE_DATE_REMINDER: Calendar,
   DUE_DATE_OVERDUE: Calendar,
   WHT_PENDING: AlertCircle,
   WHT_OVERDUE: AlertCircle,
+  WHT_RECEIVED: CheckCircle,
   COMMENT_ADDED: MessageSquare,
   MEMBER_INVITED: UserPlus,
+  PERIOD_CLOSING: Calendar,
+  PERIOD_CLOSED: Calendar,
 };
 
-const notificationColors: Record<NotificationType, string> = {
+const notificationColors: Partial<Record<NotificationType, string>> = {
   BOX_SUBMITTED: "text-blue-500",
-  BOX_APPROVED: "text-green-500",
-  BOX_REJECTED: "text-red-500",
-  BOX_NEED_INFO: "text-orange-500",
+  BOX_IN_REVIEW: "text-blue-500",
+  BOX_NEED_MORE_DOCS: "text-orange-500",
+  BOX_READY_TO_BOOK: "text-green-500",
+  BOX_BOOKED: "text-teal-500",
+  BOX_ARCHIVED: "text-gray-500",
+  BOX_CANCELLED: "text-red-500",
   DOCUMENT_ADDED: "text-blue-400",
+  TASK_ASSIGNED: "text-purple-500",
+  TASK_REMINDER: "text-yellow-500",
+  TASK_ESCALATED: "text-red-500",
+  TASK_COMPLETED: "text-green-500",
   DUE_DATE_REMINDER: "text-yellow-500",
   DUE_DATE_OVERDUE: "text-red-500",
   WHT_PENDING: "text-orange-500",
   WHT_OVERDUE: "text-red-500",
+  WHT_RECEIVED: "text-green-500",
   COMMENT_ADDED: "text-purple-500",
   MEMBER_INVITED: "text-cyan-500",
+  PERIOD_CLOSING: "text-amber-500",
+  PERIOD_CLOSED: "text-violet-500",
 };
 
 export function NotificationBell() {

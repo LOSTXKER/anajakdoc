@@ -8,7 +8,7 @@ async function getExportableBoxes(orgId: string) {
   const boxes = await prisma.box.findMany({
     where: {
       organizationId: orgId,
-      status: "APPROVED",
+      status: { in: ["READY_TO_BOOK", "WHT_PENDING", "BOOKED"] },
     },
     include: {
       category: true,

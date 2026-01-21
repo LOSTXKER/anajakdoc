@@ -1,6 +1,6 @@
-// Document Hub - Database Schema
-// ระบบจัดการเอกสารบัญชี
-// Core Concept: 1 Box = 1 ธุรกรรม → หลาย Document → หลาย Files
+// Document Hub - Database Schema (V3)
+// ระบบจัดการเอกสารบัญชี - Case-based Accounting Workflow
+// Core Concept: 1 Box (Case) = 1 ธุรกรรม → หลาย Document → หลาย Files
 
 generator client {
   provider = "prisma-client-js"
@@ -39,6 +39,7 @@ model Organization {
   exportHistories ExportHistory[]
   savedFilters    SavedFilter[]
   notifications   Notification[]
+  bookingEntries  BookingEntry[]
 
   @@map("organizations")
 }
@@ -61,12 +62,15 @@ model User {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
-  memberships   OrganizationMember[]
-  boxes         Box[]            @relation("CreatedBy")
-  comments      Comment[]
-  activityLogs  ActivityLog[]
-  savedFilters  SavedFilter[]
-  notifications Notification[]
+  memberships      OrganizationMember[]
+  boxes            Box[]            @relation("CreatedBy")
+  comments         Comment[]
+  activityLogs     ActivityLog[]
+  savedFilters     SavedFilter[]
+  notifications    Notification[]
+  assignedTasks    Task[]           @relation("TaskAssignee")
+  vatVerifiedBoxes Box[]            @relation("VatVerifiedBy")
+  bookingEntries   BookingEntry[]   @relation("BookedBy")
 
   @@map("users")
 }
@@ -116,6 +120,12 @@ model Contact {
   isActive       Boolean       @default(true) @map("is_active")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // === Vendor Memory (Section 9) ===
+  defaultVatRequired Boolean   @default(false) @map("default_vat_required")
+  slaRating          Int?      @map("sla_rating")        // 1-5 จากประสบการณ์
+  avgResponseDays    Float?    @map("avg_response_days") // ค่าเฉลี่ยวันที่ส่งเอกสาร
+  lastUsedAt         DateTime? @map("last_used_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   boxes        Box[]
@@ -193,6 +203,7 @@ model FiscalPeriod {
   endDate        DateTime     @map("end_date")
   status         PeriodStatus @default(OPEN)
   closedAt       DateTime?    @map("closed_at")
+  closedById     String?      @map("closed_by_id")
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
@@ -210,8 +221,8 @@ enum PeriodStatus {
 }
 
 // ============================================
-// BOX (กล่องเอกสาร / Transaction)
-// 1 Box = 1 ธุรกรรม (รายจ่าย/รายรับ/ปรับปรุง)
+// BOX (กล่องเอกสาร / Case / Transaction)
+// 1 Box = 1 Case = 1 เหตุการณ์จ่ายเงินจริง
 // มีหลาย Document (เอกสารแต่ละประเภท)
 // ============================================
 
@@ -243,15 +254,34 @@ model Box {
   hasWht          Boolean       @default(false) @map("has_wht")
   whtRate         Decimal?      @map("wht_rate") @db.Decimal(5, 2)
   
-  // === Status ===
+  // === Main Status (Section 5.1) ===
   status          BoxStatus     @default(DRAFT)
   docStatus       DocStatus     @default(INCOMPLETE) @map("doc_status")
   paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
   
-  // === Flags ===
+  // === VAT Sub-status (Section 5.2) ===
   hasVat          Boolean       @default(true) @map("has_vat")        // คาดว่ามี VAT
-  noReceiptReason String?       @map("no_receipt_reason")             // ถ้าไม่มีเอกสาร
+  vatDocStatus    VatDocStatus  @default(MISSING) @map("vat_doc_status")
+  vatVerifiedAt   DateTime?     @map("vat_verified_at")
+  vatVerifiedById String?       @map("vat_verified_by_id")
+  
+  // === WHT Sub-status (Section 5.2) ===
+  whtDocStatus    WhtDocStatus  @default(MISSING) @map("wht_doc_status")
+  whtDueDate      DateTime?     @map("wht_due_date")
+  whtOverdue      Boolean       @default(false) @map("wht_overdue")
   whtSent         Boolean       @default(false) @map("wht_sent")      // ส่ง WHT ให้คู่ค้าแล้ว
+  
+  // === Duplicate Detection (Section 17) ===
+  possibleDuplicate  Boolean    @default(false) @map("possible_duplicate")
+  duplicateReason    String?    @map("duplicate_reason")
+  
+  // === Reimbursement Mode (Section 19) ===
+  paymentMode          PaymentMode          @default(COMPANY_PAID) @map("payment_mode")
+  reimbursementStatus  ReimbursementStatus? @map("reimbursement_status")
+  
+  // === Late Doc Flag (Section 12) ===
+  isLateDocs      Boolean       @default(false) @map("is_late_docs")
+  noReceiptReason String?       @map("no_receipt_reason")             // ถ้าไม่มีเอกสาร
   
   // === Foreign Currency ===
   foreignCurrency String?       @map("foreign_currency")  // USD, EUR
@@ -269,6 +299,7 @@ model Box {
   costCenterId    String?       @map("cost_center_id")
   fiscalPeriodId  String?       @map("fiscal_period_id")
   createdById     String        @map("created_by_id")
+  bookingEntryId  String?       @map("booking_entry_id")
   
   // === Linked (for refund/adjustment) ===
   linkedBoxId     String?       @map("linked_box_id")
@@ -276,22 +307,30 @@ model Box {
   linkedFrom      Box[]         @relation("LinkedBoxes")
   
   // === Timestamps ===
+  submittedAt     DateTime?     @map("submitted_at")
+  reviewedAt      DateTime?     @map("reviewed_at")
+  bookedAt        DateTime?     @map("booked_at")
   exportedAt      DateTime?     @map("exported_at")
+  archivedAt      DateTime?     @map("archived_at")
+  lockedAt        DateTime?     @map("locked_at")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contact       Contact?       @relation(fields: [contactId], references: [id])
-  category      Category?      @relation(fields: [categoryId], references: [id])
-  costCenter    CostCenter?    @relation(fields: [costCenterId], references: [id])
-  fiscalPeriod  FiscalPeriod?  @relation(fields: [fiscalPeriodId], references: [id])
-  createdBy     User           @relation("CreatedBy", fields: [createdById], references: [id])
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact        Contact?       @relation(fields: [contactId], references: [id])
+  category       Category?      @relation(fields: [categoryId], references: [id])
+  costCenter     CostCenter?    @relation(fields: [costCenterId], references: [id])
+  fiscalPeriod   FiscalPeriod?  @relation(fields: [fiscalPeriodId], references: [id])
+  createdBy      User           @relation("CreatedBy", fields: [createdById], references: [id])
+  vatVerifiedBy  User?          @relation("VatVerifiedBy", fields: [vatVerifiedById], references: [id])
+  bookingEntry   BookingEntry?  @relation(fields: [bookingEntryId], references: [id])
   
   // Child entities
   documents     Document[]     // เอกสารในกล่อง
   payments      Payment[]      // การจ่ายเงิน
   whtTrackings  WhtTracking[]  // WHT tracking
+  tasks         Task[]         // Task tracking (Section 6)
   comments      Comment[]
   activityLogs  ActivityLog[]
 
@@ -300,7 +339,10 @@ model Box {
   @@index([organizationId, boxDate])
   @@index([organizationId, boxType])
   @@index([organizationId, docStatus])
+  @@index([organizationId, whtOverdue])
+  @@index([organizationId, possibleDuplicate])
   @@index([contactId])
+  @@index([bookingEntryId])
   @@map("boxes")
 }
 
@@ -317,13 +359,35 @@ enum ExpenseType {
   FOREIGN       // จ่ายต่างประเทศ
 }
 
+// Main Status (Section 5.1)
 enum BoxStatus {
-  DRAFT           // แบบร่าง
-  PENDING_REVIEW  // รอตรวจ
-  NEED_INFO       // ขอข้อมูลเพิ่ม
-  APPROVED        // อนุมัติแล้ว
-  EXPORTED        // Export แล้ว
+  DRAFT           // สร้างไว้ยังไม่ส่ง
+  SUBMITTED       // ส่งเข้าคิวบัญชีแล้ว
+  IN_REVIEW       // บัญชีกำลังตรวจ
+  NEED_MORE_DOCS  // ขาดเอกสาร/ข้อมูล
+  READY_TO_BOOK   // ครบเงื่อนไขพร้อมลงบัญชี
+  WHT_PENDING     // ลงบัญชีได้ แต่ WHT ตามต่อ (Bookable)
+  BOOKED          // ลงบัญชีแล้ว
+  ARCHIVED        // ปิดงาน/เก็บ
+  LOCKED          // งวดปิดแล้ว ห้ามแก้
   CANCELLED       // ยกเลิก
+}
+
+// VAT Document Status (Section 5.2)
+enum VatDocStatus {
+  MISSING   // ยังไม่ได้รับ
+  RECEIVED  // ได้รับแล้ว
+  VERIFIED  // ตรวจสอบแล้ว
+  NA        // ไม่ต้องมี
+}
+
+// WHT Document Status (Section 5.2)
+enum WhtDocStatus {
+  MISSING       // ยังไม่ได้รับ
+  REQUEST_SENT  // ส่งคำขอแล้ว
+  RECEIVED      // ได้รับแล้ว
+  VERIFIED      // ตรวจสอบแล้ว
+  NA            // ไม่ต้องมี
 }
 
 enum DocStatus {
@@ -338,6 +402,106 @@ enum PaymentStatus {
   PAID      // จ่ายครบ
   OVERPAID  // จ่ายเกิน
   REFUNDED  // ได้คืนแล้ว
+}
+
+// Payment Mode (Section 19)
+enum PaymentMode {
+  COMPANY_PAID      // บริษัทจ่าย
+  EMPLOYEE_ADVANCE  // พนักงานสำรองจ่าย
+}
+
+// Reimbursement Status (Section 19)
+enum ReimbursementStatus {
+  NONE        // ไม่ต้องคืน
+  PENDING     // รอคืนเงิน
+  REIMBURSED  // คืนเงินแล้ว
+}
+
+// ============================================
+// TASK (ระบบทวงเอกสาร - Section 6)
+// ============================================
+
+model Task {
+  id              String     @id @default(cuid())
+  boxId           String     @map("box_id")
+  organizationId  String     @map("organization_id")
+  
+  taskType        TaskType   @map("task_type")
+  status          TaskStatus @default(OPEN)
+  title           String
+  description     String?
+  
+  dueDate         DateTime?  @map("due_date")
+  assigneeId      String?    @map("assignee_id")
+  
+  // === Reminder & Escalation (Section 7) ===
+  reminderCount   Int        @default(0) @map("reminder_count")
+  lastReminderAt  DateTime?  @map("last_reminder_at")
+  escalatedAt     DateTime?  @map("escalated_at")
+  escalationLevel Int        @default(0) @map("escalation_level") // 0=none, 1=amber, 2=red
+  
+  completedAt     DateTime?  @map("completed_at")
+  completedById   String?    @map("completed_by_id")
+  cancelledAt     DateTime?  @map("cancelled_at")
+  cancelReason    String?    @map("cancel_reason")
+  
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  box       Box   @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  assignee  User? @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([boxId])
+  @@index([organizationId, status])
+  @@index([organizationId, dueDate])
+  @@index([assigneeId])
+  @@map("tasks")
+}
+
+enum TaskType {
+  VAT_INVOICE     // ขอ/รับ/verify ใบกำกับภาษี
+  WHT_CERTIFICATE // ขอ/รับ/verify หนังสือรับรองหัก ณ ที่จ่าย
+  GENERAL_DOC     // ขอใบเสร็จ/เอกสารอื่น
+  FOLLOW_UP       // ติดตามทั่วไป
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+// ============================================
+// BOOKING ENTRY (Section 8)
+// 1 Entry = 1 รายการที่ส่งออกไปลงบัญชี
+// 1 Entry สามารถ link ได้หลาย Box (Merge/Link)
+// ============================================
+
+model BookingEntry {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  
+  entryNumber     String   @map("entry_number")  // ENTRY-YYYYMM-XXXX
+  description     String?
+  totalAmount     Decimal  @default(0) @db.Decimal(15, 2) @map("total_amount")
+  
+  bookedAt        DateTime @map("booked_at")
+  bookedById      String   @map("booked_by_id")
+  
+  exportedAt      DateTime? @map("exported_at")
+  exportProfile   String?   @map("export_profile") // PEAK, FlowAccount, Express, Generic
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookedBy     User         @relation("BookedBy", fields: [bookedById], references: [id])
+  boxes        Box[]
+
+  @@unique([organizationId, entryNumber])
+  @@index([organizationId, bookedAt])
+  @@map("booking_entries")
 }
 
 // ============================================
@@ -369,6 +533,9 @@ model Document {
   // === AI Extracted ===
   aiExtracted  Json?      @map("ai_extracted")   // ข้อมูลที่ AI อ่านได้
   aiConfidence Float?     @map("ai_confidence")  // ความมั่นใจ 0-1
+  
+  // === Late Doc Flag ===
+  isLateDocs   Boolean    @default(false) @map("is_late_docs")
   
   // === Timestamps ===
   createdAt   DateTime   @default(now()) @map("created_at")
@@ -440,7 +607,7 @@ model DocumentFile {
   fileUrl     String   @map("file_url")
   fileSize    Int      @map("file_size")
   mimeType    String   @map("mime_type")
-  checksum    String?  // MD5 for duplicate detection
+  checksum    String?  // MD5/SHA256 for duplicate detection
   pageOrder   Int      @default(1) @map("page_order")
   
   createdAt   DateTime @default(now()) @map("created_at")
@@ -504,6 +671,10 @@ model WhtTracking {
   sentMethod      WhtSentMethod? @map("sent_method")
   receivedDate    DateTime?   @map("received_date")
   
+  // Due date for tracking (Section 10)
+  dueDate         DateTime?   @map("due_date")
+  isOverdue       Boolean     @default(false) @map("is_overdue")
+  
   // Link to WHT document
   documentId      String?     @map("document_id")
   
@@ -519,6 +690,7 @@ model WhtTracking {
 
   @@index([boxId])
   @@index([status])
+  @@index([isOverdue])
   @@map("wht_trackings")
 }
 
@@ -584,6 +756,7 @@ model ExportHistory {
   id             String     @id @default(cuid())
   organizationId String     @map("organization_id")
   exportType     ExportType @map("export_type")
+  exportProfile  String?    @map("export_profile") // PEAK, FlowAccount, Express, Generic
   fileName       String     @map("file_name")
   fileUrl        String?    @map("file_url")
   boxIds         String[]   @map("box_ids")
@@ -599,6 +772,8 @@ model ExportHistory {
 enum ExportType {
   EXCEL_GENERIC
   EXCEL_PEAK
+  EXCEL_FLOWACCOUNT
+  EXCEL_EXPRESS
   CSV
   ZIP
 }
@@ -649,15 +824,36 @@ model Notification {
 }
 
 enum NotificationType {
+  // Box Status
   BOX_SUBMITTED       // กล่องใหม่รอตรวจ
-  BOX_APPROVED        // กล่องถูก approve
-  BOX_REJECTED        // กล่องถูกปฏิเสธ
-  BOX_NEED_INFO       // ขอข้อมูลเพิ่ม
+  BOX_IN_REVIEW       // กล่องกำลังตรวจ
+  BOX_NEED_MORE_DOCS  // ขอเอกสารเพิ่ม
+  BOX_READY_TO_BOOK   // พร้อมลงบัญชี
+  BOX_BOOKED          // ลงบัญชีแล้ว
+  BOX_ARCHIVED        // ปิดงานแล้ว
+  BOX_CANCELLED       // ยกเลิกแล้ว
+  
+  // Documents
   DOCUMENT_ADDED      // มีเอกสารใหม่ในกล่อง
+  
+  // Tasks & Reminders (Section 7)
+  TASK_ASSIGNED       // ได้รับ task ใหม่
+  TASK_REMINDER       // เตือน task
+  TASK_ESCALATED      // Escalate task
+  TASK_COMPLETED      // task เสร็จแล้ว
+  
+  // Due Dates
   DUE_DATE_REMINDER   // ใกล้ครบกำหนด
   DUE_DATE_OVERDUE    // เกินกำหนด
+  
+  // WHT
   WHT_PENDING         // WHT รอส่ง
   WHT_OVERDUE         // WHT เกินกำหนด
+  WHT_RECEIVED        // ได้รับ WHT กลับ
+  
+  // Others
   COMMENT_ADDED       // มี comment ใหม่
   MEMBER_INVITED      // ถูกเชิญเข้าองค์กร
+  PERIOD_CLOSING      // งวดกำลังจะปิด
+  PERIOD_CLOSED       // งวดปิดแล้ว
 }

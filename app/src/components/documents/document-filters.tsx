@@ -22,11 +22,14 @@ interface DocumentFiltersProps {
 const statusOptions = [
   { value: "all", label: "ทุกสถานะ" },
   { value: "DRAFT", label: "แบบร่าง" },
-  { value: "PENDING_REVIEW", label: "รอตรวจ" },
-  { value: "NEED_INFO", label: "ขอข้อมูลเพิ่ม" },
-  { value: "READY_TO_EXPORT", label: "พร้อม Export" },
-  { value: "EXPORTED", label: "Export แล้ว" },
-  { value: "BOOKED", label: "บันทึกแล้ว" },
+  { value: "SUBMITTED", label: "ส่งแล้ว" },
+  { value: "IN_REVIEW", label: "กำลังตรวจ" },
+  { value: "NEED_MORE_DOCS", label: "ขอเอกสารเพิ่ม" },
+  { value: "READY_TO_BOOK", label: "พร้อมลงบัญชี" },
+  { value: "WHT_PENDING", label: "รอ WHT" },
+  { value: "BOOKED", label: "ลงบัญชีแล้ว" },
+  { value: "ARCHIVED", label: "เก็บแล้ว" },
+  { value: "CANCELLED", label: "ยกเลิก" },
 ];
 
 const typeOptions = [

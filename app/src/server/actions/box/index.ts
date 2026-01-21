@@ -8,10 +8,31 @@ export { getBoxes, getBox, searchBoxes, getPendingBoxes } from "./query";
 export { createBox, generateBoxNumber, handleFileUploads } from "./create";
 
 // Update operations
-export { updateBox } from "./update";
+export { 
+  updateBox, 
+  updateBoxData,
+  updateVatStatus,
+  updateWhtStatus,
+  markDuplicate,
+  updateReimbursementStatus,
+} from "./update";
 
-// Review operations
-export { submitBox, reviewBox } from "./review";
+// Review/Status operations
+export { 
+  submitBox, 
+  reviewBox,
+  changeBoxStatus,
+  getAvailableTransitions,
+  startReview,
+  requestMoreDocs,
+  markReadyToBook,
+  markWhtPending,
+  bookBox,
+  archiveBox,
+  lockBox,
+  cancelBox,
+  batchChangeStatus,
+} from "./review";
 
 // Delete operations
 export { deleteBox } from "./delete";
@@ -21,3 +42,9 @@ export { toggleChecklistItem, enableWht, recalculateBoxChecklist } from "./check
 
 // File operations
 export { addFileToBox, deleteBoxFile } from "./files";
+
+// Tax operations
+export { calculateTax, updateBoxTax } from "./tax";
+
+// AI Read operations
+export { aiReadDocument } from "./ai-read";

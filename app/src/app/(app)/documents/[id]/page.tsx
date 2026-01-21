@@ -29,10 +29,10 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
   // Determine permissions
   const canEdit = ["OWNER", "ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
-    ["DRAFT", "NEED_INFO"].includes(box.status);
+    ["DRAFT", "NEED_MORE_DOCS", "SUBMITTED"].includes(box.status);
   const canSend = ["OWNER", "ADMIN", "STAFF"].includes(userRole) && box.status === "DRAFT";
   const canReview = ["OWNER", "ADMIN", "ACCOUNTING"].includes(userRole) && 
-    ["PENDING_REVIEW", "NEED_INFO"].includes(box.status);
+    ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"].includes(box.status);
   // Can delete: only DRAFT boxes, and only owner/admin or the creator
   const canDelete = box.status === "DRAFT" && (
     ["OWNER", "ADMIN"].includes(userRole) || 

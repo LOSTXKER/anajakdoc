@@ -6,10 +6,10 @@ import {
   Check,
   FileCheck,
   Receipt,
-  Banknote,
-  Globe,
-  Layers,
   Percent,
+  CreditCard,
+  CalendarClock,
+  Info,
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ContactInput, type ContactOption } from "@/components/documents/contact-input";
 import { cn } from "@/lib/utils";
-import type { Category } from ".prisma/client";
 import type { BoxType, ExpenseType } from "@/types";
 
 // WHT rate options
@@ -36,7 +34,7 @@ const WHT_RATE_OPTIONS = [
   { value: "5", label: "5% - ค่าเช่า" },
 ];
 
-// Expense type cards for visual selection
+// Expense type cards for visual selection (Simple: only STANDARD and NO_VAT)
 const EXPENSE_TYPE_CARDS: { 
   value: ExpenseType; 
   label: string; 
@@ -61,22 +59,6 @@ const EXPENSE_TYPE_CARDS: {
     iconBg: "bg-slate-100",
     iconColor: "text-slate-600",
   },
-  { 
-    value: "PETTY_CASH", 
-    label: "เบิกเงินสดย่อย", 
-    description: "ค่าใช้จ่ายเล็กน้อย", 
-    icon: Banknote,
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
-  },
-  { 
-    value: "FOREIGN", 
-    label: "จ่ายต่างประเทศ", 
-    description: "สกุลเงินอื่น เช่น USD", 
-    icon: Globe,
-    iconBg: "bg-indigo-100",
-    iconColor: "text-indigo-600",
-  },
 ];
 
 interface BoxInfoFormProps {
@@ -89,30 +71,17 @@ interface BoxInfoFormProps {
   setHasWht: (v: boolean) => void;
   whtRate: string;
   setWhtRate: (v: string) => void;
-  slipAmount: string;
-  categories: Category[];
-  contacts: ContactOption[];
   // Form state
   boxDate: string;
   setBoxDate: (v: string) => void;
   amount: string;
   setAmount: (v: string) => void;
-  contactName: string;
-  selectedContactId: string;
-  onContactChange: (value: string, contactId?: string) => void;
-  onContactCreated: (contact: ContactOption) => void;
-  categoryId: string;
-  setCategoryId: (v: string) => void;
   title: string;
   setTitle: (v: string) => void;
   description: string;
   setDescription: (v: string) => void;
   notes: string;
   setNotes: (v: string) => void;
-  // Status
-  analyzedCount: number;
-  hasSlipOnly: boolean;
-  hasTaxInvoice: boolean;
 }
 
 export function BoxInfoForm({
@@ -125,33 +94,17 @@ export function BoxInfoForm({
   setHasWht,
   whtRate,
   setWhtRate,
-  slipAmount,
-  categories,
-  contacts,
   boxDate,
   setBoxDate,
   amount,
   setAmount,
-  contactName,
-  onContactChange,
-  onContactCreated,
-  categoryId,
-  setCategoryId,
   title,
   setTitle,
   description,
   setDescription,
   notes,
   setNotes,
-  analyzedCount,
-  hasSlipOnly,
-  hasTaxInvoice,
 }: BoxInfoFormProps) {
-  // Filtered categories based on box type
-  const filteredCategories = categories.filter(
-    c => c.categoryType === (boxType === "EXPENSE" ? "EXPENSE" : "INCOME")
-  );
-
   return (
     <div className="rounded-xl border bg-white overflow-hidden">
       <div className="px-5 py-4 border-b">
@@ -161,9 +114,7 @@ export function BoxInfoForm({
           </div>
           <div>
             <h3 className="font-semibold text-gray-900">ข้อมูลกล่อง</h3>
-            <p className="text-sm text-gray-500">
-              {analyzedCount > 0 ? "AI กรอกให้แล้ว ตรวจสอบและแก้ไขได้" : "กรอกข้อมูลพื้นฐาน"}
-            </p>
+            <p className="text-sm text-gray-500">กรอกข้อมูลพื้นฐาน</p>
           </div>
         </div>
       </div>
@@ -224,122 +175,147 @@ export function BoxInfoForm({
                 );
               })}
             </div>
-            
-            {/* Payment type selection */}
-            <div className="mt-4 pt-4 border-t">
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">การชำระเงิน</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {/* Single payment */}
-                <button
-                  type="button"
-                  onClick={() => setIsMultiPayment(false)}
-                  className={cn(
-                    "flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all",
-                    !isMultiPayment
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  )}
-                >
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                    !isMultiPayment ? "bg-primary/10" : "bg-gray-100"
-                  )}>
-                    <Check className={cn(
-                      "h-4 w-4",
-                      !isMultiPayment ? "text-primary" : "text-gray-400"
-                    )} />
-                  </div>
-                  <div className="min-w-0">
-                    <span className={cn(
-                      "block font-medium text-sm",
-                      !isMultiPayment ? "text-primary" : "text-gray-700"
-                    )}>
-                      จ่ายครั้งเดียว
-                    </span>
-                    <span className="block text-xs text-gray-500">
-                      จบในสลิปเดียว
-                    </span>
-                  </div>
-                </button>
 
-                {/* Multi payment */}
-                <button
-                  type="button"
-                  onClick={() => setIsMultiPayment(true)}
-                  className={cn(
-                    "flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all",
-                    isMultiPayment
-                      ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  )}
-                >
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                    isMultiPayment ? "bg-amber-100" : "bg-gray-100"
-                  )}>
-                    <Layers className={cn(
-                      "h-4 w-4",
-                      isMultiPayment ? "text-amber-600" : "text-gray-400"
-                    )} />
+            {/* WHT (หัก ณ ที่จ่าย) - only show when STANDARD (has tax invoice) */}
+            {expenseType === "STANDARD" && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50/50">
+                  <Checkbox
+                    id="hasWht"
+                    checked={hasWht}
+                    onCheckedChange={(checked) => setHasWht(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="hasWht" className="block font-medium text-sm text-gray-900 cursor-pointer">
+                      มีหัก ณ ที่จ่าย (WHT)
+                    </label>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      เลือกถ้ารายการนี้ต้องออกหนังสือรับรองหัก ณ ที่จ่าย
+                    </p>
+                    
+                    {/* Rate selector - show when hasWht is true */}
+                    {hasWht && (
+                      <div className="mt-3">
+                        <Label className="text-xs text-gray-600">อัตราหัก ณ ที่จ่าย</Label>
+                        <Select value={whtRate} onValueChange={setWhtRate}>
+                          <SelectTrigger className="mt-1 h-9">
+                            <SelectValue placeholder="เลือกอัตรา..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {WHT_RATE_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                <div className="flex items-center gap-2">
+                                  <Percent className="h-3 w-3 text-purple-500" />
+                                  <span>{opt.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
-                  <div className="min-w-0">
-                    <span className={cn(
-                      "block font-medium text-sm",
-                      isMultiPayment ? "text-amber-700" : "text-gray-700"
-                    )}>
-                      จ่ายหลายงวด
-                    </span>
-                    <span className="block text-xs text-gray-500">
-                      แบ่งจ่ายหลายครั้ง
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* WHT (หัก ณ ที่จ่าย) */}
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50/50">
-                <Checkbox
-                  id="hasWht"
-                  checked={hasWht}
-                  onCheckedChange={(checked) => setHasWht(checked === true)}
-                  className="mt-0.5"
-                />
-                <div className="flex-1">
-                  <label htmlFor="hasWht" className="block font-medium text-sm text-gray-900 cursor-pointer">
-                    มีหัก ณ ที่จ่าย (WHT)
-                  </label>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    เลือกถ้ารายการนี้ต้องออกหนังสือรับรองหัก ณ ที่จ่าย
-                  </p>
-                  
-                  {/* Rate selector - show when hasWht is true */}
-                  {hasWht && (
-                    <div className="mt-3">
-                      <Label className="text-xs text-gray-600">อัตราหัก ณ ที่จ่าย</Label>
-                      <Select value={whtRate} onValueChange={setWhtRate}>
-                        <SelectTrigger className="mt-1 h-9">
-                          <SelectValue placeholder="เลือกอัตรา..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {WHT_RATE_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              <div className="flex items-center gap-2">
-                                <Percent className="h-3 w-3 text-purple-500" />
-                                <span>{opt.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
+
+        {/* Payment Type Selection */}
+        <div className="space-y-3">
+          <Label className="text-base font-medium">รูปแบบการชำระ</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {/* Single payment */}
+            <button
+              type="button"
+              onClick={() => setIsMultiPayment(false)}
+              className={cn(
+                "relative flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all",
+                "hover:border-primary/50 hover:bg-primary/5",
+                !isMultiPayment
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  : "border-gray-200 bg-white"
+              )}
+            >
+              {!isMultiPayment && (
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className={cn(
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                !isMultiPayment ? "bg-primary/10" : "bg-emerald-100"
+              )}>
+                <CreditCard className={cn(
+                  "h-5 w-5",
+                  !isMultiPayment ? "text-primary" : "text-emerald-600"
+                )} />
+              </div>
+              <div className="min-w-0 pr-4">
+                <span className={cn(
+                  "block font-medium text-sm",
+                  !isMultiPayment ? "text-primary" : "text-gray-900"
+                )}>
+                  จ่ายครั้งเดียว
+                </span>
+                <span className="block text-xs text-gray-500">
+                  จบในครั้งเดียว
+                </span>
+              </div>
+            </button>
+
+            {/* Multi payment */}
+            <button
+              type="button"
+              onClick={() => setIsMultiPayment(true)}
+              className={cn(
+                "relative flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all",
+                "hover:border-amber-400 hover:bg-amber-50",
+                isMultiPayment
+                  ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200"
+                  : "border-gray-200 bg-white"
+              )}
+            >
+              {isMultiPayment && (
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className={cn(
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                isMultiPayment ? "bg-amber-100" : "bg-amber-100"
+              )}>
+                <CalendarClock className={cn(
+                  "h-5 w-5",
+                  isMultiPayment ? "text-amber-600" : "text-amber-600"
+                )} />
+              </div>
+              <div className="min-w-0 pr-4">
+                <span className={cn(
+                  "block font-medium text-sm",
+                  isMultiPayment ? "text-amber-700" : "text-gray-900"
+                )}>
+                  แบ่งจ่ายหลายงวด
+                </span>
+                <span className="block text-xs text-gray-500">
+                  บัญชีติดตามยอดค้าง
+                </span>
+              </div>
+            </button>
+          </div>
+          
+          {/* Info note for multi-payment */}
+          {isMultiPayment && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                กรุณากรอก<strong>ยอดรวมทั้งหมด</strong>ของรายการนี้ (ไม่ใช่ยอดงวดแรก) 
+                เพื่อให้บัญชีติดตามยอดค้างชำระได้ถูกต้อง
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Title */}
         <div className="space-y-2">
@@ -369,73 +345,35 @@ export function BoxInfoForm({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>
-              {isMultiPayment ? "ยอดรวมทั้งหมด *" : `ยอดเงิน ${hasTaxInvoice ? "*" : ""}`}
+              {isMultiPayment ? "ยอดรวมทั้งหมด *" : "ยอดเงิน"}
             </Label>
-            {hasSlipOnly && !isMultiPayment && (
-              <span className="text-xs text-amber-600">รอใบกำกับ</span>
+            {isMultiPayment && (
+              <span className="text-xs text-amber-600 font-medium">
+                ยอดคำสั่งซื้อทั้งหมด
+              </span>
             )}
           </div>
-          
-          {/* Show slip amount reference when multi-payment */}
-          {isMultiPayment && slipAmount && (
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-sm">
-              <Layers className="h-4 w-4 text-amber-600 shrink-0" />
-              <span className="text-amber-700">
-                ยอดจากสลิป (งวดแรก): <strong>฿{parseFloat(slipAmount).toLocaleString()}</strong>
-              </span>
-            </div>
-          )}
-          
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">฿</span>
             <Input
               type="number"
               step="0.01"
               min="0"
-              className="pl-8"
-              placeholder={isMultiPayment ? "กรอกยอดรวมทั้งหมด" : (hasSlipOnly ? "รอข้อมูลจากใบกำกับ" : "0.00")}
+              className={cn(
+                "pl-8",
+                isMultiPayment && "border-amber-300 focus:border-amber-500 focus:ring-amber-500"
+              )}
+              placeholder={isMultiPayment ? "กรอกยอดรวมทั้งหมด" : "0.00"}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required={isMultiPayment}
             />
           </div>
-          
-          {isMultiPayment && (
-            <p className="text-xs text-gray-500">
-              กรอกยอดรวมที่ต้องจ่ายทั้งหมด ไม่ใช่ยอดงวดแรก
+          {isMultiPayment && !amount && (
+            <p className="text-xs text-amber-600">
+              * กรุณากรอกยอดรวมที่ต้องจ่ายทั้งหมด
             </p>
           )}
-        </div>
-
-        {/* Contact */}
-        <div className="space-y-2">
-          <Label>{boxType === "EXPENSE" ? "ผู้ติดต่อ / ร้านค้า" : "ลูกค้า"}</Label>
-          <ContactInput
-            value={contactName}
-            onChange={onContactChange}
-            contacts={contacts}
-            placeholder="พิมพ์ชื่อหรือเลือกจากรายชื่อ..."
-            defaultRole={boxType === "EXPENSE" ? "VENDOR" : "CUSTOMER"}
-            onContactCreated={onContactCreated}
-          />
-        </div>
-
-        {/* Category */}
-        <div className="space-y-2">
-          <Label>หมวดหมู่</Label>
-          <Select value={categoryId || "__none__"} onValueChange={(v) => setCategoryId(v === "__none__" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="เลือกหมวดหมู่ (ถ้ามี)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">ไม่ระบุ</SelectItem>
-              {filteredCategories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Description */}

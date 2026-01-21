@@ -1,50 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BoxInfoForm } from "../BoxInfoForm";
-import type { Category } from ".prisma/client";
-
-// Mock contact-input component
-vi.mock("@/components/documents/contact-input", () => ({
-  ContactInput: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <input
-      data-testid="contact-input"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-}));
-
-const mockCategories: Category[] = [
-  {
-    id: "cat-1",
-    organizationId: "org-1",
-    name: "ค่าบริการ",
-    categoryType: "EXPENSE",
-    whtRate: 3,
-    description: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "cat-2",
-    organizationId: "org-1",
-    name: "รายได้จากบริการ",
-    categoryType: "INCOME",
-    whtRate: null,
-    description: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
-const mockContacts = [
-  {
-    id: "contact-1",
-    name: "Test Vendor",
-    taxId: "1234567890123",
-    contactType: "COMPANY" as const,
-  },
-];
 
 const defaultProps = {
   boxType: "EXPENSE" as const,
@@ -56,28 +12,16 @@ const defaultProps = {
   setHasWht: vi.fn(),
   whtRate: "3",
   setWhtRate: vi.fn(),
-  slipAmount: "",
-  categories: mockCategories,
-  contacts: mockContacts,
   boxDate: "2026-01-21",
   setBoxDate: vi.fn(),
   amount: "",
   setAmount: vi.fn(),
-  contactName: "",
-  selectedContactId: "",
-  onContactChange: vi.fn(),
-  onContactCreated: vi.fn(),
-  categoryId: "",
-  setCategoryId: vi.fn(),
   title: "",
   setTitle: vi.fn(),
   description: "",
   setDescription: vi.fn(),
   notes: "",
   setNotes: vi.fn(),
-  analyzedCount: 0,
-  hasSlipOnly: false,
-  hasTaxInvoice: false,
 };
 
 describe("BoxInfoForm", () => {
@@ -92,7 +36,7 @@ describe("BoxInfoForm", () => {
     it("should render expense type cards for EXPENSE box", () => {
       render(<BoxInfoForm {...defaultProps} boxType="EXPENSE" />);
       
-      // Check for expense type buttons
+      // Check for expense type buttons (STANDARD and NO_VAT)
       const buttons = screen.getAllByRole("button");
       expect(buttons.length).toBeGreaterThan(0);
     });
@@ -129,16 +73,23 @@ describe("BoxInfoForm", () => {
   });
 
   describe("WHT Section", () => {
-    it("should render WHT checkbox", () => {
-      render(<BoxInfoForm {...defaultProps} boxType="EXPENSE" />);
+    it("should render WHT checkbox only when expenseType is STANDARD", () => {
+      render(<BoxInfoForm {...defaultProps} boxType="EXPENSE" expenseType="STANDARD" />);
       
       const checkbox = screen.getByRole("checkbox");
       expect(checkbox).toBeInTheDocument();
     });
 
+    it("should NOT render WHT checkbox when expenseType is NO_VAT", () => {
+      render(<BoxInfoForm {...defaultProps} boxType="EXPENSE" expenseType="NO_VAT" />);
+      
+      const checkboxes = screen.queryAllByRole("checkbox");
+      expect(checkboxes.length).toBe(0);
+    });
+
     it("should call setHasWht when checkbox is clicked", () => {
       const setHasWht = vi.fn();
-      render(<BoxInfoForm {...defaultProps} setHasWht={setHasWht} />);
+      render(<BoxInfoForm {...defaultProps} setHasWht={setHasWht} expenseType="STANDARD" />);
       
       const checkbox = screen.getByRole("checkbox");
       fireEvent.click(checkbox);
@@ -146,41 +97,12 @@ describe("BoxInfoForm", () => {
       expect(setHasWht).toHaveBeenCalledWith(true);
     });
 
-    it("should show more comboboxes when hasWht is true", () => {
-      render(<BoxInfoForm {...defaultProps} hasWht={true} />);
+    it("should show WHT rate combobox when hasWht is true", () => {
+      render(<BoxInfoForm {...defaultProps} hasWht={true} expenseType="STANDARD" />);
       
-      // Should have comboboxes for category and rate
+      // Should have combobox for rate
       const comboboxes = screen.getAllByRole("combobox");
-      expect(comboboxes.length).toBeGreaterThan(1);
-    });
-
-    it("should have category select when hasWht is false", () => {
-      render(<BoxInfoForm {...defaultProps} hasWht={false} />);
-      
-      // Should have at least category select
-      const comboboxes = screen.getAllByRole("combobox");
-      expect(comboboxes.length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
-  describe("Multi-Payment Section", () => {
-    it("should render payment option buttons for EXPENSE", () => {
-      render(<BoxInfoForm {...defaultProps} boxType="EXPENSE" />);
-      
-      const buttons = screen.getAllByRole("button");
-      expect(buttons.length).toBeGreaterThan(0);
-    });
-
-    it("should call setIsMultiPayment when multi-payment button is clicked", () => {
-      const setIsMultiPayment = vi.fn();
-      render(<BoxInfoForm {...defaultProps} setIsMultiPayment={setIsMultiPayment} />);
-      
-      // Find all buttons and click the second one (multi-payment)
-      const buttons = screen.getAllByRole("button");
-      // Multi-payment should be second button in payment type section
-      if (buttons.length > 3) {
-        fireEvent.click(buttons[3]); // Adjust index as needed
-      }
+      expect(comboboxes.length).toBeGreaterThan(0);
     });
   });
 
@@ -238,28 +160,34 @@ describe("BoxInfoForm", () => {
     });
   });
 
-  describe("Slip Only Warning", () => {
-    it("should show slip amount reference when multi-payment and has slip amount", () => {
-      render(
-        <BoxInfoForm 
-          {...defaultProps} 
-          isMultiPayment={true}
-          slipAmount="5000"
-        />
-      );
+  describe("Payment Type Selection", () => {
+    it("should render payment type buttons", () => {
+      render(<BoxInfoForm {...defaultProps} />);
       
-      // Check that slip amount is displayed somewhere
-      expect(screen.getByText(/5,000/)).toBeInTheDocument();
+      // Should have multiple buttons including payment type
+      const buttons = screen.getAllByRole("button");
+      expect(buttons.length).toBeGreaterThanOrEqual(4); // expense types + payment types
     });
-  });
 
-  describe("Categories", () => {
-    it("should render category select", () => {
-      render(<BoxInfoForm {...defaultProps} boxType="EXPENSE" />);
+    it("should call setIsMultiPayment when multi-payment is clicked", () => {
+      const setIsMultiPayment = vi.fn();
+      render(<BoxInfoForm {...defaultProps} setIsMultiPayment={setIsMultiPayment} />);
       
-      // Should have combobox for category
-      const combobox = screen.getAllByRole("combobox");
-      expect(combobox.length).toBeGreaterThan(0);
+      // Find all buttons - payment type buttons are after expense type buttons
+      const buttons = screen.getAllByRole("button");
+      // Click on multi-payment button (usually the 4th button - after 2 expense types and single payment)
+      const multiPaymentButton = buttons.find(btn => btn.textContent?.includes("แบ่งจ่ายหลายงวด"));
+      if (multiPaymentButton) {
+        fireEvent.click(multiPaymentButton);
+        expect(setIsMultiPayment).toHaveBeenCalledWith(true);
+      }
+    });
+
+    it("should show info message when multi-payment is selected", () => {
+      render(<BoxInfoForm {...defaultProps} isMultiPayment={true} />);
+      
+      // Should show info about total amount
+      expect(screen.getByText(/ยอดรวมทั้งหมด/)).toBeInTheDocument();
     });
   });
 });
