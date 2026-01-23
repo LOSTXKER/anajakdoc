@@ -48,14 +48,14 @@ export function BoxMatchPanel({
 
   if (matches.length === 0) {
     return (
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">AI แนะนำ</h3>
-            <p className="text-sm text-gray-500">{reason}</p>
+            <h3 className="font-semibold text-foreground">AI แนะนำ</h3>
+            <p className="text-sm text-muted-foreground">{reason}</p>
           </div>
         </div>
 
@@ -68,7 +68,7 @@ export function BoxMatchPanel({
   }
 
   return (
-    <div className="rounded-xl border bg-white overflow-hidden">
+    <div className="rounded-xl border bg-card overflow-hidden">
       {/* Header */}
       <div className="px-5 py-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
         <div className="flex items-center gap-3">
@@ -76,8 +76,8 @@ export function BoxMatchPanel({
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">AI พบกล่องที่อาจตรงกัน</h3>
-            <p className="text-sm text-gray-500">{reason}</p>
+            <h3 className="font-semibold text-foreground">AI พบกล่องที่อาจตรงกัน</h3>
+            <p className="text-sm text-muted-foreground">{reason}</p>
           </div>
         </div>
       </div>
@@ -114,17 +114,17 @@ export function BoxMatchPanel({
               {/* Box info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-foreground">
                     {match.docNumber}
                   </span>
                   <span
                     className={cn(
                       "text-xs px-1.5 py-0.5 rounded font-medium",
                       match.matchScore >= 70
-                        ? "bg-green-100 text-green-700"
+                        ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400"
                         : match.matchScore >= 50
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-gray-100 text-gray-700"
+                        ? "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400"
+                        : "bg-muted text-muted-foreground"
                     )}
                   >
                     {match.matchScore}% match
@@ -132,7 +132,7 @@ export function BoxMatchPanel({
                 </div>
 
                 {match.contactName && (
-                  <p className="text-sm text-gray-600 truncate">
+                  <p className="text-sm text-muted-foreground truncate">
                     {match.contactName}
                   </p>
                 )}
@@ -148,7 +148,7 @@ export function BoxMatchPanel({
                   {match.matchReasons.map((reason, i) => (
                     <span
                       key={i}
-                      className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                      className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
                     >
                       {reason}
                     </span>
@@ -156,14 +156,14 @@ export function BoxMatchPanel({
                 </div>
               </div>
 
-              <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </div>
           </button>
         ))}
       </div>
 
       {/* Actions */}
-      <div className="px-5 py-4 border-t bg-gray-50 space-y-2">
+      <div className="px-5 py-4 border-t bg-muted space-y-2">
         <Button
           onClick={handleConfirm}
           className="w-full"
@@ -185,8 +185,8 @@ export function BoxMatchPanel({
       </div>
 
       {/* Tip */}
-      <div className="px-5 py-3 bg-blue-50 border-t border-blue-100">
-        <div className="flex gap-2 text-xs text-blue-700">
+      <div className="px-5 py-3 bg-blue-50 dark:bg-blue-950 border-t border-blue-100 dark:border-blue-900">
+        <div className="flex gap-2 text-xs text-blue-700 dark:text-blue-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <p>
             AI วิเคราะห์จากชื่อผู้ติดต่อ ยอดเงิน และวันที่

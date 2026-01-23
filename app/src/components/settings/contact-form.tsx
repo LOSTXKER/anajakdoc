@@ -74,7 +74,7 @@ export function ContactForm({
         onChange={(e) => setName(e.target.value)}
         required
         autoFocus
-        className="text-lg"
+        className="text-lg bg-card"
       />
       <div className="flex justify-end gap-2">
         {onCancel && (

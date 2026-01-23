@@ -151,7 +151,7 @@ export function OCRExtractButton({ imageUrl, onExtracted, disabled }: OCRExtract
               </div>
 
               {result.confidence < 0.7 && (
-                <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-2 rounded">
+                <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950 p-2 rounded">
                   <AlertCircle className="h-4 w-4" />
                   ความมั่นใจต่ำ กรุณาตรวจสอบข้อมูลอีกครั้ง
                 </div>

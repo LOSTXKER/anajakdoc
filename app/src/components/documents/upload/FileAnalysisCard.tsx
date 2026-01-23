@@ -38,7 +38,7 @@ export function FileAnalysisCard({
   };
 
   return (
-    <div className="rounded-lg border bg-white overflow-hidden">
+    <div className="rounded-lg border bg-card overflow-hidden">
       <div className="flex gap-3 p-3">
         {/* Thumbnail */}
         <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
@@ -51,14 +51,14 @@ export function FileAnalysisCard({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <FileText className={cn("h-8 w-8", isPdf ? "text-red-500" : "text-muted-foreground")} />
+              <FileText className={cn("h-8 w-8", isPdf ? "text-red-500 dark:text-red-400" : "text-muted-foreground")} />
             </div>
           )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{file.file.name}</p>
+          <p className="text-sm font-medium text-foreground truncate">{file.file.name}</p>
           <p className="text-xs text-muted-foreground mt-1">
             {formatFileSize(file.file.size)}
           </p>

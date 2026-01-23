@@ -62,7 +62,7 @@ const notificationColors: Partial<Record<NotificationType, string>> = {
   BOX_NEED_MORE_DOCS: "text-orange-500",
   BOX_READY_TO_BOOK: "text-green-500",
   BOX_BOOKED: "text-teal-500",
-  BOX_ARCHIVED: "text-gray-500",
+  BOX_ARCHIVED: "text-muted-foreground",
   BOX_CANCELLED: "text-red-500",
   DOCUMENT_ADDED: "text-blue-400",
   TASK_ASSIGNED: "text-purple-500",
@@ -161,14 +161,14 @@ export function NotificationBell() {
 
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="py-8 text-center text-gray-400">
+            <div className="py-8 text-center text-muted-foreground">
               <Bell className="mx-auto h-8 w-8 mb-2 opacity-50" />
               <p className="text-sm">ไม่มีการแจ้งเตือน</p>
             </div>
           ) : (
             notifications.map((notification) => {
               const Icon = notificationIcons[notification.type] || FileText;
-              const iconColor = notificationColors[notification.type] || "text-gray-500";
+              const iconColor = notificationColors[notification.type] || "text-muted-foreground";
               const link = getNotificationLink(notification);
 
               const content = (
@@ -185,10 +185,10 @@ export function NotificationBell() {
                     <p className="font-medium text-sm truncate">
                       {notification.title}
                     </p>
-                    <p className="text-xs text-gray-500 line-clamp-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2">
                       {notification.message}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground/70 mt-1">
                       {formatDistanceToNow(new Date(notification.createdAt), {
                         addSuffix: true,
                         locale: th,

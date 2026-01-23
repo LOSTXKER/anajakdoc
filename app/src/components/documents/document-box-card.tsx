@@ -43,12 +43,12 @@ export function DocumentBoxCard({
 
   return (
     <div className={cn(
-      "group relative border rounded-xl p-4 bg-white hover:shadow-sm transition-all duration-200",
+      "group relative border border-border rounded-xl p-4 bg-card hover:shadow-sm transition-all duration-200",
       box.boxType === "INCOME" 
-        ? "hover:border-emerald-300 border-l-4 border-l-emerald-400" 
+        ? "hover:border-emerald-300 dark:hover:border-emerald-700 border-l-4 border-l-emerald-400 dark:border-l-emerald-600" 
         : box.boxType === "ADJUSTMENT"
-        ? "hover:border-purple-300 border-l-4 border-l-purple-400"
-        : "hover:border-rose-300 border-l-4 border-l-rose-400"
+        ? "hover:border-purple-300 dark:hover:border-purple-700 border-l-4 border-l-purple-400 dark:border-l-purple-600"
+        : "hover:border-rose-300 dark:hover:border-rose-700 border-l-4 border-l-rose-400 dark:border-l-rose-600"
     )}>
       <div className="flex items-start gap-4">
         {/* Checkbox */}
@@ -88,7 +88,7 @@ export function DocumentBoxCard({
               </Badge>
             )}
             
-            <span className="font-semibold text-gray-900">{box.boxNumber}</span>
+            <span className="font-semibold text-foreground">{box.boxNumber}</span>
             
             {/* Status badge */}
             <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
@@ -97,12 +97,12 @@ export function DocumentBoxCard({
             
             {/* Doc status indicator */}
             {box.docStatus === "INCOMPLETE" ? (
-              <span className="flex items-center gap-1 text-xs text-amber-600">
+              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                 <AlertCircle className="w-3 h-3" />
                 รอเอกสาร
               </span>
             ) : box.docStatus === "COMPLETE" ? (
-              <span className="flex items-center gap-1 text-xs text-emerald-600">
+              <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                 <CheckCircle className="w-3 h-3" />
                 ครบแล้ว
               </span>
@@ -110,34 +110,34 @@ export function DocumentBoxCard({
             
             {/* Reimbursement badge (Section 19) */}
             {(showReimburseBadge || box.paymentMode === "EMPLOYEE_ADVANCE") && box.reimbursementStatus === "PENDING" && (
-              <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200 gap-1">
+              <Badge variant="secondary" className="text-xs bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800 gap-1">
                 <Wallet className="w-3 h-3" />
                 รอคืนเงิน
               </Badge>
             )}
           </div>
           
-          <p className="text-gray-600 truncate mt-1">
+          <p className="text-muted-foreground truncate mt-1">
             {box.title || box.description || "ไม่มีรายละเอียด"}
           </p>
           
-          <div className="flex items-center gap-2 mt-2 text-sm text-gray-500 flex-wrap">
+          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground flex-wrap">
             {box.contact?.name && (
               <>
                 <span>{box.contact.name}</span>
-                <span className="text-gray-300">•</span>
+                <span className="text-border">•</span>
               </>
             )}
             <span>{formatDate(box.boxDate, "short")}</span>
             {box.createdBy?.name && (
               <>
-                <span className="text-gray-300">•</span>
+                <span className="text-border">•</span>
                 <span>โดย {box.createdBy.name}</span>
               </>
             )}
             {box._count && box._count.documents > 0 && (
               <>
-                <span className="text-gray-300">•</span>
+                <span className="text-border">•</span>
                 <span>{box._count.documents} เอกสาร</span>
               </>
             )}
@@ -151,15 +151,15 @@ export function DocumentBoxCard({
               {box.boxType === "INCOME" ? "+" : "-"}฿{formatMoney(box.totalAmount)}
             </p>
             {box.category?.name && (
-              <p className="text-sm text-gray-500">{box.category.name}</p>
+              <p className="text-sm text-muted-foreground">{box.category.name}</p>
             )}
             {/* Payment status indicator */}
             {box.paymentStatus === "PAID" ? (
-              <span className="text-xs text-emerald-600">จ่ายแล้ว</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">จ่ายแล้ว</span>
             ) : box.paymentStatus === "PARTIAL" ? (
-              <span className="text-xs text-amber-600">จ่ายบางส่วน</span>
+              <span className="text-xs text-amber-600 dark:text-amber-400">จ่ายบางส่วน</span>
             ) : box.totalAmount > 0 && (
-              <span className="text-xs text-gray-400">รอจ่าย</span>
+              <span className="text-xs text-muted-foreground">รอจ่าย</span>
             )}
           </div>
 

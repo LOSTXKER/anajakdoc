@@ -14,13 +14,13 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, description, showCreateButton = true, action }: AppHeaderProps) {
   return (
-    <header className="border-b bg-white">
+    <header className="border-b border-border bg-card">
       <div className="px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{title}</h1>
             {description && (
-              <p className="text-sm text-gray-500 mt-0.5">{description}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
             )}
           </div>
           

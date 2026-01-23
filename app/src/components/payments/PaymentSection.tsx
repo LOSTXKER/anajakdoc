@@ -24,11 +24,11 @@ interface PaymentSectionProps {
 }
 
 const STATUS_CONFIG: Record<PaymentStatus, { label: string; color: string; icon: typeof Check }> = {
-  UNPAID: { label: "ยังไม่จ่าย", color: "bg-red-100 text-red-700", icon: AlertCircle },
-  PARTIAL: { label: "จ่ายบางส่วน", color: "bg-amber-100 text-amber-700", icon: AlertCircle },
-  PAID: { label: "จ่ายครบแล้ว", color: "bg-green-100 text-green-700", icon: Check },
-  OVERPAID: { label: "จ่ายเกิน", color: "bg-blue-100 text-blue-700", icon: Check },
-  REFUNDED: { label: "คืนเงินแล้ว", color: "bg-purple-100 text-purple-700", icon: Check },
+  UNPAID: { label: "ยังไม่จ่าย", color: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300", icon: AlertCircle },
+  PARTIAL: { label: "จ่ายบางส่วน", color: "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300", icon: AlertCircle },
+  PAID: { label: "จ่ายครบแล้ว", color: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300", icon: Check },
+  OVERPAID: { label: "จ่ายเกิน", color: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300", icon: Check },
+  REFUNDED: { label: "คืนเงินแล้ว", color: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300", icon: Check },
 };
 
 export function PaymentSection({
@@ -120,8 +120,8 @@ export function PaymentSection({
           <div className={cn(
             "w-10 h-10 rounded-xl flex items-center justify-center",
             paymentStatus === "PAID" || paymentStatus === "OVERPAID" 
-              ? "bg-green-100" 
-              : "bg-amber-100"
+              ? "bg-green-100 dark:bg-green-900" 
+              : "bg-amber-100 dark:bg-amber-900"
           )}>
             <Wallet className={cn(
               "h-5 w-5",
@@ -182,7 +182,7 @@ export function PaymentSection({
 
         {/* Overpaid Warning */}
         {paymentStatus === "OVERPAID" && (
-          <div className="flex items-center gap-2 p-3 mt-3 rounded-lg bg-red-50 border border-red-200 text-red-700">
+          <div className="flex items-center gap-2 p-3 mt-3 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span className="text-sm">
               ชำระเกินยอดรวม ฿{formatMoney(paidAmount - totalAmount)} กรุณาตรวจสอบ

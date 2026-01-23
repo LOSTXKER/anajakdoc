@@ -210,7 +210,7 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
         {profiles.map((profile) => (
           <div
             key={profile.id}
-            className="rounded-lg border bg-white p-4 hover:border-gray-300 transition-colors"
+            className="rounded-lg border bg-card p-4 hover:border-border transition-colors"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -219,9 +219,9 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="font-medium text-gray-900">{profile.name}</h4>
+                    <h4 className="font-medium text-foreground">{profile.name}</h4>
                     {profile.isDefault && (
-                      <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                      <Badge variant="secondary" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
                         <Star className="mr-1 h-3 w-3 fill-amber-500" />
                         ค่าเริ่มต้น
                       </Badge>
@@ -236,7 +236,7 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {profile.description || "ไม่มีรายละเอียด"}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {profile.columns.length} คอลัมน์
                   </p>
                 </div>
@@ -277,7 +277,7 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
 
             {/* Column Preview */}
             <div className="mt-4 pt-4 border-t">
-              <p className="text-xs text-gray-500 mb-2">คอลัมน์:</p>
+              <p className="text-xs text-muted-foreground mb-2">คอลัมน์:</p>
               <div className="flex flex-wrap gap-1.5">
                 {profile.columns.slice(0, 8).map((col) => (
                   <Badge key={col.field} variant="outline" className="text-xs">
@@ -285,7 +285,7 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
                   </Badge>
                 ))}
                 {profile.columns.length > 8 && (
-                  <Badge variant="outline" className="text-xs text-gray-400">
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
                     +{profile.columns.length - 8} อื่นๆ
                   </Badge>
                 )}
@@ -295,9 +295,9 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
         ))}
 
         {profiles.length === 0 && (
-          <div className="rounded-lg border bg-white p-8 text-center">
-            <FileSpreadsheet className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">ยังไม่มี Export Profile</p>
+          <div className="rounded-lg border bg-card p-8 text-center">
+            <FileSpreadsheet className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-muted-foreground">ยังไม่มี Export Profile</p>
             <Button className="mt-4" onClick={() => setIsCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               สร้าง Profile แรก
@@ -393,11 +393,11 @@ function ProfileEditDialog({
                 columns.map((col, index) => (
                   <div
                     key={col.field}
-                    className="flex items-center gap-2 p-2 border rounded-lg bg-white"
+                    className="flex items-center gap-2 p-2 border rounded-lg bg-card"
                   >
-                    <GripVertical className="h-4 w-4 text-gray-400" />
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
                     <span className="flex-1 text-sm">{col.header}</span>
-                    <span className="text-xs text-gray-400">{col.field}</span>
+                    <span className="text-xs text-muted-foreground">{col.field}</span>
                     <Button
                       variant="ghost"
                       size="icon"

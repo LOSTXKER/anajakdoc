@@ -26,6 +26,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import type { SessionUser } from "@/types";
+import { ThemeToggleCompact } from "@/components/ui/theme-toggle";
 
 interface MobileNavProps {
   user: SessionUser;
@@ -76,33 +77,33 @@ export function MobileNav({ user }: MobileNavProps) {
           <span className="sr-only">Toggle menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[280px] p-0 bg-white border-gray-200">
+      <SheetContent side="left" className="w-[280px] p-0 bg-card border-border">
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex h-16 items-center justify-between px-5 border-b border-gray-100">
+          <div className="flex h-16 items-center justify-between px-5 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                <Package className="h-5 w-5 text-white" />
+                <Package className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-lg text-gray-900">กล่องเอกสาร</span>
+              <span className="font-semibold text-lg text-foreground">กล่องเอกสาร</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+            <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground hover:bg-muted">
               <X className="h-5 w-5" />
             </Button>
           </div>
 
           {/* Organization */}
           {user.currentOrganization && (
-            <div className="px-3 py-3 border-b border-gray-100">
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-white border border-gray-200 text-gray-600">
+            <div className="px-3 py-3 border-b border-border">
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-muted">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-card border border-border text-muted-foreground">
                   <Building2 className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate text-gray-900">
+                  <p className="text-sm font-medium truncate text-foreground">
                     {user.currentOrganization.name}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {user.currentOrganization.role === "OWNER" ? "เจ้าของ" : 
                      user.currentOrganization.role === "ADMIN" ? "ผู้ดูแล" :
                      user.currentOrganization.role === "ACCOUNTING" ? "บัญชี" : "พนักงาน"}
@@ -139,7 +140,7 @@ export function MobileNav({ user }: MobileNavProps) {
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                       isActive
                         ? "bg-primary/10 text-primary font-medium"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
                     <Icon className={cn("h-4 w-4", isActive && "text-primary")} />
@@ -152,7 +153,7 @@ export function MobileNav({ user }: MobileNavProps) {
             {/* Accounting Menu */}
             {isAccounting && (
               <div className="mt-6">
-                <p className="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                <p className="px-3 mb-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   งานบัญชี
                 </p>
                 <div className="space-y-1">
@@ -167,11 +168,11 @@ export function MobileNav({ user }: MobileNavProps) {
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                           isActive
-                            ? "bg-emerald-50 text-emerald-700 font-medium"
-                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-medium"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
-                        <Icon className={cn("h-4 w-4", isActive && "text-emerald-600")} />
+                        <Icon className={cn("h-4 w-4", isActive && "text-emerald-600 dark:text-emerald-400")} />
                         {item.title}
                       </Link>
                     );
@@ -183,7 +184,7 @@ export function MobileNav({ user }: MobileNavProps) {
             {/* Firm Menu */}
             {(isFirmMember || isAdmin) && (
               <div className="mt-6">
-                <p className="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                <p className="px-3 mb-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   สำนักงานบัญชี
                 </p>
                 <div className="space-y-1">
@@ -194,11 +195,11 @@ export function MobileNav({ user }: MobileNavProps) {
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                         pathname.startsWith("/firm")
-                          ? "bg-violet-50 text-violet-700 font-medium"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          ? "bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 font-medium"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                     >
-                      <Briefcase className={cn("h-4 w-4", pathname.startsWith("/firm") && "text-violet-600")} />
+                      <Briefcase className={cn("h-4 w-4", pathname.startsWith("/firm") && "text-violet-600 dark:text-violet-400")} />
                       ภาพรวมลูกค้า
                     </Link>
                   ) : (
@@ -208,8 +209,8 @@ export function MobileNav({ user }: MobileNavProps) {
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                         pathname === "/firm/setup"
-                          ? "bg-violet-50 text-violet-700 font-medium"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          ? "bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 font-medium"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                     >
                       <Plus className="h-4 w-4" />
@@ -223,7 +224,7 @@ export function MobileNav({ user }: MobileNavProps) {
             {/* Settings Menu */}
             {isAdmin && (
               <div className="mt-6">
-                <p className="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                <p className="px-3 mb-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   ตั้งค่า
                 </p>
                 <div className="space-y-1">
@@ -238,11 +239,11 @@ export function MobileNav({ user }: MobileNavProps) {
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                           isActive
-                            ? "bg-emerald-50 text-emerald-700 font-medium"
-                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-medium"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
-                        <Icon className={cn("h-4 w-4", isActive && "text-emerald-600")} />
+                        <Icon className={cn("h-4 w-4", isActive && "text-emerald-600 dark:text-emerald-400")} />
                         {item.title}
                       </Link>
                     );
@@ -250,10 +251,15 @@ export function MobileNav({ user }: MobileNavProps) {
                 </div>
               </div>
             )}
+
+            {/* Theme Toggle */}
+            <div className="mt-6 px-3">
+              <ThemeToggleCompact />
+            </div>
           </nav>
 
           {/* User */}
-          <div className="border-t border-gray-100 p-3">
+          <div className="border-t border-border p-3">
             <div className="flex items-center gap-3 px-2 py-2 mb-3">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={user.avatarUrl || undefined} />
@@ -262,16 +268,16 @@ export function MobileNav({ user }: MobileNavProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate text-gray-900">
+                <p className="text-sm font-medium truncate text-foreground">
                   {user.name || "ผู้ใช้"}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
             </div>
             <form action="/api/auth/signout" method="POST">
               <Button 
                 variant="outline" 
-                className="w-full border-gray-200 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200" 
+                className="w-full border-border text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950 hover:border-red-200 dark:hover:border-red-800" 
                 type="submit"
               >
                 <LogOut className="mr-2 h-4 w-4" />

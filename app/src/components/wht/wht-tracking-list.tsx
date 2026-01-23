@@ -63,13 +63,13 @@ export function WHTTrackingList({
       {whtTrackings.length > 0 && (
         <div className="flex gap-4 text-sm">
           {outgoingCount > 0 && (
-            <div className="flex items-center gap-1 text-orange-600">
+            <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
               <ArrowUpRight className="h-4 w-4" />
               <span>ส่งออก {outgoingCount}</span>
             </div>
           )}
           {incomingCount > 0 && (
-            <div className="flex items-center gap-1 text-blue-600">
+            <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
               <ArrowDownLeft className="h-4 w-4" />
               <span>รับเข้า {incomingCount}</span>
             </div>

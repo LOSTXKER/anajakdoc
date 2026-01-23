@@ -355,13 +355,13 @@ export function getValidationStatusLabel(result: ValidationResult): string {
 export function getSeverityColorClass(severity: ValidationSeverity): string {
   switch (severity) {
     case "error":
-      return "text-red-600 bg-red-50 border-red-200";
+      return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800";
     case "warning":
-      return "text-amber-600 bg-amber-50 border-amber-200";
+      return "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800";
     case "info":
-      return "text-blue-600 bg-blue-50 border-blue-200";
+      return "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800";
     default:
-      return "text-gray-600 bg-gray-50 border-gray-200";
+      return "text-muted-foreground bg-muted border";
   }
 }
 

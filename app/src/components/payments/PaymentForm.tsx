@@ -92,7 +92,7 @@ export function PaymentForm({ remainingAmount, onSubmit, isPending }: PaymentFor
           <div className="space-y-2">
             <Label htmlFor="amount">จำนวนเงิน</Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">฿</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">฿</span>
               <Input
                 id="amount"
                 type="number"
@@ -105,12 +105,12 @@ export function PaymentForm({ remainingAmount, onSubmit, isPending }: PaymentFor
                 required
               />
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               ยอดคงเหลือ: ฿{remainingAmount.toLocaleString()}
             </p>
             {/* Overpayment Warning */}
             {parseFloat(amount) > remainingAmount && (
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span className="text-xs">
                   จำนวนเงินเกินยอดคงเหลือ ฿{(parseFloat(amount) - remainingAmount).toLocaleString()}

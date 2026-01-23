@@ -53,7 +53,7 @@ const EXPENSE_TYPE_CARDS: {
     label: "มีใบกำกับภาษี", 
     description: "ขอคืน VAT ได้", 
     icon: FileCheck,
-    iconBg: "bg-emerald-100",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900",
     iconColor: "text-emerald-600",
   },
   { 
@@ -123,15 +123,15 @@ export function BoxInfoForm({
   const selectedContact = contacts.find(c => c.id === selectedContactId);
 
   return (
-    <div className="rounded-xl border bg-white overflow-hidden">
+    <div className="rounded-xl border bg-card overflow-hidden">
       <div className="px-5 py-4 border-b">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Package className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">ข้อมูลกล่อง</h3>
-            <p className="text-sm text-gray-500">กรอกข้อมูลพื้นฐาน</p>
+            <h3 className="font-semibold text-foreground">ข้อมูลกล่อง</h3>
+            <p className="text-sm text-muted-foreground">กรอกข้อมูลพื้นฐาน</p>
           </div>
         </div>
       </div>
@@ -144,7 +144,7 @@ export function BoxInfoForm({
               <Label className="text-base font-medium flex items-center gap-2">
                 {boxType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"}
                 {selectedContact && (selectedContact.defaultVatRequired || selectedContact.whtApplicable) && (
-                  <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
                     <Sparkles className="h-3 w-3" />
                     Smart Guess
                   </span>
@@ -173,7 +173,7 @@ export function BoxInfoForm({
                       {contact.contactType === "COMPANY" ? (
                         <Building2 className="h-4 w-4 text-blue-500" />
                       ) : (
-                        <User className="h-4 w-4 text-gray-500" />
+                        <User className="h-4 w-4 text-muted-foreground" />
                       )}
                       <span>{contact.name}</span>
                       {(contact.defaultVatRequired || contact.whtApplicable) && (
@@ -192,9 +192,9 @@ export function BoxInfoForm({
             
             {/* Show contact defaults info */}
             {selectedContact && (selectedContact.defaultVatRequired || selectedContact.whtApplicable) && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-amber-700">
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
+                <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-700 dark:text-amber-400">
                   <p className="font-medium">ตั้งค่าอัตโนมัติจากประวัติ:</p>
                   <ul className="mt-1 space-y-0.5">
                     {selectedContact.defaultVatRequired && (
@@ -228,7 +228,7 @@ export function BoxInfoForm({
                       "hover:border-primary/50 hover:bg-primary/5",
                       isSelected
                         ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                        : "border-gray-200 bg-white"
+                        : "border bg-card"
                     )}
                   >
                     {/* Selected indicator */}
@@ -253,11 +253,11 @@ export function BoxInfoForm({
                     <div className="min-w-0 pr-4">
                       <span className={cn(
                         "block font-medium text-sm truncate",
-                        isSelected ? "text-primary" : "text-gray-900"
+                        isSelected ? "text-primary" : "text-foreground"
                       )}>
                         {card.label}
                       </span>
-                      <span className="block text-xs text-gray-500 truncate">
+                      <span className="block text-xs text-muted-foreground truncate">
                         {card.description}
                       </span>
                     </div>
@@ -269,7 +269,7 @@ export function BoxInfoForm({
             {/* WHT (หัก ณ ที่จ่าย) - only show when STANDARD (has tax invoice) */}
             {expenseType === "STANDARD" && (
               <div className="mt-4 pt-4 border-t">
-                <div className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50/50">
+                <div className="flex items-start gap-3 p-3 rounded-xl border bg-muted/50">
                   <Checkbox
                     id="hasWht"
                     checked={hasWht}
@@ -277,17 +277,17 @@ export function BoxInfoForm({
                     className="mt-0.5"
                   />
                   <div className="flex-1">
-                    <label htmlFor="hasWht" className="block font-medium text-sm text-gray-900 cursor-pointer">
+                    <label htmlFor="hasWht" className="block font-medium text-sm text-foreground cursor-pointer">
                       มีหัก ณ ที่จ่าย (WHT)
                     </label>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       เลือกถ้ารายการนี้ต้องออกหนังสือรับรองหัก ณ ที่จ่าย
                     </p>
                     
                     {/* Rate selector - show when hasWht is true */}
                     {hasWht && (
                       <div className="mt-3">
-                        <Label className="text-xs text-gray-600">อัตราหัก ณ ที่จ่าย</Label>
+                        <Label className="text-xs text-muted-foreground">อัตราหัก ณ ที่จ่าย</Label>
                         <Select value={whtRate} onValueChange={setWhtRate}>
                           <SelectTrigger className="mt-1 h-9">
                             <SelectValue placeholder="เลือกอัตรา..." />
@@ -325,7 +325,7 @@ export function BoxInfoForm({
                 "hover:border-primary/50 hover:bg-primary/5",
                 !isMultiPayment
                   ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                  : "border-gray-200 bg-white"
+                  : "border bg-card"
               )}
             >
               {!isMultiPayment && (
@@ -335,7 +335,7 @@ export function BoxInfoForm({
               )}
               <div className={cn(
                 "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                !isMultiPayment ? "bg-primary/10" : "bg-emerald-100"
+                !isMultiPayment ? "bg-primary/10" : "bg-emerald-100 dark:bg-emerald-900"
               )}>
                 <CreditCard className={cn(
                   "h-5 w-5",
@@ -345,11 +345,11 @@ export function BoxInfoForm({
               <div className="min-w-0 pr-4">
                 <span className={cn(
                   "block font-medium text-sm",
-                  !isMultiPayment ? "text-primary" : "text-gray-900"
+                  !isMultiPayment ? "text-primary" : "text-foreground"
                 )}>
                   จ่ายครั้งเดียว
                 </span>
-                <span className="block text-xs text-gray-500">
+                <span className="block text-xs text-muted-foreground">
                   จบในครั้งเดียว
                 </span>
               </div>
@@ -361,10 +361,10 @@ export function BoxInfoForm({
               onClick={() => setIsMultiPayment(true)}
               className={cn(
                 "relative flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all",
-                "hover:border-amber-400 hover:bg-amber-50",
+                "hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950",
                 isMultiPayment
-                  ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200"
-                  : "border-gray-200 bg-white"
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950 ring-2 ring-amber-200 dark:ring-amber-800"
+                  : "border bg-card"
               )}
             >
               {isMultiPayment && (
@@ -374,7 +374,7 @@ export function BoxInfoForm({
               )}
               <div className={cn(
                 "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                isMultiPayment ? "bg-amber-100" : "bg-amber-100"
+                isMultiPayment ? "bg-amber-100 dark:bg-amber-900" : "bg-amber-100 dark:bg-amber-900"
               )}>
                 <CalendarClock className={cn(
                   "h-5 w-5",
@@ -384,11 +384,11 @@ export function BoxInfoForm({
               <div className="min-w-0 pr-4">
                 <span className={cn(
                   "block font-medium text-sm",
-                  isMultiPayment ? "text-amber-700" : "text-gray-900"
+                  isMultiPayment ? "text-amber-700 dark:text-amber-400" : "text-foreground"
                 )}>
                   แบ่งจ่ายหลายงวด
                 </span>
-                <span className="block text-xs text-gray-500">
+                <span className="block text-xs text-muted-foreground">
                   บัญชีติดตามยอดค้าง
                 </span>
               </div>
@@ -397,9 +397,9 @@ export function BoxInfoForm({
           
           {/* Info note for multi-payment */}
           {isMultiPayment && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-              <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-700">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
+              <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">
                 กรุณากรอก<strong>ยอดรวมทั้งหมด</strong>ของรายการนี้ (ไม่ใช่ยอดงวดแรก) 
                 เพื่อให้บัญชีติดตามยอดค้างชำระได้ถูกต้อง
               </p>
@@ -460,7 +460,7 @@ export function BoxInfoForm({
             />
           </div>
           {isMultiPayment && !amount && (
-            <p className="text-xs text-amber-600">
+            <p className="text-xs text-amber-600 dark:text-amber-400">
               * กรุณากรอกยอดรวมที่ต้องจ่ายทั้งหมด
             </p>
           )}

@@ -104,7 +104,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                   name="code"
                   placeholder="เช่น OFC, TRV"
                   defaultValue={editingCategory?.code || ""}
-                  className="bg-gray-50 focus:bg-white"
+                  className="bg-muted/50 focus:bg-card"
                   required
                 />
               </div>
@@ -115,7 +115,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                   name="name"
                   placeholder="เช่น ค่าใช้จ่ายสำนักงาน"
                   defaultValue={editingCategory?.name || ""}
-                  className="bg-gray-50 focus:bg-white"
+                  className="bg-muted/50 focus:bg-card"
                   required
                 />
               </div>
@@ -141,7 +141,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                   name="peakAccountCode"
                   placeholder="เช่น 5100-01"
                   defaultValue={editingCategory?.peakAccountCode || ""}
-                  className="bg-gray-50 focus:bg-white"
+                  className="bg-muted/50 focus:bg-card"
                 />
               </div>
               <DialogFooter>
@@ -160,23 +160,23 @@ export function CategoryList({ categories }: CategoryListProps) {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Expense Categories */}
-        <div className="rounded-xl border bg-white p-5">
+        <div className="rounded-xl border bg-card p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <TrendingDown className="h-5 w-5 text-red-600" />
+            <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-950 flex items-center justify-center">
+              <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">หมวดรายจ่าย</h3>
-              <p className="text-sm text-gray-500">{expenseCategories.length} หมวดหมู่</p>
+              <h3 className="font-semibold text-foreground">หมวดรายจ่าย</h3>
+              <p className="text-sm text-muted-foreground">{expenseCategories.length} หมวดหมู่</p>
             </div>
           </div>
 
           {expenseCategories.length > 0 ? (
             <div className="space-y-2">
               {expenseCategories.map((category) => (
-                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                  <span className="font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">{category.code}</span>
-                  <span className="flex-1 text-gray-900">{category.name}</span>
+                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors">
+                  <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{category.code}</span>
+                  <span className="flex-1 text-foreground">{category.name}</span>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
@@ -199,28 +199,28 @@ export function CategoryList({ categories }: CategoryListProps) {
               ))}
             </div>
           ) : (
-            <p className="text-center text-gray-400 py-8">ยังไม่มีหมวดหมู่</p>
+            <p className="text-center text-muted-foreground py-8">ยังไม่มีหมวดหมู่</p>
           )}
         </div>
 
         {/* Income Categories */}
-        <div className="rounded-xl border bg-white p-5">
+        <div className="rounded-xl border bg-card p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-emerald-600" />
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">หมวดรายรับ</h3>
-              <p className="text-sm text-gray-500">{incomeCategories.length} หมวดหมู่</p>
+              <h3 className="font-semibold text-foreground">หมวดรายรับ</h3>
+              <p className="text-sm text-muted-foreground">{incomeCategories.length} หมวดหมู่</p>
             </div>
           </div>
 
           {incomeCategories.length > 0 ? (
             <div className="space-y-2">
               {incomeCategories.map((category) => (
-                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                  <span className="font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">{category.code}</span>
-                  <span className="flex-1 text-gray-900">{category.name}</span>
+                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors">
+                  <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{category.code}</span>
+                  <span className="flex-1 text-foreground">{category.name}</span>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
@@ -243,7 +243,7 @@ export function CategoryList({ categories }: CategoryListProps) {
               ))}
             </div>
           ) : (
-            <p className="text-center text-gray-400 py-8">ยังไม่มีหมวดหมู่</p>
+            <p className="text-center text-muted-foreground py-8">ยังไม่มีหมวดหมู่</p>
           )}
         </div>
       </div>

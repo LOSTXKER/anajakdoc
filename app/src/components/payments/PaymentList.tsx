@@ -31,17 +31,17 @@ interface PaymentListProps {
 }
 
 const METHOD_CONFIG: Record<PaymentMethod, { label: string; icon: typeof CreditCard; color: string }> = {
-  TRANSFER: { label: "โอนเงิน", icon: Building2, color: "text-blue-600 bg-blue-100" },
-  CASH: { label: "เงินสด", icon: Banknote, color: "text-green-600 bg-green-100" },
-  CHEQUE: { label: "เช็ค", icon: FileText, color: "text-purple-600 bg-purple-100" },
-  CREDIT_CARD: { label: "บัตรเครดิต", icon: CreditCard, color: "text-orange-600 bg-orange-100" },
-  ONLINE: { label: "ออนไลน์", icon: Wallet, color: "text-cyan-600 bg-cyan-100" },
+  TRANSFER: { label: "โอนเงิน", icon: Building2, color: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900" },
+  CASH: { label: "เงินสด", icon: Banknote, color: "text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900" },
+  CHEQUE: { label: "เช็ค", icon: FileText, color: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900" },
+  CREDIT_CARD: { label: "บัตรเครดิต", icon: CreditCard, color: "text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900" },
+  ONLINE: { label: "ออนไลน์", icon: Wallet, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900" },
 };
 
 export function PaymentList({ payments, canEdit, onDelete }: PaymentListProps) {
   if (payments.length === 0) {
     return (
-      <div className="text-center py-6 text-gray-500 text-sm">
+      <div className="text-center py-6 text-muted-foreground text-sm">
         ยังไม่มีรายการชำระเงิน
       </div>
     );
@@ -56,7 +56,7 @@ export function PaymentList({ payments, canEdit, onDelete }: PaymentListProps) {
         return (
           <div
             key={payment.id}
-            className="flex items-center justify-between p-3 rounded-xl border bg-gray-50 hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-between p-3 rounded-xl border bg-muted hover:bg-muted/80 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", config.color)}>
@@ -64,14 +64,14 @@ export function PaymentList({ payments, canEdit, onDelete }: PaymentListProps) {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-foreground">
                     งวดที่ {index + 1}
                   </span>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                     {config.label}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {format(new Date(payment.paidDate), "d MMM yyyy", { locale: th })}
                   {payment.reference && ` • ${payment.reference}`}
                   {payment.documentId 

@@ -65,27 +65,27 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <div className="flex items-center gap-3">
             <Link 
               href="/documents" 
-              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+              className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-muted/80 transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">สร้างกล่องเอกสาร</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-lg font-semibold text-foreground">สร้างกล่องเอกสาร</h1>
+              <p className="text-sm text-muted-foreground">
                 อัปโหลดเอกสารและกรอกข้อมูล
               </p>
             </div>
           </div>
 
           {/* Box Type Toggle */}
-          <div className="flex rounded-lg border p-0.5 bg-white">
+          <div className="flex rounded-lg border p-0.5 bg-card">
             <button
               type="button"
               onClick={() => setBoxType("EXPENSE")}
@@ -93,7 +93,7 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
                 "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
                 boxType === "EXPENSE"
                   ? "bg-rose-500 text-white"
-                  : "text-gray-500 hover:text-rose-600 hover:bg-rose-50"
+                  : "text-muted-foreground hover:text-rose-600 hover:bg-rose-50"
               )}
             >
               รายจ่าย
@@ -105,7 +105,7 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
                 "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
                 boxType === "INCOME"
                   ? "bg-emerald-500 text-white"
-                  : "text-gray-500 hover:text-emerald-600 hover:bg-emerald-50"
+                  : "text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950"
               )}
             >
               รายรับ
@@ -125,7 +125,7 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
               {/* Files List */}
               {files.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900">
+                  <h3 className="font-medium text-foreground">
                     เอกสารที่อัปโหลด ({files.length})
                   </h3>
 

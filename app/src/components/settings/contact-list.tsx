@@ -68,12 +68,12 @@ export function ContactList({ contacts }: ContactListProps) {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="ค้นหาผู้ติดต่อ..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 bg-white"
+            className="pl-10 bg-card"
           />
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -99,27 +99,27 @@ export function ContactList({ contacts }: ContactListProps) {
       </div>
 
       {/* Contact List */}
-      <div className="rounded-xl border bg-white divide-y">
+      <div className="rounded-xl border bg-card divide-y">
         {filteredContacts.length > 0 ? (
           filteredContacts.map((contact) => (
-            <div key={contact.id} className="group flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+            <div key={contact.id} className="group flex items-center gap-3 p-4 hover:bg-muted transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 {contact.contactType === "COMPANY" ? (
-                  <Building2 className="h-5 w-5 text-gray-500" />
+                  <Building2 className="h-5 w-5 text-muted-foreground" />
                 ) : (
-                  <User className="h-5 w-5 text-gray-500" />
+                  <User className="h-5 w-5 text-muted-foreground" />
                 )}
               </div>
               
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">{contact.name}</p>
+                <p className="font-medium text-foreground truncate">{contact.name}</p>
                 {contact.taxId && (
-                  <p className="text-sm text-gray-500">เลขที่ {contact.taxId}</p>
+                  <p className="text-sm text-muted-foreground">เลขที่ {contact.taxId}</p>
                 )}
               </div>
               
               {contact._count.boxes > 0 && (
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600 shrink-0">
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground shrink-0">
                   {contact._count.boxes} เอกสาร
                 </span>
               )}
@@ -148,7 +148,7 @@ export function ContactList({ contacts }: ContactListProps) {
         ) : (
           <div className="p-4">
             {search ? (
-              <p className="text-center text-gray-500 py-8">ไม่พบ &quot;{search}&quot;</p>
+              <p className="text-center text-muted-foreground py-8">ไม่พบ &quot;{search}&quot;</p>
             ) : (
               <EmptyState
                 icon={Users}
@@ -167,7 +167,7 @@ export function ContactList({ contacts }: ContactListProps) {
       </div>
       
       {contacts.length > 0 && (
-        <p className="text-sm text-gray-400 text-center">
+        <p className="text-sm text-muted-foreground text-center">
           {contacts.length} รายชื่อ
         </p>
       )}

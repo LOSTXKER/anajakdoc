@@ -115,11 +115,11 @@ export default function SharePage({ params }: SharePageProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "BOOKED": return "bg-emerald-100 text-emerald-700";
-      case "READY_TO_BOOK": return "bg-violet-100 text-violet-700";
-      case "WHT_PENDING": return "bg-amber-100 text-amber-700";
-      case "NEED_MORE_DOCS": return "bg-red-100 text-red-700";
-      default: return "bg-gray-100 text-gray-700";
+      case "BOOKED": return "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300";
+      case "READY_TO_BOOK": return "bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300";
+      case "WHT_PENDING": return "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300";
+      case "NEED_MORE_DOCS": return "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300";
+      default: return "bg-muted text-foreground";
     }
   };
 
@@ -138,20 +138,20 @@ export default function SharePage({ params }: SharePageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (error && !requiresPassword) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">ไม่สามารถเข้าถึงได้</h2>
-            <p className="text-gray-500">{error}</p>
+            <h2 className="text-lg font-semibold text-foreground mb-2">ไม่สามารถเข้าถึงได้</h2>
+            <p className="text-muted-foreground">{error}</p>
           </CardContent>
         </Card>
       </div>
@@ -160,7 +160,7 @@ export default function SharePage({ params }: SharePageProps) {
 
   if (requiresPassword) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
@@ -196,17 +196,17 @@ export default function SharePage({ params }: SharePageProps) {
   if (!data) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-10">
+      <header className="bg-card border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
               <Package className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="font-semibold text-gray-900">{data.organizationName}</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="font-semibold text-foreground">{data.organizationName}</h1>
+              <p className="text-sm text-muted-foreground">
                 กล่องเอกสารที่แชร์ • {data.boxes.length} รายการ
               </p>
             </div>
@@ -222,8 +222,8 @@ export default function SharePage({ params }: SharePageProps) {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
-                      <FileText className="h-5 w-5 text-gray-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
                       <CardTitle className="text-base">{box.boxNumber}</CardTitle>
@@ -251,30 +251,30 @@ export default function SharePage({ params }: SharePageProps) {
               <CardContent>
                 {/* Title */}
                 {box.title && (
-                  <p className="text-sm text-gray-700 mb-3">{box.title}</p>
+                  <p className="text-sm text-foreground mb-3">{box.title}</p>
                 )}
 
                 {/* Amounts */}
                 {data.showAmounts && (
-                  <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
                     <div>
-                      <p className="text-xs text-gray-500">ยอดรวม</p>
+                      <p className="text-xs text-muted-foreground">ยอดรวม</p>
                       <p className="font-semibold">฿{formatAmount(box.totalAmount || 0)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">VAT</p>
-                      <p className="font-medium text-gray-700">฿{formatAmount(box.vatAmount || 0)}</p>
+                      <p className="text-xs text-muted-foreground">VAT</p>
+                      <p className="font-medium text-foreground">฿{formatAmount(box.vatAmount || 0)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">หัก ณ ที่จ่าย</p>
-                      <p className="font-medium text-gray-700">฿{formatAmount(box.whtAmount || 0)}</p>
+                      <p className="text-xs text-muted-foreground">หัก ณ ที่จ่าย</p>
+                      <p className="font-medium text-foreground">฿{formatAmount(box.whtAmount || 0)}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Contact */}
                 {data.showContacts && box.contact && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
                     <Building2 className="h-4 w-4" />
                     {box.contact.name}
                   </div>
@@ -283,20 +283,20 @@ export default function SharePage({ params }: SharePageProps) {
                 {/* Documents */}
                 {box.documents.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">เอกสาร</p>
+                    <p className="text-sm font-medium text-foreground">เอกสาร</p>
                     <div className="grid gap-2">
                       {box.documents.map((doc, docIndex) => (
                         <div key={docIndex}>
-                          <p className="text-xs text-gray-500 mb-1">
+                          <p className="text-xs text-muted-foreground mb-1">
                             {getDocTypeLabel(doc.docType)}
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {doc.files.map((file, fileIndex) => (
                               <div
                                 key={fileIndex}
-                                className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm"
+                                className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg text-sm"
                               >
-                                <FileText className="h-4 w-4 text-gray-400" />
+                                <FileText className="h-4 w-4 text-muted-foreground" />
                                 <span className="truncate max-w-[200px]">{file.fileName}</span>
                                 {data.allowDownload && (
                                   <a
@@ -323,8 +323,8 @@ export default function SharePage({ params }: SharePageProps) {
           {data.boxes.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
-                <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">ไม่มีกล่องเอกสารในลิงก์นี้</p>
+                <Package className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-muted-foreground">ไม่มีกล่องเอกสารในลิงก์นี้</p>
               </CardContent>
             </Card>
           )}
@@ -332,8 +332,8 @@ export default function SharePage({ params }: SharePageProps) {
       </main>
 
       {/* Footer */}
-      <footer className="border-t bg-white py-6 mt-12">
-        <div className="max-w-5xl mx-auto px-4 text-center text-sm text-gray-500">
+      <footer className="border-t bg-card py-6 mt-12">
+        <div className="max-w-5xl mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>แชร์ผ่านระบบกล่องเอกสารดิจิตอล</p>
         </div>
       </footer>

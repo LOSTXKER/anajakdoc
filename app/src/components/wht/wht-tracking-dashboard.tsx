@@ -42,16 +42,16 @@ export function WHTTrackingDashboard({
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
-              <ArrowUpRight className="h-5 w-5 text-orange-600" />
+            <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-950 flex items-center justify-center shrink-0">
+              <ArrowUpRight className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">ต้องส่งออก</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.outgoing.pending}</p>
+              <p className="text-sm text-muted-foreground">ต้องส่งออก</p>
+              <p className="text-2xl font-bold text-foreground">{summary.outgoing.pending}</p>
               {summary.outgoing.pendingAmount > 0 && (
-                <p className="text-xs text-orange-600 font-medium truncate">
+                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium truncate">
                   {formatMoney(summary.outgoing.pendingAmount)} ฿
                 </p>
               )}
@@ -59,16 +59,16 @@ export function WHTTrackingDashboard({
           </div>
         </div>
 
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-              <Send className="h-5 w-5 text-violet-600" />
+            <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-950 flex items-center justify-center shrink-0">
+              <Send className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">ส่งแล้วรอยืนยัน</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.outgoing.sent}</p>
+              <p className="text-sm text-muted-foreground">ส่งแล้วรอยืนยัน</p>
+              <p className="text-2xl font-bold text-foreground">{summary.outgoing.sent}</p>
               {summary.outgoing.sentAmount > 0 && (
-                <p className="text-xs text-violet-600 font-medium truncate">
+                <p className="text-xs text-violet-600 dark:text-violet-400 font-medium truncate">
                   {formatMoney(summary.outgoing.sentAmount)} ฿
                 </p>
               )}
@@ -76,16 +76,16 @@ export function WHTTrackingDashboard({
           </div>
         </div>
 
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
-              <ArrowDownLeft className="h-5 w-5 text-sky-600" />
+            <div className="w-10 h-10 rounded-lg bg-sky-50 dark:bg-sky-950 flex items-center justify-center shrink-0">
+              <ArrowDownLeft className="h-5 w-5 text-sky-600 dark:text-sky-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">รอรับเข้า</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.incoming.pending}</p>
+              <p className="text-sm text-muted-foreground">รอรับเข้า</p>
+              <p className="text-2xl font-bold text-foreground">{summary.incoming.pending}</p>
               {summary.incoming.pendingAmount > 0 && (
-                <p className="text-xs text-sky-600 font-medium truncate">
+                <p className="text-xs text-sky-600 dark:text-sky-400 font-medium truncate">
                   {formatMoney(summary.incoming.pendingAmount)} ฿
                 </p>
               )}
@@ -93,16 +93,16 @@ export function WHTTrackingDashboard({
           </div>
         </div>
 
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-              <CheckCircle className="h-5 w-5 text-emerald-600" />
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center shrink-0">
+              <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">ได้รับแล้ว</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.incoming.received}</p>
+              <p className="text-sm text-muted-foreground">ได้รับแล้ว</p>
+              <p className="text-2xl font-bold text-foreground">{summary.incoming.received}</p>
               {summary.incoming.receivedAmount > 0 && (
-                <p className="text-xs text-emerald-600 font-medium truncate">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate">
                   {formatMoney(summary.incoming.receivedAmount)} ฿
                 </p>
               )}
@@ -113,21 +113,21 @@ export function WHTTrackingDashboard({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-gray-100/80">
-          <TabsTrigger value="outgoing" className="gap-2 data-[state=active]:bg-white">
+        <TabsList className="bg-muted/80">
+          <TabsTrigger value="outgoing" className="gap-2 data-[state=active]:bg-card">
             <ArrowUpRight className="h-4 w-4" />
             ต้องส่งออก
             {outgoingPending.length > 0 && (
-              <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+              <span className="text-xs bg-orange-500 dark:bg-orange-600 text-white px-1.5 py-0.5 rounded-full">
                 {outgoingPending.length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="incoming" className="gap-2 data-[state=active]:bg-white">
+          <TabsTrigger value="incoming" className="gap-2 data-[state=active]:bg-card">
             <ArrowDownLeft className="h-4 w-4" />
             รอรับเข้า
             {incomingPending.length > 0 && (
-              <span className="text-xs bg-sky-500 text-white px-1.5 py-0.5 rounded-full">
+              <span className="text-xs bg-sky-500 dark:bg-sky-600 text-white px-1.5 py-0.5 rounded-full">
                 {incomingPending.length}
               </span>
             )}
@@ -138,11 +138,11 @@ export function WHTTrackingDashboard({
         <TabsContent value="outgoing" className="mt-4 space-y-6">
           {/* Pending Section */}
           {outgoingPending.length > 0 && (
-            <div className="rounded-xl border bg-white p-5">
+            <div className="rounded-xl border bg-card p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Clock className="h-4 w-4 text-amber-500" />
-                <span className="font-medium text-gray-900">รอออกเอกสาร / รอส่ง</span>
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                <span className="font-medium text-foreground">รอออกเอกสาร / รอส่ง</span>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
                   {outgoingPending.length}
                 </span>
               </div>
@@ -156,11 +156,11 @@ export function WHTTrackingDashboard({
 
           {/* Sent Section */}
           {outgoingSent.length > 0 && (
-            <div className="rounded-xl border bg-white p-5">
+            <div className="rounded-xl border bg-card p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Send className="h-4 w-4 text-violet-500" />
-                <span className="font-medium text-gray-900">ส่งแล้ว รอยืนยันรับ</span>
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                <Send className="h-4 w-4 text-violet-500 dark:text-violet-400" />
+                <span className="font-medium text-foreground">ส่งแล้ว รอยืนยันรับ</span>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
                   {outgoingSent.length}
                 </span>
               </div>
@@ -174,11 +174,11 @@ export function WHTTrackingDashboard({
 
           {/* Confirmed Section */}
           {outgoingConfirmed.length > 0 && (
-            <div className="rounded-xl border bg-white p-5">
+            <div className="rounded-xl border bg-card p-5">
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle className="h-4 w-4 text-emerald-500" />
-                <span className="font-medium text-gray-900">ยืนยันรับแล้ว</span>
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                <CheckCircle className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                <span className="font-medium text-foreground">ยืนยันรับแล้ว</span>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
                   {outgoingConfirmed.length}
                 </span>
               </div>
@@ -204,11 +204,11 @@ export function WHTTrackingDashboard({
         <TabsContent value="incoming" className="mt-4 space-y-6">
           {/* Pending Section */}
           {incomingPending.length > 0 && (
-            <div className="rounded-xl border bg-white p-5">
+            <div className="rounded-xl border bg-card p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Clock className="h-4 w-4 text-amber-500" />
-                <span className="font-medium text-gray-900">รอรับจากลูกค้า</span>
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                <span className="font-medium text-foreground">รอรับจากลูกค้า</span>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
                   {incomingPending.length}
                 </span>
               </div>
@@ -222,11 +222,11 @@ export function WHTTrackingDashboard({
 
           {/* Received Section */}
           {incomingReceived.length > 0 && (
-            <div className="rounded-xl border bg-white p-5">
+            <div className="rounded-xl border bg-card p-5">
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle className="h-4 w-4 text-emerald-500" />
-                <span className="font-medium text-gray-900">ได้รับแล้ว</span>
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                <CheckCircle className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                <span className="font-medium text-foreground">ได้รับแล้ว</span>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
                   {incomingReceived.length}
                 </span>
               </div>

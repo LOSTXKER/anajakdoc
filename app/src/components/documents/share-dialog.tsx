@@ -208,8 +208,8 @@ export function ShareDialog({ boxId, boxNumber, trigger }: ShareDialogProps) {
           </>
         ) : (
           <div className="py-4 space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500 mb-2">ลิงก์แชร์</p>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground mb-2">ลิงก์แชร์</p>
               <div className="flex items-center gap-2">
                 <Input
                   value={shareUrl}
@@ -218,7 +218,7 @@ export function ShareDialog({ boxId, boxNumber, trigger }: ShareDialogProps) {
                 />
                 <Button size="icon" variant="outline" onClick={handleCopy}>
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Check className="h-4 w-4 text-green-500 dark:text-green-400" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}

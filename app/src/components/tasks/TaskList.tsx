@@ -67,7 +67,7 @@ export function TaskList({
     return (
       <div className="space-y-2">
         {displayTasks.length === 0 ? (
-          <p className="text-sm text-gray-500 py-2">ไม่มีงานค้าง</p>
+          <p className="text-sm text-muted-foreground py-2">ไม่มีงานค้าง</p>
         ) : (
           displayTasks.map((task) => (
             <TaskCard 
@@ -79,7 +79,7 @@ export function TaskList({
           ))
         )}
         {maxItems && openTasks.length > maxItems && (
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             +{openTasks.length - maxItems} งานเพิ่มเติม
           </p>
         )}
@@ -93,11 +93,11 @@ export function TaskList({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ListTodo className="h-5 w-5 text-gray-500" />
+              <ListTodo className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-lg">
                 งานติดตาม
                 {openTasks.length > 0 && (
-                  <span className="ml-2 text-sm font-normal text-gray-500">
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
                     ({openTasks.length} งานค้าง)
                   </span>
                 )}
@@ -114,8 +114,8 @@ export function TaskList({
       <CardContent className={showHeader ? "" : "pt-0"}>
         {displayTasks.length === 0 ? (
           <div className="text-center py-8">
-            <ListTodo className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500">ไม่มีงานติดตาม</p>
+            <ListTodo className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground">ไม่มีงานติดตาม</p>
             <Button 
               variant="outline" 
               size="sm" 

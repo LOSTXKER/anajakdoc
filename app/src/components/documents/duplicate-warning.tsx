@@ -26,8 +26,8 @@ export function DuplicateWarningAlert({ warnings, onDismiss }: DuplicateWarningP
           key={`${warning.boxId}-${index}`}
           className={`flex items-start gap-3 p-4 rounded-lg border ${
             warning.type === "exact"
-              ? "bg-red-50 border-red-200 text-red-800"
-              : "bg-amber-50 border-amber-200 text-amber-800"
+              ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300"
+              : "bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300"
           }`}
         >
           <AlertTriangle className={`h-5 w-5 shrink-0 ${

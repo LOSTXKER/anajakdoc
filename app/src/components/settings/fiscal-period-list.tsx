@@ -51,9 +51,9 @@ interface FiscalPeriodListProps {
 }
 
 const statusConfig: Record<PeriodStatus, { label: string; color: string; icon: typeof Lock }> = {
-  OPEN: { label: "เปิด", color: "bg-green-100 text-green-700", icon: Unlock },
-  CLOSING: { label: "กำลังปิด", color: "bg-yellow-100 text-yellow-700", icon: AlertTriangle },
-  CLOSED: { label: "ปิดแล้ว", color: "bg-gray-100 text-gray-700", icon: Lock },
+  OPEN: { label: "เปิด", color: "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400", icon: Unlock },
+  CLOSING: { label: "กำลังปิด", color: "bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400", icon: AlertTriangle },
+  CLOSED: { label: "ปิดแล้ว", color: "bg-muted text-muted-foreground", icon: Lock },
 };
 
 const months = [
@@ -185,8 +185,8 @@ export function FiscalPeriodList({ periods }: FiscalPeriodListProps) {
       {periods.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium">ยังไม่มีงวดบัญชี</p>
+            <Calendar className="h-12 w-12 text-muted-foreground/30 mb-4" />
+            <p className="text-lg font-medium text-foreground">ยังไม่มีงวดบัญชี</p>
             <p className="text-muted-foreground text-center max-w-md mt-1">
               สร้างงวดบัญชีเพื่อจัดการเอกสารตามรอบเดือน
             </p>

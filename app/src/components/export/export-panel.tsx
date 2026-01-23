@@ -122,11 +122,11 @@ export function ExportPanel({ boxes, history }: ExportPanelProps) {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Export Options */}
-      <div className="rounded-xl border bg-white p-5">
-        <h3 className="font-semibold text-gray-900 mb-4">Export กล่องเอกสาร</h3>
+      <div className="rounded-xl border bg-card p-5">
+        <h3 className="font-semibold text-foreground mb-4">Export กล่องเอกสาร</h3>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="space-y-1">
-            <p className="text-sm text-gray-500">รูปแบบ</p>
+            <p className="text-sm text-muted-foreground">รูปแบบ</p>
             <Select value={format} onValueChange={setFormat}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue />
@@ -161,11 +161,11 @@ export function ExportPanel({ boxes, history }: ExportPanelProps) {
       </div>
 
       {/* Box Selection */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">
+          <h3 className="font-semibold text-foreground">
             กล่องพร้อม Export 
-            <span className="text-gray-400 font-normal ml-2">({boxes.length})</span>
+            <span className="text-muted-foreground font-normal ml-2">({boxes.length})</span>
           </h3>
           {boxes.length > 0 && (
             <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
@@ -189,7 +189,7 @@ export function ExportPanel({ boxes, history }: ExportPanelProps) {
                 className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
                   selectedIds.includes(box.id) 
                     ? "border-primary bg-primary/5" 
-                    : "hover:bg-gray-50"
+                    : "hover:bg-muted"
                 }`}
               >
                 <Checkbox
@@ -200,19 +200,19 @@ export function ExportPanel({ boxes, history }: ExportPanelProps) {
                   <Package className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{box.boxNumber}</p>
-                  <p className="text-sm text-gray-500 truncate">
+                  <p className="font-medium text-foreground">{box.boxNumber}</p>
+                  <p className="text-sm text-muted-foreground truncate">
                     {box.title || "-"} • {box.contact?.name || "-"} • {box.category?.name || "-"}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     {box.documents.length} เอกสาร
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-foreground">
                     ฿{box.totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(box.boxDate).toLocaleDateString("th-TH")}
                   </p>
                 </div>
@@ -224,26 +224,26 @@ export function ExportPanel({ boxes, history }: ExportPanelProps) {
 
       {/* Export History */}
       {history.length > 0 && (
-        <div className="rounded-xl border bg-white p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">ประวัติการ Export</h3>
+        <div className="rounded-xl border bg-card p-5">
+          <h3 className="font-semibold text-foreground mb-4">ประวัติการ Export</h3>
           <div className="space-y-2">
             {history.map((item) => (
               <div
                 key={item.id}
                 className="flex items-center gap-4 p-4 rounded-lg border"
               >
-                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
                   {item.exportType === "ZIP" ? (
-                    <FolderArchive className="h-5 w-5 text-gray-600" />
+                    <FolderArchive className="h-5 w-5 text-muted-foreground" />
                   ) : (
-                    <FileSpreadsheet className="h-5 w-5 text-gray-600" />
+                    <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{item.fileName}</p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <p className="font-medium text-foreground">{item.fileName}</p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>{item.boxCount} กล่อง</span>
-                    <span className="text-gray-300">•</span>
+                    <span className="text-border">•</span>
                     <Clock className="h-3 w-3" />
                     <span>{new Date(item.createdAt).toLocaleString("th-TH")}</span>
                   </div>

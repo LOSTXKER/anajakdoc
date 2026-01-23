@@ -31,27 +31,27 @@ const STATUS_CONFIG: Record<StatusValue, {
 }> = {
   missing: { 
     icon: Clock, 
-    bgColor: "bg-amber-50", 
-    iconColor: "text-amber-600",
-    borderColor: "border-amber-200",
+    bgColor: "bg-amber-50 dark:bg-amber-950", 
+    iconColor: "text-amber-600 dark:text-amber-400",
+    borderColor: "border-amber-200 dark:border-amber-800",
   },
   received: { 
     icon: FileCheck, 
-    bgColor: "bg-blue-50", 
-    iconColor: "text-blue-600",
-    borderColor: "border-blue-200",
+    bgColor: "bg-blue-50 dark:bg-blue-950", 
+    iconColor: "text-blue-600 dark:text-blue-400",
+    borderColor: "border-blue-200 dark:border-blue-800",
   },
   verified: { 
     icon: CheckCircle2, 
-    bgColor: "bg-emerald-50", 
-    iconColor: "text-emerald-600",
-    borderColor: "border-emerald-200",
+    bgColor: "bg-emerald-50 dark:bg-emerald-950", 
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    borderColor: "border-emerald-200 dark:border-emerald-800",
   },
   sent: { 
     icon: Send, 
-    bgColor: "bg-emerald-50", 
-    iconColor: "text-emerald-600",
-    borderColor: "border-emerald-200",
+    bgColor: "bg-emerald-50 dark:bg-emerald-950", 
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    borderColor: "border-emerald-200 dark:border-emerald-800",
   },
 };
 
@@ -63,12 +63,12 @@ const TYPE_CONFIG: Record<DocStatusType, {
   VAT: { 
     icon: FileCheck, 
     label: "VAT",
-    color: "text-emerald-600",
+    color: "text-emerald-600 dark:text-emerald-400",
   },
   WHT: { 
     icon: FileText, 
     label: "WHT",
-    color: "text-purple-600",
+    color: "text-purple-600 dark:text-purple-400",
   },
 };
 
@@ -95,9 +95,9 @@ export function DocStatusCard({
         {/* Icon */}
         <div className={cn(
           "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-          status === "missing" ? "bg-amber-100" :
-          status === "received" ? "bg-blue-100" :
-          "bg-emerald-100"
+          status === "missing" ? "bg-amber-100 dark:bg-amber-900" :
+          status === "received" ? "bg-blue-100 dark:bg-blue-900" :
+          "bg-emerald-100 dark:bg-emerald-900"
         )}>
           <StatusIcon className={cn("h-5 w-5", statusConfig.iconColor)} />
         </div>
@@ -120,7 +120,7 @@ export function DocStatusCard({
           {type === "WHT" && (amount || rate) && (
             <div className="flex items-center gap-2 mt-2">
               {rate && (
-                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded">
                   {rate}%
                 </span>
               )}

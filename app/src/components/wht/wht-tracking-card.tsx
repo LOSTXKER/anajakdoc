@@ -34,11 +34,11 @@ interface WHTTrackingCardProps {
 }
 
 const statusConfig: Record<WhtStatus, { label: string; color: string; icon: typeof Clock }> = {
-  PENDING: { label: "รอดำเนินการ", color: "bg-yellow-100 text-yellow-700", icon: Clock },
-  ISSUED: { label: "ออกเอกสารแล้ว", color: "bg-blue-100 text-blue-700", icon: FileText },
-  SENT: { label: "ส่งแล้ว", color: "bg-indigo-100 text-indigo-700", icon: Send },
-  CONFIRMED: { label: "ยืนยันรับแล้ว", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  RECEIVED: { label: "ได้รับแล้ว", color: "bg-green-100 text-green-700", icon: CheckCircle },
+  PENDING: { label: "รอดำเนินการ", color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300", icon: Clock },
+  ISSUED: { label: "ออกเอกสารแล้ว", color: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300", icon: FileText },
+  SENT: { label: "ส่งแล้ว", color: "bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300", icon: Send },
+  CONFIRMED: { label: "ยืนยันรับแล้ว", color: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300", icon: CheckCircle },
+  RECEIVED: { label: "ได้รับแล้ว", color: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300", icon: CheckCircle },
 };
 
 const sentMethodLabels: Record<string, { label: string; icon: typeof Mail }> = {
@@ -93,13 +93,13 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
   const nextStatuses = getNextStatuses();
 
   return (
-    <div className="rounded-lg border bg-white p-4 hover:border-primary/30 transition-colors">
+    <div className="rounded-lg border bg-card p-4 hover:border-primary/30 transition-colors">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           {/* Header */}
           <div className="flex items-center gap-2 mb-2">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 border ${
-              isOutgoing ? "border-orange-200 text-orange-600 bg-orange-50" : "border-sky-200 text-sky-600 bg-sky-50"
+              isOutgoing ? "border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950" : "border-sky-200 dark:border-sky-800 text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950"
             }`}>
               {isOutgoing ? (
                 <>
@@ -120,18 +120,18 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
           </div>
 
           {/* Contact */}
-          <h4 className="font-medium text-gray-900">
+          <h4 className="font-medium text-foreground">
             {tracking.contact?.name || "ไม่ระบุคู่ค้า"}
           </h4>
 
           {/* Amount */}
           <div className="mt-1 text-sm">
-            <span className="text-gray-500">หัก {tracking.rate}%:</span>
-            <span className="font-semibold text-gray-900 ml-1">฿{tracking.amount.toLocaleString()}</span>
+            <span className="text-muted-foreground">หัก {tracking.rate}%:</span>
+            <span className="font-semibold text-foreground ml-1">฿{tracking.amount.toLocaleString()}</span>
           </div>
 
           {/* Dates */}
-          <div className="mt-2 text-xs text-gray-500 space-y-0.5">
+          <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
             {tracking.issuedDate && (
               <div>ออกเอกสาร: {new Date(tracking.issuedDate).toLocaleDateString("th-TH")}</div>
             )}
@@ -150,7 +150,7 @@ export function WHTTrackingCard({ tracking, showDocument = false }: WHTTrackingC
 
           {/* Notes */}
           {tracking.notes && (
-            <p className="mt-2 text-sm text-gray-400">{tracking.notes}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{tracking.notes}</p>
           )}
         </div>
 

@@ -262,13 +262,13 @@ export default async function DashboardPage() {
             {/* Key Metrics */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {/* Pending Boxes */}
-              <div className="rounded-xl border bg-white p-4">
+              <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">กล่องค้าง</span>
-                  <Hourglass className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-muted-foreground">กล่องค้าง</span>
+                  <Hourglass className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{stats.owner.pendingBoxes}</p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-3xl font-bold text-foreground">{stats.owner.pendingBoxes}</p>
+                <p className="text-sm text-muted-foreground mt-1">
                   ฿{formatMoney(stats.owner.pendingAmount)}
                 </p>
               </div>
@@ -277,24 +277,24 @@ export default async function DashboardPage() {
               <div className={cn(
                 "rounded-xl border p-4",
                 stats.owner.whtOverdueCount > 0 
-                  ? "border-red-200 bg-red-50" 
-                  : "bg-white"
+                  ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950" 
+                  : "border-border bg-card"
               )}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">WHT ค้าง</span>
+                  <span className="text-sm text-muted-foreground">WHT ค้าง</span>
                   <Percent className={cn(
                     "h-4 w-4",
-                    stats.owner.whtOverdueCount > 0 ? "text-red-500" : "text-gray-400"
+                    stats.owner.whtOverdueCount > 0 ? "text-red-500" : "text-muted-foreground"
                   )} />
                 </div>
                 <p className={cn(
                   "text-3xl font-bold",
-                  stats.owner.whtOverdueCount > 0 ? "text-red-600" : "text-gray-900"
+                  stats.owner.whtOverdueCount > 0 ? "text-red-600 dark:text-red-400" : "text-foreground"
                 )}>
                   ฿{formatMoney(stats.owner.whtOutstanding)}
                 </p>
                 {stats.owner.whtOverdueCount > 0 && (
-                  <p className="text-sm text-red-600 mt-1">
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                     <AlertTriangle className="inline h-3 w-3 mr-1" />
                     {stats.owner.whtOverdueCount} เกินกำหนด
                   </p>
@@ -303,13 +303,13 @@ export default async function DashboardPage() {
 
               {/* Possible Duplicates */}
               {stats.owner.duplicateCount > 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-amber-700">อาจซ้ำ</span>
+                    <span className="text-sm text-amber-700 dark:text-amber-300">อาจซ้ำ</span>
                     <Copy className="h-4 w-4 text-amber-500" />
                   </div>
-                  <p className="text-3xl font-bold text-amber-700">{stats.owner.duplicateCount}</p>
-                  <Link href="/documents?duplicate=true" className="text-sm text-amber-600 hover:underline mt-1 inline-block">
+                  <p className="text-3xl font-bold text-amber-700 dark:text-amber-300">{stats.owner.duplicateCount}</p>
+                  <Link href="/documents?duplicate=true" className="text-sm text-amber-600 dark:text-amber-400 hover:underline mt-1 inline-block">
                     ตรวจสอบ →
                   </Link>
                 </div>
@@ -317,12 +317,12 @@ export default async function DashboardPage() {
 
               {/* Reimbursement Pending */}
               {stats.owner.reimbursementPending > 0 && (
-                <div className="rounded-xl border bg-white p-4">
+                <div className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-500">รอคืนเงินพนักงาน</span>
-                    <Users className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-muted-foreground">รอคืนเงินพนักงาน</span>
+                    <Users className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-3xl font-bold text-foreground">
                     ฿{formatMoney(stats.owner.reimbursementPending)}
                   </p>
                 </div>
@@ -330,8 +330,8 @@ export default async function DashboardPage() {
             </div>
 
             {/* Aging Buckets */}
-            <div className="rounded-xl border bg-white p-4">
-              <h3 className="font-medium text-gray-900 mb-3">อายุกล่องค้าง</h3>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h3 className="font-medium text-foreground mb-3">อายุกล่องค้าง</h3>
               <div className="grid grid-cols-4 gap-2">
                 {(Object.entries(stats.owner.agingBuckets) as [keyof typeof AGING_BUCKET_CONFIG, number][]).map(([bucket, count]) => {
                   const config = AGING_BUCKET_CONFIG[bucket];
@@ -358,24 +358,24 @@ export default async function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
             <Link 
               href="/documents?status=SUBMITTED"
-              className="rounded-xl border border-sky-200 bg-sky-50 p-4 hover:border-sky-300 transition-colors"
+              className="rounded-xl border border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950 p-4 hover:border-sky-300 dark:hover:border-sky-700 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
-                <Send className="h-4 w-4 text-sky-600" />
-                <span className="text-sm text-sky-700">Inbox</span>
+                <Send className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                <span className="text-sm text-sky-700 dark:text-sky-300">Inbox</span>
               </div>
-              <p className="text-3xl font-bold text-sky-700">{stats.accountant.inbox}</p>
+              <p className="text-3xl font-bold text-sky-700 dark:text-sky-300">{stats.accountant.inbox}</p>
             </Link>
 
             <Link 
               href="/documents?status=IN_REVIEW"
-              className="rounded-xl border bg-white p-4 hover:border-blue-300 transition-colors"
+              className="rounded-xl border border-border bg-card p-4 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
-                <Eye className="h-4 w-4 text-blue-600" />
-                <span className="text-sm text-gray-600">กำลังตรวจ</span>
+                <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm text-muted-foreground">กำลังตรวจ</span>
               </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.accountant.inReview}</p>
+              <p className="text-3xl font-bold text-foreground">{stats.accountant.inReview}</p>
             </Link>
 
             <Link 
@@ -383,17 +383,17 @@ export default async function DashboardPage() {
               className={cn(
                 "rounded-xl border p-4 transition-colors",
                 stats.accountant.needMoreDocs > 0 
-                  ? "border-amber-200 bg-amber-50 hover:border-amber-300" 
-                  : "bg-white hover:border-gray-300"
+                  ? "border-amber-200 bg-amber-50 hover:border-amber-300 dark:border-amber-900 dark:bg-amber-950 dark:hover:border-amber-700" 
+                  : "border-border bg-card hover:border-muted-foreground"
               )}
             >
               <div className="flex items-center gap-2 mb-2">
-                <FileQuestion className="h-4 w-4 text-amber-600" />
-                <span className="text-sm text-amber-700">ขอเอกสาร</span>
+                <FileQuestion className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-sm text-amber-700 dark:text-amber-300">ขอเอกสาร</span>
               </div>
               <p className={cn(
                 "text-3xl font-bold",
-                stats.accountant.needMoreDocs > 0 ? "text-amber-700" : "text-gray-900"
+                stats.accountant.needMoreDocs > 0 ? "text-amber-700 dark:text-amber-300" : "text-foreground"
               )}>
                 {stats.accountant.needMoreDocs}
               </p>
@@ -401,13 +401,13 @@ export default async function DashboardPage() {
 
             <Link 
               href="/documents?status=READY_TO_BOOK"
-              className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 hover:border-emerald-300 transition-colors"
+              className="rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950 p-4 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm text-emerald-700">พร้อมลง</span>
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-sm text-emerald-700 dark:text-emerald-300">พร้อมลง</span>
               </div>
-              <p className="text-3xl font-bold text-emerald-700">{stats.accountant.readyToBook}</p>
+              <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">{stats.accountant.readyToBook}</p>
             </Link>
 
             <Link 
@@ -415,29 +415,29 @@ export default async function DashboardPage() {
               className={cn(
                 "rounded-xl border p-4 transition-colors",
                 stats.accountant.whtPending > 0 
-                  ? "border-orange-200 bg-orange-50 hover:border-orange-300" 
-                  : "bg-white hover:border-gray-300"
+                  ? "border-orange-200 bg-orange-50 hover:border-orange-300 dark:border-orange-900 dark:bg-orange-950 dark:hover:border-orange-700" 
+                  : "border-border bg-card hover:border-muted-foreground"
               )}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Percent className="h-4 w-4 text-orange-600" />
-                <span className="text-sm text-orange-700">รอ WHT</span>
+                <Percent className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <span className="text-sm text-orange-700 dark:text-orange-300">รอ WHT</span>
               </div>
               <p className={cn(
                 "text-3xl font-bold",
-                stats.accountant.whtPending > 0 ? "text-orange-700" : "text-gray-900"
+                stats.accountant.whtPending > 0 ? "text-orange-700 dark:text-orange-300" : "text-foreground"
               )}>
                 {stats.accountant.whtPending}
               </p>
             </Link>
 
             {stats.accountant.overdueTasks > 0 && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm text-red-700">งานเลยกำหนด</span>
+                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <span className="text-sm text-red-700 dark:text-red-300">งานเลยกำหนด</span>
                 </div>
-                <p className="text-3xl font-bold text-red-700">{stats.accountant.overdueTasks}</p>
+                <p className="text-3xl font-bold text-red-700 dark:text-red-300">{stats.accountant.overdueTasks}</p>
               </div>
             )}
           </div>
@@ -445,28 +445,28 @@ export default async function DashboardPage() {
 
         {/* Monthly Summary */}
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border bg-white p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-gray-500">รายจ่ายเดือนนี้</span>
-              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                <TrendingDown className="h-4 w-4 text-red-600" />
+              <span className="text-sm font-medium text-muted-foreground">รายจ่ายเดือนนี้</span>
+              <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950 flex items-center justify-center">
+                <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">฿{formatMoney(stats.monthlyExpense)}</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-2xl font-bold text-foreground">฿{formatMoney(stats.monthlyExpense)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
               {new Date().toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
             </p>
           </div>
 
-          <div className="rounded-xl border bg-white p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-gray-500">รายรับเดือนนี้</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <span className="text-sm font-medium text-muted-foreground">รายรับเดือนนี้</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">฿{formatMoney(stats.monthlyIncome)}</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-2xl font-bold text-foreground">฿{formatMoney(stats.monthlyIncome)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
               {new Date().toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
             </p>
           </div>
@@ -475,43 +475,43 @@ export default async function DashboardPage() {
         {/* Quick Actions & Recent */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Quick Actions */}
-          <div className="rounded-xl border bg-white p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">สร้างกล่องใหม่</h3>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="font-semibold text-foreground mb-4">สร้างกล่องใหม่</h3>
             <div className="space-y-3">
               <Link
                 href="/documents/new?type=expense"
-                className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-colors"
               >
-                <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                  <TrendingDown className="h-5 w-5 text-red-600" />
+                <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950 flex items-center justify-center">
+                  <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">รายจ่าย</p>
-                  <p className="text-xs text-gray-500">ใบเสร็จ, ใบกำกับภาษี</p>
+                  <p className="font-medium text-foreground">รายจ่าย</p>
+                  <p className="text-xs text-muted-foreground">ใบเสร็จ, ใบกำกับภาษี</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
 
               <Link
                 href="/documents/new?type=income"
-                className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-colors"
               >
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">รายรับ</p>
-                  <p className="text-xs text-gray-500">ใบแจ้งหนี้, ใบเสนอราคา</p>
+                  <p className="font-medium text-foreground">รายรับ</p>
+                  <p className="text-xs text-muted-foreground">ใบแจ้งหนี้, ใบเสนอราคา</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
             </div>
           </div>
 
           {/* Recent Boxes */}
-          <div className="lg:col-span-2 rounded-xl border bg-white p-5">
+          <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">กล่องล่าสุด</h3>
+              <h3 className="font-semibold text-foreground">กล่องล่าสุด</h3>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/documents">
                   ดูทั้งหมด
@@ -525,7 +525,7 @@ export default async function DashboardPage() {
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                   <Package className="h-7 w-7 text-primary" />
                 </div>
-                <p className="text-gray-500 mb-4">ยังไม่มีกล่องเอกสาร</p>
+                <p className="text-muted-foreground mb-4">ยังไม่มีกล่องเอกสาร</p>
                 <Button size="sm" asChild>
                   <Link href="/documents/new">
                     <Plus className="mr-1.5 h-4 w-4" />
@@ -542,23 +542,23 @@ export default async function DashboardPage() {
                     <Link
                       key={box.id}
                       href={`/documents/${box.id}`}
-                      className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-colors"
                     >
                       <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", config.bgLight)}>
                         <Package className={cn("h-5 w-5", config.iconColor)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{box.boxNumber}</span>
+                          <span className="font-medium text-foreground">{box.boxNumber}</span>
                           <Badge variant="secondary" className={cn("text-xs", statusConfig.className)}>
                             {statusConfig.labelShort}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-500 truncate">
+                        <p className="text-sm text-muted-foreground truncate">
                           {box.contact?.name || "-"} • ฿{box.totalAmount.toNumber().toLocaleString()}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-400 shrink-0">
+                      <span className="text-xs text-muted-foreground shrink-0">
                         {new Date(box.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
                       </span>
                     </Link>

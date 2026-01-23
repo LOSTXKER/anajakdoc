@@ -323,15 +323,15 @@ export function ReportsDashboard({ data, kpiData }: ReportsDashboardProps) {
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium",
-                            index === 0 ? "bg-amber-100 text-amber-700" :
-                            index === 1 ? "bg-gray-100 text-gray-600" :
-                            index === 2 ? "bg-orange-100 text-orange-700" :
-                            "bg-gray-50 text-gray-500"
+                            index === 0 ? "bg-amber-50 dark:bg-amber-900 text-amber-700 dark:text-amber-300" :
+                            index === 1 ? "bg-muted text-muted-foreground" :
+                            index === 2 ? "bg-orange-50 dark:bg-orange-900 text-orange-700 dark:text-orange-300" :
+                            "bg-muted/50 text-muted-foreground"
                           )}>
                             {index + 1}
                           </div>
                           <div>
-                            <p className="font-medium truncate max-w-[150px]">{vendor.name}</p>
+                            <p className="font-medium truncate max-w-[150px] text-foreground">{vendor.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {vendor.count} รายการ • ฿{vendor.amount.toLocaleString()}
                             </p>
@@ -361,7 +361,7 @@ export function ReportsDashboard({ data, kpiData }: ReportsDashboardProps) {
               <CardContent>
                 {kpiData.pendingByStatus.length === 0 ? (
                   <div className="flex flex-col items-center py-8">
-                    <CheckCircle2 className="h-12 w-12 text-green-500 mb-2" />
+                    <CheckCircle2 className="h-12 w-12 text-green-500 dark:text-green-400 mb-2" />
                     <p className="text-muted-foreground">ไม่มีงานค้าง</p>
                   </div>
                 ) : (
@@ -535,7 +535,7 @@ export function ReportsDashboard({ data, kpiData }: ReportsDashboardProps) {
                             {cc.count}
                           </Badge>
                         </div>
-                        <span className="font-medium">
+                        <span className="font-medium text-foreground">
                           ฿{cc.amount.toLocaleString()}
                         </span>
                       </div>

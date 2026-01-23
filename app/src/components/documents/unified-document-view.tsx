@@ -155,16 +155,16 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <TabsList className="bg-gray-100/80">
-            <TabsTrigger value="mine" className="gap-2 data-[state=active]:bg-white">
+          <TabsList className="bg-muted">
+            <TabsTrigger value="mine" className="gap-2 data-[state=active]:bg-card">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">ของฉัน</span>
-              <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded-full">
+              <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">
                 {myBoxes.length}
               </span>
             </TabsTrigger>
             {isAccounting && (
-              <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-white">
+              <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-card">
                 <Inbox className="h-4 w-4" />
                 <span className="hidden sm:inline">รอตรวจ</span>
                 {pendingBoxes.length > 0 && (
@@ -174,7 +174,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 )}
               </TabsTrigger>
             )}
-            <TabsTrigger value="incomplete" className="gap-2 data-[state=active]:bg-white">
+            <TabsTrigger value="incomplete" className="gap-2 data-[state=active]:bg-card">
               <AlertCircle className="h-4 w-4" />
               <span className="hidden sm:inline">รอเอกสาร</span>
               {incompleteBoxes.length > 0 && (
@@ -184,7 +184,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
               )}
             </TabsTrigger>
             {isAccounting && (
-              <TabsTrigger value="ready" className="gap-2 data-[state=active]:bg-white">
+              <TabsTrigger value="ready" className="gap-2 data-[state=active]:bg-card">
                 <FileCheck className="h-4 w-4" />
                 <span className="hidden sm:inline">พร้อม</span>
                 {readyBoxes.length > 0 && (
@@ -194,15 +194,15 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 )}
               </TabsTrigger>
             )}
-            <TabsTrigger value="done" className="gap-2 data-[state=active]:bg-white">
+            <TabsTrigger value="done" className="gap-2 data-[state=active]:bg-card">
               <CheckCircle className="h-4 w-4" />
               <span className="hidden sm:inline">เสร็จ</span>
-              <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded-full">
+              <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">
                 {doneBoxes.length}
               </span>
             </TabsTrigger>
             {isAccounting && (
-              <TabsTrigger value="reimburse" className="gap-2 data-[state=active]:bg-white">
+              <TabsTrigger value="reimburse" className="gap-2 data-[state=active]:bg-card">
                 <Wallet className="h-4 w-4" />
                 <span className="hidden sm:inline">รอคืนเงิน</span>
                 {reimburseBoxes.length > 0 && (
@@ -212,7 +212,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 )}
               </TabsTrigger>
             )}
-            <TabsTrigger value="all" className="data-[state=active]:bg-white">
+            <TabsTrigger value="all" className="data-[state=active]:bg-card">
               <span className="hidden sm:inline">ทั้งหมด</span>
               <span className="sm:hidden">All</span>
             </TabsTrigger>
@@ -222,7 +222,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
             {/* Bulk Actions */}
             {someSelected && activeTab === "pending" && (
               <>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground">
                   เลือก {selectedIds.size} รายการ
                 </span>
                 <Button 
@@ -259,12 +259,12 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
 
         {/* Select All Header */}
         {showCheckbox && currentBoxes.length > 0 && (
-          <div className="flex items-center gap-3 py-3 px-1 border-b">
+          <div className="flex items-center gap-3 py-3 px-1 border-b border-border">
             <Checkbox
               checked={allSelected}
               onCheckedChange={handleSelectAll}
             />
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               {allSelected ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
             </span>
           </div>

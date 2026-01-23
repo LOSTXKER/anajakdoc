@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { SessionUser } from "@/types";
 import { CommandSearch } from "@/components/layout/command-search";
+import { ThemeToggleCompact } from "@/components/ui/theme-toggle";
 
 interface FirmSidebarProps {
   user: SessionUser;
@@ -179,8 +180,12 @@ export function FirmSidebar({ user }: FirmSidebarProps) {
           </div>
         </nav>
 
-        {/* User Menu */}
-        <div className="border-t border-sidebar-border p-3">
+        {/* Theme Toggle & User Menu */}
+        <div className="border-t border-sidebar-border p-3 space-y-2">
+          {/* Theme Toggle */}
+          <ThemeToggleCompact />
+          
+          {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors">

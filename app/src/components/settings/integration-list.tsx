@@ -207,9 +207,9 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
               value={formData.config.accessToken || ""}
               onChange={(e) => setFormData({ ...formData, config: { ...formData.config, accessToken: e.target.value } })}
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               สร้าง Token ได้ที่{" "}
-              <a href="https://notify-bot.line.me/" target="_blank" className="text-blue-600 hover:underline">
+              <a href="https://notify-bot.line.me/" target="_blank" className="text-blue-600 dark:text-blue-400 hover:underline">
                 notify-bot.line.me
               </a>
             </p>
@@ -319,9 +319,9 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
-              <Bell className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">ยังไม่มี Integration</h3>
-              <p className="text-gray-500 mb-4">เพิ่ม LINE, Slack หรือ Webhook เพื่อรับการแจ้งเตือนอัตโนมัติ</p>
+              <Bell className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">ยังไม่มี Integration</h3>
+              <p className="text-muted-foreground mb-4">เพิ่ม LINE, Slack หรือ Webhook เพื่อรับการแจ้งเตือนอัตโนมัติ</p>
               <Button onClick={() => setShowDialog(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 เพิ่ม Integration แรก
@@ -338,7 +338,7 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                         {typeInfo?.icon}
                       </div>
                       <div>
@@ -374,7 +374,7 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       {integration.lastTriggeredAt && (
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           ส่งล่าสุด: {new Date(integration.lastTriggeredAt).toLocaleDateString("th-TH")}
                         </span>
                       )}
@@ -393,7 +393,7 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950"
                         onClick={() => handleDelete(integration.id)}
                         disabled={loading === integration.id}
                       >
@@ -461,7 +461,7 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
               <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
                 {["สถานะกล่อง", "เอกสาร", "งาน", "WHT"].map((category) => (
                   <div key={category} className="mb-3 last:mb-0">
-                    <p className="text-xs font-medium text-gray-500 mb-2">{category}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">{category}</p>
                     <div className="flex flex-wrap gap-2">
                       {EVENT_TYPES.filter((e) => e.category === category).map((event) => (
                         <Badge
@@ -480,7 +480,7 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 เลือก {formData.events.length} รายการ
               </p>
             </div>

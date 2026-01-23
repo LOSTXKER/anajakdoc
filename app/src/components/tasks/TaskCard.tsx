@@ -75,8 +75,8 @@ export function TaskCard({ task, onUpdate, compact = false }: TaskCardProps) {
     return (
       <div className={cn(
         "flex items-center gap-3 p-2 rounded-lg border",
-        task.status === "DONE" && "bg-gray-50 opacity-60",
-        isOverdue && "border-red-200 bg-red-50",
+        task.status === "DONE" && "bg-muted opacity-60",
+        isOverdue && "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950",
       )}>
         <div className={cn("p-1.5 rounded", typeConfig.className)}>
           <TypeIcon className="h-3.5 w-3.5" />
@@ -91,7 +91,7 @@ export function TaskCard({ task, onUpdate, compact = false }: TaskCardProps) {
           {dueDate && (
             <p className={cn(
               "text-xs",
-              isOverdue ? "text-red-600" : "text-gray-500"
+              isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
             )}>
               {isOverdue ? "เลยกำหนด " : ""}
               {formatDistanceToNow(dueDate, { addSuffix: true, locale: th })}
@@ -115,10 +115,10 @@ export function TaskCard({ task, onUpdate, compact = false }: TaskCardProps) {
 
   return (
     <div className={cn(
-      "p-4 rounded-lg border bg-white",
-      task.status === "DONE" && "bg-gray-50 opacity-75",
-      isOverdue && "border-red-200",
-      task.escalationLevel >= 2 && "border-red-300 ring-1 ring-red-200",
+      "p-4 rounded-lg border bg-card",
+      task.status === "DONE" && "bg-muted opacity-75",
+      isOverdue && "border-red-200 dark:border-red-800",
+      task.escalationLevel >= 2 && "border-red-300 dark:border-red-700 ring-1 ring-red-200 dark:ring-red-800",
     )}>
       <div className="flex items-start gap-3">
         {/* Type Icon */}
@@ -132,12 +132,12 @@ export function TaskCard({ task, onUpdate, compact = false }: TaskCardProps) {
             <div>
               <h4 className={cn(
                 "font-medium",
-                task.status === "DONE" && "line-through text-gray-500"
+                task.status === "DONE" && "line-through text-muted-foreground"
               )}>
                 {task.title}
               </h4>
               {task.description && (
-                <p className="text-sm text-gray-500 mt-1">{task.description}</p>
+                <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
               )}
             </div>
             
@@ -183,8 +183,8 @@ export function TaskCard({ task, onUpdate, compact = false }: TaskCardProps) {
                 variant="outline" 
                 className={cn(
                   isOverdue 
-                    ? "bg-red-100 text-red-700 border-red-200" 
-                    : "bg-gray-100 text-gray-700"
+                    ? "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800" 
+                    : "bg-muted text-muted-foreground"
                 )}
               >
                 <Clock className="mr-1 h-3 w-3" />
@@ -199,8 +199,8 @@ export function TaskCard({ task, onUpdate, compact = false }: TaskCardProps) {
                 variant="outline" 
                 className={cn(
                   task.escalationLevel >= 2 
-                    ? "bg-red-100 text-red-700 border-red-200"
-                    : "bg-amber-100 text-amber-700 border-amber-200"
+                    ? "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+                    : "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800"
                 )}
               >
                 <AlertTriangle className="mr-1 h-3 w-3" />
@@ -210,7 +210,7 @@ export function TaskCard({ task, onUpdate, compact = false }: TaskCardProps) {
 
             {/* Assignee */}
             {task.assignee && (
-              <Badge variant="outline" className="bg-gray-100">
+              <Badge variant="outline" className="bg-muted">
                 <User className="mr-1 h-3 w-3" />
                 {task.assignee.name || task.assignee.email}
               </Badge>

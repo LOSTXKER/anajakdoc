@@ -53,10 +53,10 @@ const roleLabels: Record<MemberRole, string> = {
 };
 
 const roleColors: Record<MemberRole, string> = {
-  OWNER: "bg-purple-100 text-purple-700",
-  ADMIN: "bg-sky-100 text-sky-700",
-  ACCOUNTING: "bg-emerald-100 text-emerald-700",
-  STAFF: "bg-gray-100 text-gray-700",
+  OWNER: "bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-400",
+  ADMIN: "bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-400",
+  ACCOUNTING: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400",
+  STAFF: "bg-muted text-muted-foreground",
 };
 
 export function MemberList({ members, currentUserId, currentUserRole, organizationId }: MemberListProps) {
@@ -121,7 +121,7 @@ export function MemberList({ members, currentUserId, currentUserRole, organizati
                     name="email"
                     type="email"
                     placeholder="email@example.com"
-                    className="bg-gray-50 focus:bg-white"
+                    className="bg-card focus:bg-card"
                     required
                   />
                 </div>
@@ -153,14 +153,14 @@ export function MemberList({ members, currentUserId, currentUserRole, organizati
         </div>
       )}
 
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Users className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">สมาชิกทั้งหมด</h3>
-            <p className="text-sm text-gray-500">{members.length} คน</p>
+            <h3 className="font-semibold text-foreground">สมาชิกทั้งหมด</h3>
+            <p className="text-sm text-muted-foreground">{members.length} คน</p>
           </div>
         </div>
 
@@ -168,7 +168,7 @@ export function MemberList({ members, currentUserId, currentUserRole, organizati
           {members.map((member) => (
             <div
               key={member.id}
-              className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors"
             >
               <Avatar className="h-10 w-10">
                 <AvatarImage src={member.user.avatarUrl || undefined} />
@@ -177,13 +177,13 @@ export function MemberList({ members, currentUserId, currentUserRole, organizati
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-foreground">
                   {member.user.name || "ไม่ระบุชื่อ"}
                   {member.user.id === currentUserId && (
-                    <span className="text-gray-400 ml-2">(คุณ)</span>
+                    <span className="text-muted-foreground ml-2">(คุณ)</span>
                   )}
                 </p>
-                <p className="text-sm text-gray-500 truncate">{member.user.email}</p>
+                <p className="text-sm text-muted-foreground truncate">{member.user.email}</p>
               </div>
               <span className={`text-xs font-medium px-2 py-1 rounded-full ${roleColors[member.role]}`}>
                 {roleLabels[member.role]}
