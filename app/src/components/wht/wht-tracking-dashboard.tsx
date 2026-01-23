@@ -12,14 +12,15 @@ import {
   Receipt,
 } from "lucide-react";
 import { WHTTrackingCard } from "./wht-tracking-card";
+import { formatMoney } from "@/lib/formatters";
 import type { SerializedWhtTracking } from "@/types";
 
 interface WHTTrackingDashboardProps {
   outgoingTrackings: SerializedWhtTracking[];
   incomingTrackings: SerializedWhtTracking[];
   summary: {
-    outgoing: { pending: number; sent: number };
-    incoming: { pending: number; received: number };
+    outgoing: { pending: number; pendingAmount: number; sent: number; sentAmount: number };
+    incoming: { pending: number; pendingAmount: number; received: number; receivedAmount: number };
   };
 }
 
@@ -43,48 +44,68 @@ export function WHTTrackingDashboard({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
               <ArrowUpRight className="h-5 w-5 text-orange-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-gray-500">ต้องส่งออก</p>
               <p className="text-2xl font-bold text-gray-900">{summary.outgoing.pending}</p>
+              {summary.outgoing.pendingAmount > 0 && (
+                <p className="text-xs text-orange-600 font-medium truncate">
+                  {formatMoney(summary.outgoing.pendingAmount)} ฿
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
               <Send className="h-5 w-5 text-violet-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-gray-500">ส่งแล้วรอยืนยัน</p>
               <p className="text-2xl font-bold text-gray-900">{summary.outgoing.sent}</p>
+              {summary.outgoing.sentAmount > 0 && (
+                <p className="text-xs text-violet-600 font-medium truncate">
+                  {formatMoney(summary.outgoing.sentAmount)} ฿
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
               <ArrowDownLeft className="h-5 w-5 text-sky-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-gray-500">รอรับเข้า</p>
               <p className="text-2xl font-bold text-gray-900">{summary.incoming.pending}</p>
+              {summary.incoming.pendingAmount > 0 && (
+                <p className="text-xs text-sky-600 font-medium truncate">
+                  {formatMoney(summary.incoming.pendingAmount)} ฿
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
               <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-gray-500">ได้รับแล้ว</p>
               <p className="text-2xl font-bold text-gray-900">{summary.incoming.received}</p>
+              {summary.incoming.receivedAmount > 0 && (
+                <p className="text-xs text-emerald-600 font-medium truncate">
+                  {formatMoney(summary.incoming.receivedAmount)} ฿
+                </p>
+              )}
             </div>
           </div>
         </div>

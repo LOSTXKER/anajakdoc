@@ -78,6 +78,7 @@ export function serializeWhtTracking(wht: WhtTrackingWithContact & { box?: any }
     issuedDate: wht.issuedDate?.toISOString() || null,
     sentDate: wht.sentDate?.toISOString() || null,
     receivedDate: wht.receivedDate?.toISOString() || null,
+    dueDate: wht.dueDate?.toISOString() || null,
     createdAt: wht.createdAt.toISOString(),
     updatedAt: wht.updatedAt.toISOString(),
     box: box ? {
@@ -110,12 +111,29 @@ export function serializeBox(box: BoxWithRelations): SerializedBox {
     exchangeRate: toNumberOrNull(box.exchangeRate),
     boxDate: box.boxDate.toISOString(),
     dueDate: box.dueDate?.toISOString() || null,
+    whtDueDate: box.whtDueDate?.toISOString() || null,
+    vatVerifiedAt: box.vatVerifiedAt?.toISOString() || null,
+    submittedAt: box.submittedAt?.toISOString() || null,
+    reviewedAt: box.reviewedAt?.toISOString() || null,
+    bookedAt: box.bookedAt?.toISOString() || null,
     exportedAt: box.exportedAt?.toISOString() || null,
+    archivedAt: box.archivedAt?.toISOString() || null,
+    lockedAt: box.lockedAt?.toISOString() || null,
     createdAt: box.createdAt.toISOString(),
     updatedAt: box.updatedAt.toISOString(),
     documents: box.documents ? serializeDocuments(box.documents) : [],
     payments: box.payments ? box.payments.map(serializePayment) : [],
     whtTrackings: box.whtTrackings ? serializeWhtTrackings(box.whtTrackings) : [],
+    tasks: box.tasks ? box.tasks.map(t => ({
+      ...t,
+      dueDate: t.dueDate?.toISOString() || null,
+      completedAt: t.completedAt?.toISOString() || null,
+      lastReminderAt: t.lastReminderAt?.toISOString() || null,
+      escalatedAt: t.escalatedAt?.toISOString() || null,
+      cancelledAt: t.cancelledAt?.toISOString() || null,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+    })) : [],
   };
 }
 

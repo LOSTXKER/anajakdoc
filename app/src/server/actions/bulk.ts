@@ -302,3 +302,171 @@ export async function bulkAssignCostCenter(
     data: { count: result.count },
   };
 }
+
+/**
+ * Bulk request documents (send "Need More Docs" notification)
+ */
+export async function bulkRequestDocs(
+  boxIds: string[],
+  message: string
+): Promise<ApiResponse<{ count: number }>> {
+  const session = await requireOrganization();
+
+  if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+    return { success: false, error: "คุณไม่มีสิทธิ์ขอเอกสารเพิ่ม" };
+  }
+
+  const boxes = await prisma.box.findMany({
+    where: {
+      id: { in: boxIds },
+      organizationId: session.currentOrganization.id,
+      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW] },
+    },
+  });
+
+  if (boxes.length === 0) {
+    return { success: false, error: "ไม่พบกล่องที่สามารถขอเอกสารเพิ่มได้" };
+  }
+
+  const validIds = boxes.map((b) => b.id);
+
+  await prisma.$transaction(async (tx) => {
+    // Update status
+    await tx.box.updateMany({
+      where: { id: { in: validIds } },
+      data: { status: BoxStatus.NEED_MORE_DOCS },
+    });
+
+    // Add comments
+    await tx.comment.createMany({
+      data: validIds.map((boxId) => ({
+        boxId,
+        userId: session.id,
+        content: message,
+        isInternal: false,
+      })),
+    });
+
+    // Create tasks
+    await tx.task.createMany({
+      data: validIds.map((boxId) => ({
+        boxId,
+        organizationId: session.currentOrganization.id,
+        taskType: "GENERAL_DOC",
+        title: "ส่งเอกสารเพิ่มเติม",
+        description: message,
+        status: "OPEN",
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        createdById: session.id,
+      })),
+    });
+
+    // Log activity
+    await tx.activityLog.createMany({
+      data: validIds.map((boxId) => ({
+        boxId,
+        userId: session.id,
+        action: "BULK_REQUESTED_DOCS",
+        details: { message },
+      })),
+    });
+  });
+
+  revalidatePath("/documents");
+
+  return { success: true, data: { count: validIds.length } };
+}
+
+/**
+ * Bulk mark as Ready to Book
+ */
+export async function bulkMarkReady(
+  boxIds: string[]
+): Promise<ApiResponse<{ count: number }>> {
+  const session = await requireOrganization();
+
+  if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+    return { success: false, error: "คุณไม่มีสิทธิ์" };
+  }
+
+  const boxes = await prisma.box.findMany({
+    where: {
+      id: { in: boxIds },
+      organizationId: session.currentOrganization.id,
+      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW, BoxStatus.NEED_MORE_DOCS] },
+    },
+  });
+
+  if (boxes.length === 0) {
+    return { success: false, error: "ไม่พบกล่องที่สามารถทำเครื่องหมายได้" };
+  }
+
+  const validIds = boxes.map((b) => b.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.box.updateMany({
+      where: { id: { in: validIds } },
+      data: { status: BoxStatus.READY_TO_BOOK },
+    });
+
+    await tx.activityLog.createMany({
+      data: validIds.map((boxId) => ({
+        boxId,
+        userId: session.id,
+        action: "BULK_MARKED_READY",
+      })),
+    });
+  });
+
+  revalidatePath("/documents");
+
+  return { success: true, data: { count: validIds.length } };
+}
+
+/**
+ * Bulk mark as Booked
+ */
+export async function bulkMarkBooked(
+  boxIds: string[]
+): Promise<ApiResponse<{ count: number }>> {
+  const session = await requireOrganization();
+
+  if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+    return { success: false, error: "คุณไม่มีสิทธิ์" };
+  }
+
+  const boxes = await prisma.box.findMany({
+    where: {
+      id: { in: boxIds },
+      organizationId: session.currentOrganization.id,
+      status: { in: [BoxStatus.READY_TO_BOOK, BoxStatus.WHT_PENDING] },
+    },
+  });
+
+  if (boxes.length === 0) {
+    return { success: false, error: "ไม่พบกล่องที่สามารถลงบัญชีได้" };
+  }
+
+  const validIds = boxes.map((b) => b.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.box.updateMany({
+      where: { id: { in: validIds } },
+      data: { status: BoxStatus.BOOKED },
+    });
+
+    await tx.activityLog.createMany({
+      data: validIds.map((boxId) => ({
+        boxId,
+        userId: session.id,
+        action: "BULK_BOOKED",
+      })),
+    });
+  });
+
+  revalidatePath("/documents");
+
+  return { success: true, data: { count: validIds.length } };
+}
+
+// Note: bulkAssignReviewer removed - would require schema changes to add reviewerId to Box model

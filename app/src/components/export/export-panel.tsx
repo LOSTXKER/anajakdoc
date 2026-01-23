@@ -68,6 +68,8 @@ interface ExportPanelProps {
 const formatOptions = [
   { value: "EXCEL_GENERIC", label: "Excel (ทั่วไป)", icon: FileSpreadsheet },
   { value: "EXCEL_PEAK", label: "Excel (PEAK)", icon: FileSpreadsheet },
+  { value: "EXCEL_FLOWACCOUNT", label: "Excel (FlowAccount)", icon: FileSpreadsheet },
+  { value: "EXCEL_EXPRESS", label: "Excel (Express)", icon: FileSpreadsheet },
   { value: "ZIP", label: "ZIP (รวมไฟล์)", icon: FolderArchive },
 ];
 
@@ -97,7 +99,7 @@ export function ExportPanel({ boxes, history }: ExportPanelProps) {
     }
 
     startTransition(async () => {
-      const result = await exportBoxes(selectedIds, format as "EXCEL_GENERIC" | "EXCEL_PEAK" | "ZIP");
+      const result = await exportBoxes(selectedIds, format as "EXCEL_GENERIC" | "EXCEL_PEAK" | "EXCEL_FLOWACCOUNT" | "EXCEL_EXPRESS" | "ZIP");
       if (result.success) {
         toast.success(`Export สำเร็จ ${selectedIds.length} รายการ`);
         setSelectedIds([]);

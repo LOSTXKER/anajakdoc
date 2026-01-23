@@ -34,9 +34,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (state.success) {
-      router.push("/dashboard");
+      // Use smart redirect to handle role-based routing
+      // Firm members → /firm/dashboard
+      // Regular users → /dashboard
+      // No organization → /onboarding
+      window.location.href = "/api/auth/redirect";
     }
-  }, [state.success, router]);
+  }, [state.success]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

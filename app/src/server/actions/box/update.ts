@@ -19,6 +19,9 @@ export async function updateBox(
       id: boxId,
       organizationId: session.currentOrganization.id,
     },
+    include: {
+      fiscalPeriod: true,
+    },
   });
 
   if (!box) {
@@ -26,6 +29,18 @@ export async function updateBox(
       success: false,
       error: "ไม่พบกล่องเอกสาร",
     };
+  }
+
+  // Check period lock (Section 12)
+  if (box.fiscalPeriod?.status === "CLOSED") {
+    // Only allow late doc additions if admin/owner
+    if (!["ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+      return {
+        success: false,
+        error: "งวดบัญชีปิดแล้ว ไม่สามารถแก้ไขได้",
+      };
+    }
+    // For admin/owner, allow but mark as late doc
   }
 
   // Check if box can be edited
@@ -109,7 +124,7 @@ export async function updateBox(
   // Process enum fields
   for (const [field, enumObj] of Object.entries(enumFields)) {
     const value = formData.get(field);
-    if (value !== null && value in enumObj) {
+    if (value !== null && typeof value === "string" && value in enumObj) {
       updateData[field] = value;
     }
   }

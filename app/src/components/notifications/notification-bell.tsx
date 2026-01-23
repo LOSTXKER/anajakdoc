@@ -133,7 +133,7 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" data-tour="notifications">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center text-xs bg-red-500 text-white rounded-full">
@@ -167,8 +167,8 @@ export function NotificationBell() {
             </div>
           ) : (
             notifications.map((notification) => {
-              const Icon = notificationIcons[notification.type];
-              const iconColor = notificationColors[notification.type];
+              const Icon = notificationIcons[notification.type] || FileText;
+              const iconColor = notificationColors[notification.type] || "text-gray-500";
               const link = getNotificationLink(notification);
 
               const content = (

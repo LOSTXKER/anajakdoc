@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DocumentBoxCard } from "@/components/documents/document-box-card";
+import { BulkActions } from "@/components/documents/bulk-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   User,
@@ -18,13 +19,14 @@ import {
   Plus,
   Package,
   AlertCircle,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { reviewBox } from "@/server/actions/box";
 import { isAccountingRole } from "@/lib/document-config";
 import type { MemberRole, SerializedBoxListItem } from "@/types";
 
-type TabValue = "mine" | "pending" | "incomplete" | "ready" | "done" | "all";
+type TabValue = "mine" | "pending" | "incomplete" | "ready" | "done" | "reimburse" | "all";
 
 interface UnifiedDocumentViewProps {
   boxes: SerializedBoxListItem[];
@@ -37,6 +39,7 @@ interface UnifiedDocumentViewProps {
     total: number;
     incomplete: number;
     complete: number;
+    reimbursePending?: number;
   };
   userRole: MemberRole;
   userId: string;
@@ -53,6 +56,10 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
   const incompleteBoxes = boxes.filter(b => b.docStatus === "INCOMPLETE");
   const readyBoxes = boxes.filter(b => ["READY_TO_BOOK", "WHT_PENDING"].includes(b.status));
   const doneBoxes = boxes.filter(b => ["BOOKED", "ARCHIVED", "LOCKED"].includes(b.status));
+  // Reimbursement: Employee paid, pending reimbursement (Section 19)
+  const reimburseBoxes = boxes.filter(b => 
+    b.paymentMode === "EMPLOYEE_ADVANCE" && b.reimbursementStatus === "PENDING"
+  );
   
   const getBoxesForTab = (tab: TabValue) => {
     switch (tab) {
@@ -61,6 +68,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
       case "incomplete": return incompleteBoxes;
       case "ready": return readyBoxes;
       case "done": return doneBoxes;
+      case "reimburse": return reimburseBoxes;
       default: return boxes;
     }
   };
@@ -193,6 +201,17 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 {doneBoxes.length}
               </span>
             </TabsTrigger>
+            {isAccounting && (
+              <TabsTrigger value="reimburse" className="gap-2 data-[state=active]:bg-white">
+                <Wallet className="h-4 w-4" />
+                <span className="hidden sm:inline">รอคืนเงิน</span>
+                {reimburseBoxes.length > 0 && (
+                  <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+                    {reimburseBoxes.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="all" className="data-[state=active]:bg-white">
               <span className="hidden sm:inline">ทั้งหมด</span>
               <span className="sm:hidden">All</span>
@@ -359,6 +378,28 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
             )}
           </TabsContent>
 
+          <TabsContent value="reimburse" className="m-0">
+            {reimburseBoxes.length > 0 ? (
+              reimburseBoxes.map(box => (
+                <DocumentBoxCard
+                  key={box.id}
+                  box={box}
+                  selected={selectedIds.has(box.id)}
+                  onSelect={handleSelect}
+                  showCheckbox={isAccounting}
+                  showActions={false}
+                  showReimburseBadge
+                />
+              ))
+            ) : (
+              <EmptyState
+                icon={Wallet}
+                title="ไม่มีรายการรอคืนเงิน"
+                description="รายการที่พนักงานสำรองจ่ายจะแสดงที่นี่"
+              />
+            )}
+          </TabsContent>
+
           <TabsContent value="all" className="m-0">
             {boxes.length > 0 ? (
               boxes.map(box => (
@@ -390,6 +431,15 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* Floating Bulk Actions Bar */}
+      {someSelected && isAccounting && (
+        <BulkActions
+          selectedIds={Array.from(selectedIds)}
+          onClearSelection={clearSelection}
+          userRole={userRole}
+        />
+      )}
     </div>
   );
 }

@@ -134,20 +134,51 @@ export async function updatePeriodStatus(
     return { success: false, error: "ไม่พบงวดบัญชี" };
   }
 
-  // Validation: Can't reopen a CLOSED period without admin override
+  // Validation: Can't reopen a CLOSED period without admin/owner permission
   if (period.status === "CLOSED" && status === "OPEN") {
-    // Could add additional check for OWNER-only here
+    if (!["ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+      return { success: false, error: "ต้องเป็น Admin หรือ Owner เพื่อเปิดงวดที่ปิดแล้ว" };
+    }
   }
 
+  // Update period status
   await prisma.fiscalPeriod.update({
     where: { id: periodId },
     data: {
       status,
       closedAt: status === "CLOSED" ? new Date() : null,
+      closedById: status === "CLOSED" ? session.id : null,
     },
   });
 
+  // If closing period, lock all boxes in that period (Section 12.1)
+  if (status === "CLOSED") {
+    await prisma.box.updateMany({
+      where: {
+        fiscalPeriodId: periodId,
+        status: { not: "LOCKED" },
+      },
+      data: {
+        status: "LOCKED",
+      },
+    });
+  }
+  
+  // If reopening, unlock boxes back to BOOKED status
+  if (status === "OPEN" && period.status === "CLOSED") {
+    await prisma.box.updateMany({
+      where: {
+        fiscalPeriodId: periodId,
+        status: "LOCKED",
+      },
+      data: {
+        status: "BOOKED",
+      },
+    });
+  }
+
   revalidatePath("/settings/fiscal-periods");
+  revalidatePath("/documents");
   
   return { success: true };
 }

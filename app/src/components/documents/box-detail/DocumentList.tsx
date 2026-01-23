@@ -11,6 +11,7 @@ import {
   Loader2,
   ImageIcon,
   FileIcon,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,47 +33,43 @@ interface FileItem {
   docType: DocType;
 }
 
-interface SimpleFileListProps {
+interface DocumentListProps {
   files: FileItem[];
   canEdit: boolean;
   onUploadFiles: (files: File[]) => Promise<void>;
   onDeleteFile?: (fileId: string) => Promise<void>;
 }
 
-// Get icon for file type
+// Get icon based on file type
 const getFileIcon = (mimeType: string) => {
-  if (mimeType?.startsWith("image/")) {
-    return ImageIcon;
-  }
-  if (mimeType === "application/pdf") {
-    return FileText;
-  }
+  if (mimeType?.startsWith("image/")) return ImageIcon;
+  if (mimeType === "application/pdf") return FileText;
   return FileIcon;
 };
 
-// Get doc type badge style
+// Doc type badge colors
 const getDocTypeBadgeClass = (docType: DocType) => {
   if (docType === "TAX_INVOICE" || docType === "TAX_INVOICE_ABB") {
-    return "bg-primary/10 text-primary border-primary/20";
+    return "bg-emerald-100 text-emerald-700";
   }
   if (docType === "SLIP_TRANSFER" || docType === "SLIP_CHEQUE") {
-    return "bg-primary/10 text-primary border-primary/20";
+    return "bg-blue-100 text-blue-700";
   }
   if (docType.startsWith("WHT_")) {
-    return "bg-amber-50 text-amber-700 border-amber-200";
+    return "bg-purple-100 text-purple-700";
   }
-  if (docType === "INVOICE" || docType === "RECEIPT") {
-    return "bg-violet-50 text-violet-700 border-violet-200";
+  if (docType === "RECEIPT" || docType === "CASH_RECEIPT") {
+    return "bg-amber-100 text-amber-700";
   }
-  return "bg-muted text-muted-foreground border-border";
+  return "bg-muted text-muted-foreground";
 };
 
-export function SimpleFileList({
+export function DocumentList({
   files,
   canEdit,
   onUploadFiles,
   onDeleteFile,
-}: SimpleFileListProps) {
+}: DocumentListProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
@@ -93,14 +90,17 @@ export function SimpleFileList({
   const handleDelete = async (fileId: string) => {
     if (!onDeleteFile) return;
     setDeletingId(fileId);
-    await onDeleteFile(fileId);
-    setDeletingId(null);
+    try {
+      await onDeleteFile(fileId);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
-    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-2xl border bg-card overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b bg-muted/30 flex items-center justify-between">
+      <div className="px-5 py-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <FileText className="h-5 w-5 text-primary" />
@@ -117,14 +117,13 @@ export function SimpleFileList({
             size="sm" 
             onClick={() => fileInputRef.current?.click()}
             disabled={isPending}
-            className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
           >
             {isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Plus className="h-4 w-4" />
             )}
-            เพิ่มไฟล์
+            <span className="ml-1.5">เพิ่มไฟล์</span>
           </Button>
         )}
         
@@ -138,11 +137,11 @@ export function SimpleFileList({
         />
       </div>
 
-      {/* File Grid */}
+      {/* Empty State */}
       {files.length === 0 ? (
-        <div className="p-10 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-            <Upload className="h-8 w-8 text-muted-foreground" />
+        <div className="p-8 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3">
+            <Upload className="h-7 w-7 text-muted-foreground" />
           </div>
           <p className="text-foreground font-medium mb-1">ยังไม่มีเอกสาร</p>
           <p className="text-sm text-muted-foreground mb-4">อัปโหลดเอกสารเพื่อเริ่มต้น</p>
@@ -150,19 +149,19 @@ export function SimpleFileList({
             <Button 
               onClick={() => fileInputRef.current?.click()}
               disabled={isPending}
-              className="gap-1.5"
             >
               {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
               ) : (
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 mr-1.5" />
               )}
               เพิ่มเอกสาร
             </Button>
           )}
         </div>
       ) : (
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        /* File List */
+        <div className="divide-y">
           {files.map((file) => {
             const IconComponent = getFileIcon(file.mimeType);
             const isDeleting = deletingId === file.id;
@@ -171,70 +170,66 @@ export function SimpleFileList({
               <div 
                 key={file.id} 
                 className={cn(
-                  "group relative rounded-xl border bg-card overflow-hidden transition-all duration-200",
-                  "hover:shadow-md hover:border-primary/30",
+                  "flex items-center gap-3 px-5 py-3 hover:bg-muted/50 transition-colors",
                   isDeleting && "opacity-50"
                 )}
               >
-                {/* Preview Area */}
+                {/* Thumbnail */}
                 <div 
-                  className="aspect-[4/3] bg-muted/50 flex items-center justify-center cursor-pointer overflow-hidden"
+                  className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden cursor-pointer shrink-0"
                   onClick={() => setPreviewFile(file)}
                 >
                   {file.mimeType?.startsWith("image/") && file.fileUrl ? (
                     <Image
                       src={file.fileUrl}
                       alt={file.fileName}
-                      width={200}
-                      height={150}
+                      width={48}
+                      height={48}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <IconComponent className={cn(
-                      "h-10 w-10",
-                      file.mimeType === "application/pdf" ? "text-red-400" : "text-muted-foreground"
+                      "h-6 w-6",
+                      file.mimeType === "application/pdf" ? "text-red-500" : "text-muted-foreground"
                     )} />
                   )}
                 </div>
                 
                 {/* File Info */}
-                <div className="p-3">
-                  <p className="text-sm font-medium text-foreground truncate mb-1.5" title={file.fileName}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
                     {file.fileName}
                   </p>
                   <span className={cn(
-                    "inline-block px-2 py-0.5 rounded-md text-xs font-medium border",
+                    "inline-block px-2 py-0.5 rounded text-xs font-medium mt-1",
                     getDocTypeBadgeClass(file.docType)
                   )}>
                     {getDocTypeLabel(file.docType)}
                   </span>
                 </div>
 
-                {/* Hover Actions */}
-                <div className={cn(
-                  "absolute inset-0 bg-foreground/60 backdrop-blur-sm flex items-center justify-center gap-2 opacity-0 transition-opacity duration-200",
-                  "group-hover:opacity-100"
-                )}>
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0">
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-xl"
+                    className="h-8 w-8"
                     onClick={() => setPreviewFile(file)}
                   >
-                    <Eye className="h-5 w-5" />
+                    <Eye className="h-4 w-4" />
                   </Button>
                   {canEdit && onDeleteFile && (
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       size="icon"
-                      className="h-10 w-10 rounded-xl"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
                       onClick={() => handleDelete(file.id)}
                       disabled={isDeleting}
                     >
                       {isDeleting ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Trash2 className="h-5 w-5 text-destructive" />
+                        <Trash2 className="h-4 w-4" />
                       )}
                     </Button>
                   )}
@@ -242,29 +237,6 @@ export function SimpleFileList({
               </div>
             );
           })}
-          
-          {/* Add Button Card */}
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isPending}
-              className={cn(
-                "aspect-[4/3] rounded-xl border-2 border-dashed bg-muted/30 flex flex-col items-center justify-center",
-                "text-muted-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all duration-200",
-                isPending && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {isPending ? (
-                <Loader2 className="h-8 w-8 animate-spin" />
-              ) : (
-                <>
-                  <Plus className="h-8 w-8 mb-1" />
-                  <span className="text-sm font-medium">เพิ่มไฟล์</span>
-                </>
-              )}
-            </button>
-          )}
         </div>
       )}
 
@@ -312,7 +284,7 @@ export function SimpleFileList({
           {/* Footer */}
           <div className="flex items-center justify-between pt-2">
             <span className={cn(
-              "px-3 py-1.5 rounded-lg text-sm font-medium border",
+              "px-3 py-1.5 rounded-lg text-sm font-medium",
               previewFile && getDocTypeBadgeClass(previewFile.docType)
             )}>
               {previewFile && getDocTypeLabel(previewFile.docType)}
@@ -322,9 +294,8 @@ export function SimpleFileList({
               <Button 
                 variant="outline" 
                 onClick={() => window.open(previewFile.fileUrl, "_blank")}
-                className="gap-2"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-4 w-4 mr-1.5" />
                 เปิดในแท็บใหม่
               </Button>
             )}

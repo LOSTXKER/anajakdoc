@@ -44,6 +44,9 @@ export function PaymentSection({
   
   const remaining = Math.max(0, totalAmount - paidAmount);
   const progressPercent = totalAmount > 0 ? Math.min(100, (paidAmount / totalAmount) * 100) : 0;
+  
+  // When totalAmount is 0, show simplified state
+  const hasNoAmount = totalAmount === 0 && paidAmount === 0;
   const statusConfig = STATUS_CONFIG[paymentStatus];
   const StatusIcon = statusConfig.icon;
 
@@ -87,8 +90,30 @@ export function PaymentSection({
     });
   };
 
+  // Simplified view when no amount set yet
+  if (hasNoAmount && payments.length === 0) {
+    return (
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="px-5 py-4 border-b bg-muted/30 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+            <Wallet className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">การชำระเงิน</h3>
+            <p className="text-xs text-muted-foreground">รอระบุยอดเงิน</p>
+          </div>
+        </div>
+        <div className="px-5 py-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            ยังไม่มียอดเงินที่ต้องชำระ
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-2xl border bg-white overflow-hidden">
+    <div className="rounded-2xl border bg-card overflow-hidden">
       {/* Header */}
       <div className="px-5 py-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -106,7 +131,7 @@ export function PaymentSection({
             )} />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">การชำระเงิน</h3>
+            <h3 className="font-semibold text-foreground">การชำระเงิน</h3>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className={statusConfig.color}>
                 <StatusIcon className="h-3 w-3 mr-1" />
@@ -126,9 +151,9 @@ export function PaymentSection({
       </div>
 
       {/* Summary */}
-      <div className="px-5 py-4 bg-gray-50 border-b">
+      <div className="px-5 py-4 bg-muted/30 border-b">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-gray-600">ความคืบหน้า</span>
+          <span className="text-sm text-muted-foreground">ความคืบหน้า</span>
           <span className="text-sm font-medium">
             {progressPercent.toFixed(0)}%
           </span>
@@ -137,18 +162,18 @@ export function PaymentSection({
         
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-xs text-gray-500">ยอดรวม</p>
-            <p className="font-semibold text-gray-900">฿{formatMoney(totalAmount)}</p>
+            <p className="text-xs text-muted-foreground">ยอดรวม</p>
+            <p className="font-semibold text-foreground">฿{formatMoney(totalAmount)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">ชำระแล้ว</p>
+            <p className="text-xs text-muted-foreground">ชำระแล้ว</p>
             <p className="font-semibold text-green-600">฿{formatMoney(paidAmount)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">คงเหลือ</p>
+            <p className="text-xs text-muted-foreground">คงเหลือ</p>
             <p className={cn(
               "font-semibold",
-              remaining > 0 ? "text-red-600" : "text-gray-400"
+              remaining > 0 ? "text-red-600" : "text-muted-foreground"
             )}>
               ฿{formatMoney(remaining)}
             </p>
@@ -167,8 +192,6 @@ export function PaymentSection({
       </div>
 
       {/* Payment List */}
-      {/* Note: onDelete จะทำงานเฉพาะ payment ที่ไม่มี documentId (manual entry)
-          Payment ที่มี documentId ให้ลบผ่านการลบไฟล์สลิปแทน */}
       <div className="px-5 py-4">
         <PaymentList
           payments={payments}

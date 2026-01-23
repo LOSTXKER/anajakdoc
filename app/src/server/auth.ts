@@ -72,6 +72,37 @@ export async function getSession(): Promise<SessionUser | null> {
   // Get current organization from cookie or first one
   const currentOrg = organizations[0] || null;
 
+  // Get firm membership (Section 22)
+  let firmMembership = null;
+  try {
+    const firmMember = await prisma.firmMember.findFirst({
+      where: {
+        userId: user.id,
+        isActive: true,
+      },
+      include: {
+        firm: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    if (firmMember) {
+      firmMembership = {
+        firmId: firmMember.firm.id,
+        firmName: firmMember.firm.name,
+        firmSlug: firmMember.firm.slug,
+        role: firmMember.role,
+      };
+    }
+  } catch {
+    // Firm tables might not exist yet in dev
+  }
+
   return {
     id: user.id,
     email: user.email,
@@ -79,6 +110,7 @@ export async function getSession(): Promise<SessionUser | null> {
     avatarUrl: user.avatarUrl,
     currentOrganization: currentOrg,
     organizations,
+    firmMembership,
   };
 }
 
@@ -100,6 +132,20 @@ export async function requireOrganization(): Promise<SessionUser & { currentOrga
   }
 
   return session as SessionUser & { currentOrganization: NonNullable<SessionUser["currentOrganization"]> };
+}
+
+export async function requireUser(): Promise<{ id: string; email: string; name: string | null }> {
+  const session = await getSession();
+  
+  if (!session) {
+    redirect("/login");
+  }
+
+  return {
+    id: session.id,
+    email: session.email,
+    name: session.name,
+  };
 }
 
 export async function signOut() {

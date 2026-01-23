@@ -390,7 +390,7 @@ export async function exportBoxes(
 
   if (format === "ZIP") {
     const result = await exportBoxesToZip(boxIds, options);
-    if (!result.success) return result;
+    if (!result.success) return { success: false, error: result.error };
     return {
       success: true,
       data: { downloadUrl: `data:application/zip;base64,${result.data?.data}` },
@@ -406,7 +406,7 @@ export async function exportBoxes(
   };
   
   const result = await exportBoxesToExcel(boxIds, profileMap[format]);
-  if (!result.success) return result;
+  if (!result.success) return { success: false, error: result.error };
   
   return {
     success: true,

@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   TrendingUp,
   TrendingDown,
@@ -10,6 +11,12 @@ import {
   Percent,
   BarChart3,
   PieChart,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Zap,
+  Building2,
+  Target,
 } from "lucide-react";
 import {
   BarChart,
@@ -24,6 +31,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { cn } from "@/lib/utils";
 
 interface ReportData {
   monthlyData: { month: number; expense: number; income: number }[];
@@ -40,8 +48,19 @@ interface ReportData {
   year: number;
 }
 
+interface KpiData {
+  avgProcessingDays: number;
+  firstPassRate: number;
+  whtComplianceRate: number;
+  boxesPerDay: number;
+  boxesProcessedThisMonth: number;
+  topVendors: { name: string; count: number; amount: number; avgDays: number | null }[];
+  pendingByStatus: { status: string; count: number }[];
+}
+
 interface ReportsDashboardProps {
   data: ReportData;
+  kpiData?: KpiData;
 }
 
 const monthNames = [
@@ -51,7 +70,16 @@ const monthNames = [
 
 const CHART_COLORS = ["#3b82f6", "#22c55e", "#eab308", "#ef4444", "#a855f7", "#ec4899", "#6366f1", "#f97316"];
 
-export function ReportsDashboard({ data }: ReportsDashboardProps) {
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "ฉบับร่าง",
+  SUBMITTED: "รอตรวจ",
+  IN_REVIEW: "กำลังตรวจ",
+  NEED_MORE_DOCS: "ขอเอกสาร",
+  READY_TO_BOOK: "พร้อมลง",
+  WHT_PENDING: "รอ WHT",
+};
+
+export function ReportsDashboard({ data, kpiData }: ReportsDashboardProps) {
   const netProfit = data.totals.incomeTotal - data.totals.expenseTotal;
   const totalCategoryAmount = data.categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);
 
@@ -171,6 +199,195 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* KPI/SLA Section (Section 25) */}
+      {kpiData && (
+        <>
+          <div className="border-t pt-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              KPI & SLA (30 วันล่าสุด)
+            </h2>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {/* Average Processing Time */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">เวลาประมวลผลเฉลี่ย</CardTitle>
+                <Clock className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {kpiData.avgProcessingDays}
+                  <span className="text-sm font-normal text-muted-foreground ml-1">วัน</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  จาก SUBMITTED ถึง BOOKED
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* First-Pass Completion Rate */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">First-Pass Rate</CardTitle>
+                <CheckCircle2 className={cn(
+                  "h-4 w-4",
+                  kpiData.firstPassRate >= 80 ? "text-green-500" : 
+                  kpiData.firstPassRate >= 60 ? "text-amber-500" : "text-red-500"
+                )} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {kpiData.firstPassRate}%
+                </div>
+                <Progress 
+                  value={kpiData.firstPassRate} 
+                  className={cn(
+                    "mt-2 h-2",
+                    kpiData.firstPassRate >= 80 ? "[&>div]:bg-green-500" :
+                    kpiData.firstPassRate >= 60 ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500"
+                  )}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  ไม่ต้องขอเอกสารเพิ่ม
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* WHT Compliance Rate */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">WHT Compliance</CardTitle>
+                <Percent className={cn(
+                  "h-4 w-4",
+                  kpiData.whtComplianceRate >= 90 ? "text-green-500" : 
+                  kpiData.whtComplianceRate >= 70 ? "text-amber-500" : "text-red-500"
+                )} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {kpiData.whtComplianceRate}%
+                </div>
+                <Progress 
+                  value={kpiData.whtComplianceRate} 
+                  className={cn(
+                    "mt-2 h-2",
+                    kpiData.whtComplianceRate >= 90 ? "[&>div]:bg-green-500" :
+                    kpiData.whtComplianceRate >= 70 ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500"
+                  )}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  ได้รับ WHT ตรงเวลา
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Processing Efficiency */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">ประสิทธิภาพ</CardTitle>
+                <Zap className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {kpiData.boxesPerDay}
+                  <span className="text-sm font-normal text-muted-foreground ml-1">กล่อง/วัน</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {kpiData.boxesProcessedThisMonth} กล่องเดือนนี้
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Vendors & Pending Status */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Top Vendors */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  ผู้ขายหลัก (30 วัน)
+                </CardTitle>
+                <CardDescription>Top 5 โดยจำนวนรายการ</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {kpiData.topVendors.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">ไม่มีข้อมูล</p>
+                ) : (
+                  <div className="space-y-4">
+                    {kpiData.topVendors.map((vendor, index) => (
+                      <div key={vendor.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium",
+                            index === 0 ? "bg-amber-100 text-amber-700" :
+                            index === 1 ? "bg-gray-100 text-gray-600" :
+                            index === 2 ? "bg-orange-100 text-orange-700" :
+                            "bg-gray-50 text-gray-500"
+                          )}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium truncate max-w-[150px]">{vendor.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {vendor.count} รายการ • ฿{vendor.amount.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        {vendor.avgDays && (
+                          <Badge variant="secondary" className="text-xs">
+                            ~{vendor.avgDays.toFixed(1)} วัน
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Pending by Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  งานค้างตามสถานะ
+                </CardTitle>
+                <CardDescription>รายการที่ยังไม่เสร็จ</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {kpiData.pendingByStatus.length === 0 ? (
+                  <div className="flex flex-col items-center py-8">
+                    <CheckCircle2 className="h-12 w-12 text-green-500 mb-2" />
+                    <p className="text-muted-foreground">ไม่มีงานค้าง</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {kpiData.pendingByStatus.map((item) => {
+                      const total = kpiData.pendingByStatus.reduce((sum, p) => sum + p.count, 0);
+                      const percentage = total > 0 ? (item.count / total) * 100 : 0;
+                      return (
+                        <div key={item.status} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              {STATUS_LABELS[item.status] || item.status}
+                            </span>
+                            <span className="font-medium">{item.count}</span>
+                          </div>
+                          <Progress value={percentage} className="h-2" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
       {/* Monthly Chart */}
       <Card>

@@ -399,3 +399,89 @@ export async function deleteContact(id: string): Promise<ActionResult> {
   revalidatePath("/settings/contacts");
   return { success: true };
 }
+
+// ============================================
+// GET CONTACTS (for Smart Guess)
+// ============================================
+
+export type ContactWithDefaults = {
+  id: string;
+  name: string;
+  taxId: string | null;
+  contactType: "INDIVIDUAL" | "COMPANY";
+  contactRole: "VENDOR" | "CUSTOMER" | "BOTH";
+  // Vendor defaults (Section 9)
+  defaultVatRequired: boolean;
+  whtApplicable: boolean;
+  defaultWhtRate: number | null;
+  // Usage stats
+  lastUsedAt: string | null;
+  boxCount: number;
+};
+
+/**
+ * Get contacts for upload form with VAT/WHT defaults (Section 9 - Smart Guess)
+ */
+export async function getContactsForUpload(
+  role?: "VENDOR" | "CUSTOMER" | "BOTH"
+): Promise<{ success: true; data: ContactWithDefaults[] } | { success: false; error: string }> {
+  const session = await requireOrganization();
+
+  const whereClause: Record<string, unknown> = {
+    organizationId: session.currentOrganization.id,
+    isActive: true,
+  };
+
+  // Filter by role if provided
+  if (role) {
+    whereClause.contactRole = role === "BOTH" 
+      ? { in: ["VENDOR", "CUSTOMER", "BOTH"] }
+      : { in: [role, "BOTH"] };
+  }
+
+  const contacts = await prisma.contact.findMany({
+    where: whereClause,
+    include: {
+      _count: { select: { boxes: true } },
+    },
+    orderBy: [
+      { lastUsedAt: { sort: "desc", nulls: "last" } },
+      { boxes: { _count: "desc" } },
+      { name: "asc" },
+    ],
+    take: 100, // Limit for performance
+  });
+
+  return {
+    success: true,
+    data: contacts.map((c) => ({
+      id: c.id,
+      name: c.name,
+      taxId: c.taxId,
+      contactType: c.contactType,
+      contactRole: c.contactRole,
+      defaultVatRequired: c.defaultVatRequired,
+      whtApplicable: c.whtApplicable,
+      defaultWhtRate: c.defaultWhtRate ? Number(c.defaultWhtRate) : null,
+      lastUsedAt: c.lastUsedAt?.toISOString() ?? null,
+      boxCount: c._count.boxes,
+    })),
+  };
+}
+
+/**
+ * Update contact's lastUsedAt when used in a box (Section 9 - Learning)
+ */
+export async function touchContactUsage(contactId: string): Promise<void> {
+  const session = await requireOrganization();
+
+  await prisma.contact.updateMany({
+    where: {
+      id: contactId,
+      organizationId: session.currentOrganization.id,
+    },
+    data: {
+      lastUsedAt: new Date(),
+    },
+  });
+}

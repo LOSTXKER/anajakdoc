@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle, AlertCircle, CheckCircle } from "lucide-react";
+import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle, AlertCircle, CheckCircle, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ interface DocumentBoxCardProps {
   onAction?: (id: string, action: "approve" | "reject" | "need_info") => void;
   showCheckbox?: boolean;
   showActions?: boolean;
+  showReimburseBadge?: boolean;
 }
 
 export function DocumentBoxCard({
@@ -32,6 +33,7 @@ export function DocumentBoxCard({
   onAction,
   showCheckbox = false,
   showActions = false,
+  showReimburseBadge = false,
 }: DocumentBoxCardProps) {
   const canReview = canReviewBox(box.status);
   const boxTypeConfig = getBoxTypeConfig(box.boxType);
@@ -105,6 +107,14 @@ export function DocumentBoxCard({
                 ครบแล้ว
               </span>
             ) : null}
+            
+            {/* Reimbursement badge (Section 19) */}
+            {(showReimburseBadge || box.paymentMode === "EMPLOYEE_ADVANCE") && box.reimbursementStatus === "PENDING" && (
+              <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200 gap-1">
+                <Wallet className="w-3 h-3" />
+                รอคืนเงิน
+              </Badge>
+            )}
           </div>
           
           <p className="text-gray-600 truncate mt-1">

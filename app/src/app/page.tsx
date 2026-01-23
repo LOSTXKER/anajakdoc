@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import {
   Package,
   FileText,
@@ -9,10 +11,12 @@ import {
   ArrowRight,
   Zap,
   Shield,
-  BarChart3,
   Upload,
   Search,
   Download,
+  Building2,
+  Briefcase,
+  Star,
 } from "lucide-react";
 
 const features = [
@@ -76,6 +80,88 @@ const testimonials = [
     quote: "ไม่ต้องถามซ้ำว่าใบไหนหัก VAT ได้ ระบบบอกให้เลย",
     author: "คุณสมหญิง",
     role: "ฝ่ายบัญชี, บริษัท XYZ จำกัด",
+  },
+];
+
+const smePlans = [
+  {
+    name: "Free",
+    price: "0",
+    description: "เริ่มต้นใช้งานฟรี",
+    features: [
+      "20 เอกสาร/เดือน",
+      "1 ผู้ใช้งาน",
+      "Export Excel",
+      "ค้นหาเอกสาร",
+      "พื้นที่เก็บข้อมูล 1GB",
+    ],
+    cta: "เริ่มต้นฟรี",
+    popular: false,
+  },
+  {
+    name: "Starter",
+    price: "299",
+    description: "สำหรับธุรกิจขนาดเล็ก",
+    features: [
+      "เอกสารไม่จำกัด",
+      "3 ผู้ใช้งาน",
+      "Export Excel, PDF",
+      "ค้นหาเอกสาร",
+      "พื้นที่เก็บข้อมูล 10GB",
+      "OCR อ่านเอกสารอัตโนมัติ",
+    ],
+    cta: "เลือกแพ็คเกจนี้",
+    popular: true,
+  },
+  {
+    name: "Business",
+    price: "599",
+    description: "สำหรับธุรกิจที่ต้องการมากขึ้น",
+    features: [
+      "เอกสารไม่จำกัด",
+      "10 ผู้ใช้งาน",
+      "Export ทุกรูปแบบ + PEAK",
+      "รายงานและ Analytics",
+      "พื้นที่เก็บข้อมูล 50GB",
+      "OCR + AI จัดหมวดหมู่",
+      "API Access",
+    ],
+    cta: "เลือกแพ็คเกจนี้",
+    popular: false,
+  },
+];
+
+const firmPlans = [
+  {
+    name: "Firm Starter",
+    price: "990",
+    description: "สำหรับสำนักบัญชีขนาดเล็ก",
+    features: [
+      "Dashboard รวมทุก Clients",
+      "10 สมาชิกในทีม",
+      "Client Assignment",
+      "ติดตาม Deadline",
+      "Reports สรุปงาน",
+      "Email แจ้งเตือน",
+    ],
+    cta: "เริ่มต้นใช้งาน",
+    popular: false,
+  },
+  {
+    name: "Firm Pro",
+    price: "2,500",
+    description: "สำหรับสำนักบัญชีมืออาชีพ",
+    features: [
+      "ทุกฟีเจอร์ใน Starter",
+      "สมาชิกไม่จำกัด",
+      "White-label Branding",
+      "Custom Domain",
+      "Priority Support",
+      "API Integration",
+      "Audit Log",
+    ],
+    cta: "เลือกแพ็คเกจนี้",
+    popular: true,
   },
 ];
 
@@ -249,46 +335,142 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing Preview */}
-      <section className="py-24">
+      {/* Pricing Section */}
+      <section id="pricing" className="py-24">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-2xl text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">เริ่มต้นฟรี ไม่มีค่าใช้จ่าย</h2>
+          <div className="mx-auto max-w-2xl text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">แผนราคาที่เหมาะกับคุณ</h2>
             <p className="text-muted-foreground">
-              ใช้งานได้เลยวันนี้ อัปเกรดเมื่อพร้อม
+              เริ่มต้นฟรี อัปเกรดเมื่อพร้อม ไม่มีข้อผูกมัด
             </p>
           </div>
-          <div className="max-w-md mx-auto">
-            <Card className="border-2 border-primary shadow-xl">
-              <CardContent className="p-8 text-center">
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
-                  แนะนำ
-                </div>
-                <h3 className="text-2xl font-bold mb-2">Free Plan</h3>
-                <p className="text-4xl font-bold mb-4">฿0<span className="text-base font-normal text-muted-foreground">/เดือน</span></p>
-                <ul className="text-left space-y-3 mb-8">
-                  {[
-                    "1 องค์กร",
-                    "2 สมาชิก",
-                    "20 เอกสาร/เดือน",
-                    "Export Excel",
-                    "ค้นหาเอกสาร",
-                  ].map((feature) => (
-                    <li key={feature} className="flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-primary" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Button size="lg" className="w-full" asChild>
-                  <Link href="/register">
-                    เริ่มต้นใช้งานฟรี
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+
+          <Tabs defaultValue="sme" className="max-w-5xl mx-auto">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-12">
+              <TabsTrigger value="sme" className="gap-2">
+                <Building2 className="h-4 w-4" />
+                สำหรับธุรกิจ
+              </TabsTrigger>
+              <TabsTrigger value="firm" className="gap-2">
+                <Briefcase className="h-4 w-4" />
+                สำหรับสำนักบัญชี
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="sme">
+              <div className="grid md:grid-cols-3 gap-6">
+                {smePlans.map((plan) => (
+                  <Card
+                    key={plan.name}
+                    className={`relative ${
+                      plan.popular
+                        ? "border-2 border-primary shadow-xl scale-105"
+                        : "border shadow-lg"
+                    }`}
+                  >
+                    {plan.popular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <Badge className="gap-1">
+                          <Star className="h-3 w-3" />
+                          แนะนำ
+                        </Badge>
+                      </div>
+                    )}
+                    <CardContent className="p-6 pt-8">
+                      <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {plan.description}
+                      </p>
+                      <p className="text-4xl font-bold mb-6">
+                        ฿{plan.price}
+                        <span className="text-base font-normal text-muted-foreground">
+                          /เดือน
+                        </span>
+                      </p>
+                      <ul className="space-y-3 mb-6">
+                        {plan.features.map((feature) => (
+                          <li key={feature} className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        className="w-full"
+                        variant={plan.popular ? "default" : "outline"}
+                        asChild
+                      >
+                        <Link href="/register">
+                          {plan.cta}
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <p className="text-center text-sm text-muted-foreground mt-8">
+                * SME เป็นเจ้าของ account เสมอ ไม่ถูก lock กับสำนักบัญชี
+              </p>
+            </TabsContent>
+
+            <TabsContent value="firm">
+              <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+                {firmPlans.map((plan) => (
+                  <Card
+                    key={plan.name}
+                    className={`relative ${
+                      plan.popular
+                        ? "border-2 border-primary shadow-xl"
+                        : "border shadow-lg"
+                    }`}
+                  >
+                    {plan.popular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <Badge className="gap-1">
+                          <Star className="h-3 w-3" />
+                          แนะนำ
+                        </Badge>
+                      </div>
+                    )}
+                    <CardContent className="p-6 pt-8">
+                      <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {plan.description}
+                      </p>
+                      <p className="text-4xl font-bold mb-6">
+                        ฿{plan.price}
+                        <span className="text-base font-normal text-muted-foreground">
+                          /เดือน
+                        </span>
+                      </p>
+                      <ul className="space-y-3 mb-6">
+                        {plan.features.map((feature) => (
+                          <li key={feature} className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        className="w-full"
+                        variant={plan.popular ? "default" : "outline"}
+                        asChild
+                      >
+                        <Link href="/register">
+                          {plan.cta}
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <p className="text-center text-sm text-muted-foreground mt-8">
+                * Firm Plans เป็น Add-on แยกจาก SME Plans - Clients ยังต้องมี SME Plan ของตัวเอง
+              </p>
+            </TabsContent>
+          </Tabs>
         </div>
       </section>
 

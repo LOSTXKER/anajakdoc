@@ -429,6 +429,13 @@ export type SessionUser = {
     slug: string;
     role: MemberRole;
   }[];
+  // Accounting Firm membership (Section 22)
+  firmMembership?: {
+    firmId: string;
+    firmName: string;
+    firmSlug: string;
+    role: string;
+  } | null;
 };
 
 // ==========================================

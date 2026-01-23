@@ -168,6 +168,15 @@ export async function createBox(formData: FormData): Promise<ApiResponse<{ id: s
     },
   });
 
+  // Update contact lastUsedAt (Section 9 - Learning)
+  const contactId = formData.get("contactId") as string;
+  if (contactId) {
+    await prisma.contact.update({
+      where: { id: contactId },
+      data: { lastUsedAt: new Date() },
+    }).catch(() => {}); // Ignore if contact not found
+  }
+
   revalidatePath("/documents");
   revalidatePath("/wht-tracking");
   

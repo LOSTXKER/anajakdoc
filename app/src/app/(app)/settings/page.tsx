@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Building2, Crown, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import prisma from "@/lib/prisma";
 
 async function getOrganization(orgId: string) {
@@ -29,78 +32,105 @@ export default async function SettingsPage() {
         showCreateButton={false}
       />
       
-      <div className="p-6 max-w-2xl">
-        <div className="rounded-xl border bg-white p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-primary" />
+      <div className="p-6 max-w-2xl space-y-6">
+        {/* Subscription Card */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Crown className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    แพ็คเกจการใช้งาน
+                    <Badge variant={organization.plan === "FREE" ? "secondary" : "default"}>
+                      {organization.plan || "FREE"}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>จัดการแพ็คเกจและดูสถานะการใช้งาน</CardDescription>
+                </div>
+              </div>
+              <Button asChild>
+                <Link href="/settings/subscription">
+                  จัดการแพ็คเกจ
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">ข้อมูลองค์กร</h3>
-              <p className="text-sm text-gray-500">แก้ไขข้อมูลพื้นฐานขององค์กร</p>
-            </div>
-          </div>
+          </CardHeader>
+        </Card>
 
-          <form className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-gray-700">ชื่อองค์กร</Label>
-              <Input
-                id="name"
-                name="name"
-                defaultValue={organization.name}
-                className="bg-gray-50 border-gray-200 focus:bg-white"
-              />
+        {/* Organization Info Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>ข้อมูลองค์กร</CardTitle>
+                <CardDescription>แก้ไขข้อมูลพื้นฐานขององค์กร</CardDescription>
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="taxId" className="text-gray-700">เลขประจำตัวผู้เสียภาษี</Label>
-              <Input
-                id="taxId"
-                name="taxId"
-                defaultValue={organization.taxId || ""}
-                className="bg-gray-50 border-gray-200 focus:bg-white"
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-gray-700">เบอร์โทรศัพท์</Label>
+                <Label htmlFor="name">ชื่อองค์กร</Label>
                 <Input
-                  id="phone"
-                  name="phone"
-                  defaultValue={organization.phone || ""}
-                  className="bg-gray-50 border-gray-200 focus:bg-white"
+                  id="name"
+                  name="name"
+                  defaultValue={organization.name}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">อีเมล</Label>
+                <Label htmlFor="taxId">เลขประจำตัวผู้เสียภาษี</Label>
                 <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  defaultValue={organization.email || ""}
-                  className="bg-gray-50 border-gray-200 focus:bg-white"
+                  id="taxId"
+                  name="taxId"
+                  defaultValue={organization.taxId || ""}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="address" className="text-gray-700">ที่อยู่</Label>
-              <Textarea
-                id="address"
-                name="address"
-                rows={3}
-                defaultValue={organization.address || ""}
-                className="bg-gray-50 border-gray-200 focus:bg-white"
-              />
-            </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">เบอร์โทรศัพท์</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    defaultValue={organization.phone || ""}
+                  />
+                </div>
 
-            <div className="pt-2">
-              <Button type="submit">บันทึกการเปลี่ยนแปลง</Button>
-            </div>
-          </form>
-        </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">อีเมล</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    defaultValue={organization.email || ""}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">ที่อยู่</Label>
+                <Textarea
+                  id="address"
+                  name="address"
+                  rows={3}
+                  defaultValue={organization.address || ""}
+                />
+              </div>
+
+              <div className="pt-2">
+                <Button type="submit">บันทึกการเปลี่ยนแปลง</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </>
   );

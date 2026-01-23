@@ -10,6 +10,10 @@ import {
   CreditCard,
   CalendarClock,
   Info,
+  Building2,
+  User,
+  Sparkles,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -25,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { BoxType, ExpenseType } from "@/types";
+import type { ContactWithDefaults } from "@/server/actions/settings";
 
 // WHT rate options
 const WHT_RATE_OPTIONS = [
@@ -82,6 +87,11 @@ interface BoxInfoFormProps {
   setDescription: (v: string) => void;
   notes: string;
   setNotes: (v: string) => void;
+  // Contact (Section 9 - Smart Guess)
+  contacts?: ContactWithDefaults[];
+  contactsLoading?: boolean;
+  selectedContactId?: string;
+  onContactSelect?: (contactId: string) => void;
 }
 
 export function BoxInfoForm({
@@ -104,7 +114,14 @@ export function BoxInfoForm({
   setDescription,
   notes,
   setNotes,
+  // Contact (Section 9)
+  contacts = [],
+  contactsLoading = false,
+  selectedContactId = "",
+  onContactSelect,
 }: BoxInfoFormProps) {
+  const selectedContact = contacts.find(c => c.id === selectedContactId);
+
   return (
     <div className="rounded-xl border bg-white overflow-hidden">
       <div className="px-5 py-4 border-b">
@@ -120,6 +137,79 @@ export function BoxInfoForm({
       </div>
 
       <div className="p-5 space-y-4">
+        {/* Contact Selector - Smart Guess (Section 9) */}
+        {onContactSelect && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium flex items-center gap-2">
+                {boxType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"}
+                {selectedContact && (selectedContact.defaultVatRequired || selectedContact.whtApplicable) && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                    <Sparkles className="h-3 w-3" />
+                    Smart Guess
+                  </span>
+                )}
+              </Label>
+            </div>
+            <Select 
+              value={selectedContactId} 
+              onValueChange={onContactSelect}
+              disabled={contactsLoading}
+            >
+              <SelectTrigger className="h-11">
+                {contactsLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    กำลังโหลด...
+                  </div>
+                ) : (
+                  <SelectValue placeholder={`เลือก${boxType === "EXPENSE" ? "ผู้ขาย" : "ลูกค้า"}...`} />
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {contacts.map((contact) => (
+                  <SelectItem key={contact.id} value={contact.id}>
+                    <div className="flex items-center gap-2">
+                      {contact.contactType === "COMPANY" ? (
+                        <Building2 className="h-4 w-4 text-blue-500" />
+                      ) : (
+                        <User className="h-4 w-4 text-gray-500" />
+                      )}
+                      <span>{contact.name}</span>
+                      {(contact.defaultVatRequired || contact.whtApplicable) && (
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+                {contacts.length === 0 && !contactsLoading && (
+                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    ยังไม่มีรายชื่อ
+                  </div>
+                )}
+              </SelectContent>
+            </Select>
+            
+            {/* Show contact defaults info */}
+            {selectedContact && (selectedContact.defaultVatRequired || selectedContact.whtApplicable) && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-700">
+                  <p className="font-medium">ตั้งค่าอัตโนมัติจากประวัติ:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {selectedContact.defaultVatRequired && (
+                      <li>• ใบกำกับภาษี (VAT)</li>
+                    )}
+                    {selectedContact.whtApplicable && (
+                      <li>• หัก ณ ที่จ่าย {selectedContact.defaultWhtRate}%</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Expense Type Cards (only for EXPENSE) */}
         {boxType === "EXPENSE" && (
           <div className="space-y-3">

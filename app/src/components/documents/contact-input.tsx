@@ -25,6 +25,10 @@ export interface ContactOption {
   name: string;
   taxId?: string | null;
   contactType?: "COMPANY" | "INDIVIDUAL";
+  // Vendor defaults (Section 9)
+  whtApplicable?: boolean;
+  defaultWhtRate?: number | null;
+  defaultVatRequired?: boolean;
 }
 
 interface ContactInputProps {
@@ -35,6 +39,8 @@ interface ContactInputProps {
   defaultRole?: "VENDOR" | "CUSTOMER" | "BOTH";
   disabled?: boolean;
   onContactCreated?: (contact: ContactOption) => void;
+  /** Called when a contact with vendor defaults is selected */
+  onContactSelect?: (contact: ContactOption) => void;
 }
 
 export function ContactInput({
@@ -45,6 +51,7 @@ export function ContactInput({
   defaultRole = "VENDOR",
   disabled = false,
   onContactCreated,
+  onContactSelect,
 }: ContactInputProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
@@ -92,9 +99,11 @@ export function ContactInput({
     wasJustSelected.current = true;
     setInputValue(contact.name);
     onChange(contact.name, contact.id);
+    // Notify parent about the selected contact with vendor defaults
+    onContactSelect?.(contact);
     setOpen(false);
     inputRef.current?.focus();
-  }, [onChange]);
+  }, [onChange, onContactSelect]);
 
   // Handle create new contact
   const handleCreateNew = async () => {

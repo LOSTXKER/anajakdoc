@@ -269,57 +269,71 @@ export async function getWhtTrackings(filters?: {
   return whtTrackings;
 }
 
-// Get WHT Summary
+// Get WHT Summary with counts and amounts
 export async function getWhtSummary() {
   const session = await requireOrganization();
+  const orgId = session.currentOrganization.id;
 
-  const [outgoingPending, outgoingSent, incomingPending, incomingReceived] = await Promise.all([
-    prisma.whtTracking.count({
+  const [
+    outgoingPendingData,
+    outgoingSentData,
+    incomingPendingData,
+    incomingReceivedData,
+  ] = await Promise.all([
+    // Outgoing pending (count + sum)
+    prisma.whtTracking.aggregate({
       where: {
-        box: {
-          organizationId: session.currentOrganization.id,
-        },
+        box: { organizationId: orgId },
         type: "OUTGOING",
         status: { in: ["PENDING", "ISSUED"] },
       },
+      _count: true,
+      _sum: { amount: true },
     }),
-    prisma.whtTracking.count({
+    // Outgoing sent (count + sum)
+    prisma.whtTracking.aggregate({
       where: {
-        box: {
-          organizationId: session.currentOrganization.id,
-        },
+        box: { organizationId: orgId },
         type: "OUTGOING",
         status: "SENT",
       },
+      _count: true,
+      _sum: { amount: true },
     }),
-    prisma.whtTracking.count({
+    // Incoming pending (count + sum)
+    prisma.whtTracking.aggregate({
       where: {
-        box: {
-          organizationId: session.currentOrganization.id,
-        },
+        box: { organizationId: orgId },
         type: "INCOMING",
         status: "PENDING",
       },
+      _count: true,
+      _sum: { amount: true },
     }),
-    prisma.whtTracking.count({
+    // Incoming received (count + sum)
+    prisma.whtTracking.aggregate({
       where: {
-        box: {
-          organizationId: session.currentOrganization.id,
-        },
+        box: { organizationId: orgId },
         type: "INCOMING",
         status: "RECEIVED",
       },
+      _count: true,
+      _sum: { amount: true },
     }),
   ]);
 
   return {
     outgoing: {
-      pending: outgoingPending,
-      sent: outgoingSent,
+      pending: outgoingPendingData._count,
+      pendingAmount: outgoingPendingData._sum.amount?.toNumber() ?? 0,
+      sent: outgoingSentData._count,
+      sentAmount: outgoingSentData._sum.amount?.toNumber() ?? 0,
     },
     incoming: {
-      pending: incomingPending,
-      received: incomingReceived,
+      pending: incomingPendingData._count,
+      pendingAmount: incomingPendingData._sum.amount?.toNumber() ?? 0,
+      received: incomingReceivedData._count,
+      receivedAmount: incomingReceivedData._sum.amount?.toNumber() ?? 0,
     },
   };
 }

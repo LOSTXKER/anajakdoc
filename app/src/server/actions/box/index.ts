@@ -44,7 +44,7 @@ export { toggleChecklistItem, enableWht, recalculateBoxChecklist } from "./check
 export { addFileToBox, deleteBoxFile } from "./files";
 
 // Tax operations
-export { calculateTax, updateBoxTax } from "./tax";
+export { updateBoxTax } from "./tax";
 
 // AI Read operations
-export { aiReadDocument } from "./ai-read";
+export { readBoxDocuments, type AIReadResult } from "./ai-read";

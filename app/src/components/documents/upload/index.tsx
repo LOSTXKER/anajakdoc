@@ -50,6 +50,12 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
     setNotes,
     isPending,
     
+    // Contact (Section 9 - Smart Guess)
+    contacts,
+    contactsLoading,
+    selectedContactId,
+    handleContactSelect,
+    
     // Actions
     handleFileSelect,
     removeFile,
@@ -156,6 +162,11 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
                 setDescription={setDescription}
                 notes={notes}
                 setNotes={setNotes}
+                // Contact (Section 9 - Smart Guess)
+                contacts={contacts}
+                contactsLoading={contactsLoading}
+                selectedContactId={selectedContactId}
+                onContactSelect={handleContactSelect}
               />
 
               {/* Action Buttons */}

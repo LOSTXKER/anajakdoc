@@ -8,13 +8,18 @@ import { createAutoPaymentFromSlip, recalculateBoxPaymentStatus } from "../payme
 import crypto from "crypto";
 import type { ApiResponse, DocType } from "@/types";
 import { recalculateBoxChecklist } from "./checklist";
+import { checkDuplicateByHash } from "../duplicate";
 
 // ==================== Add File to Box ====================
 
 export async function addFileToBox(
   boxId: string,
   formData: FormData
-): Promise<ApiResponse> {
+): Promise<ApiResponse<{ 
+  duplicateWarning?: { boxId: string; boxNumber: string }; 
+  isOverpaid?: boolean;
+  overpaidAmount?: number;
+}>> {
   const session = await requireOrganization();
 
   const box = await prisma.box.findFirst({
@@ -48,10 +53,31 @@ export async function addFileToBox(
 
     // Calculate checksum
     const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     const checksum = crypto
       .createHash("md5")
-      .update(Buffer.from(arrayBuffer))
+      .update(buffer)
       .digest("hex");
+
+    // Check for duplicate file (Section 17)
+    const duplicateCheck = await checkDuplicateByHash(buffer, session.currentOrganization.id);
+    let duplicateWarning: { boxId: string; boxNumber: string } | undefined;
+    
+    if (duplicateCheck.isDuplicate && duplicateCheck.existingBoxId !== boxId) {
+      // Mark current box as possible duplicate
+      await prisma.box.update({
+        where: { id: boxId },
+        data: {
+          possibleDuplicate: true,
+          duplicateReason: `ไฟล์ซ้ำกับ ${duplicateCheck.existingBoxNumber}`,
+        },
+      });
+      
+      duplicateWarning = {
+        boxId: duplicateCheck.existingBoxId!,
+        boxNumber: duplicateCheck.existingBoxNumber!,
+      };
+    }
 
     // Upload to Supabase Storage
     const { error: uploadError } = await supabase.storage
@@ -160,12 +186,19 @@ export async function addFileToBox(
     revalidatePath(`/documents/${box.id}`);
     revalidatePath("/documents");
 
+    let message = "เพิ่มเอกสารสำเร็จ";
+    if (paymentResult.isOverpaid) {
+      message = `เพิ่มเอกสารสำเร็จ (ชำระเกินยอด ฿${paymentResult.overpaidAmount?.toLocaleString()})`;
+    }
+    if (duplicateWarning) {
+      message += ` (⚠️ อาจซ้ำกับ ${duplicateWarning.boxNumber})`;
+    }
+
     return { 
       success: true, 
-      message: paymentResult.isOverpaid 
-        ? `เพิ่มเอกสารสำเร็จ (ชำระเกินยอด ฿${paymentResult.overpaidAmount?.toLocaleString()})` 
-        : "เพิ่มเอกสารสำเร็จ",
+      message,
       data: {
+        duplicateWarning,
         isOverpaid: paymentResult.isOverpaid,
         overpaidAmount: paymentResult.overpaidAmount,
       },

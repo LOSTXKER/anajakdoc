@@ -1,13 +1,63 @@
+import { Suspense } from "react";
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
 import { UnifiedDocumentView } from "@/components/documents/unified-document-view";
+import { DocumentFilters } from "@/components/documents/document-filters";
+import { getSavedFilters } from "@/server/actions/saved-filter";
 import prisma from "@/lib/prisma";
+import type { BoxStatus, BoxType } from "@prisma/client";
 
-async function getAllBoxes(orgId: string, userId: string) {
+interface SearchParams {
+  search?: string;
+  status?: string;
+  type?: string;
+  reimburse?: string;
+}
+
+async function getFilteredBoxes(
+  orgId: string, 
+  userId: string, 
+  userRole: string,
+  filters: SearchParams
+) {
+  // Build where clause
+  const where: Record<string, unknown> = {
+    organizationId: orgId,
+  };
+
+  // Apply search filter
+  if (filters.search) {
+    where.OR = [
+      { boxNumber: { contains: filters.search, mode: "insensitive" } },
+      { title: { contains: filters.search, mode: "insensitive" } },
+      { description: { contains: filters.search, mode: "insensitive" } },
+      { externalRef: { contains: filters.search, mode: "insensitive" } },
+    ];
+  }
+
+  // Apply status filter
+  if (filters.status && filters.status !== "all") {
+    where.status = filters.status as BoxStatus;
+  }
+
+  // Apply type filter
+  if (filters.type && filters.type !== "all") {
+    where.boxType = filters.type as BoxType;
+  }
+
+  // Apply reimbursement filter (Section 19)
+  if (filters.reimburse === "pending") {
+    where.paymentMode = "EMPLOYEE_ADVANCE";
+    where.reimbursementStatus = "PENDING";
+  }
+
+  // For staff, only show their own boxes
+  if (userRole === "STAFF") {
+    where.createdById = userId;
+  }
+
   const boxes = await prisma.box.findMany({
-    where: {
-      organizationId: orgId,
-    },
+    where,
     include: {
       category: true,
       costCenter: true,
@@ -22,7 +72,7 @@ async function getAllBoxes(orgId: string, userId: string) {
       },
       payments: true,
       _count: {
-        select: { documents: true, payments: true, comments: true },
+        select: { documents: true, payments: true, comments: true, tasks: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -64,7 +114,7 @@ async function getAllBoxes(orgId: string, userId: string) {
 }
 
 async function getStatusCounts(orgId: string, userId: string) {
-  const [myBoxes, submitted, inReview, needMoreDocs, readyToBook, whtPending, booked, total, incomplete, complete] = await Promise.all([
+  const [myBoxes, submitted, inReview, needMoreDocs, readyToBook, whtPending, booked, total, incomplete, complete, reimbursePending] = await Promise.all([
     prisma.box.count({ where: { organizationId: orgId, createdById: userId } }),
     prisma.box.count({ where: { organizationId: orgId, status: "SUBMITTED" } }),
     prisma.box.count({ where: { organizationId: orgId, status: "IN_REVIEW" } }),
@@ -75,34 +125,55 @@ async function getStatusCounts(orgId: string, userId: string) {
     prisma.box.count({ where: { organizationId: orgId } }),
     prisma.box.count({ where: { organizationId: orgId, docStatus: "INCOMPLETE" } }),
     prisma.box.count({ where: { organizationId: orgId, docStatus: "COMPLETE" } }),
+    // Reimbursement pending (Section 19)
+    prisma.box.count({ 
+      where: { 
+        organizationId: orgId, 
+        paymentMode: "EMPLOYEE_ADVANCE",
+        reimbursementStatus: "PENDING"
+      } 
+    }),
   ]);
 
   return {
     myBoxes,
-    pendingReview: submitted + inReview, // Combined for backward compatibility
+    pendingReview: submitted + inReview,
     needInfo: needMoreDocs,
     approved: readyToBook + whtPending,
     exported: booked,
     total,
     incomplete,
     complete,
-    // New counts
     submitted,
     inReview,
     needMoreDocs,
     readyToBook,
     whtPending,
     booked,
+    reimbursePending,
   };
 }
 
-export default async function DocumentsPage() {
-  const session = await requireOrganization();
+interface DocumentsPageProps {
+  searchParams: Promise<SearchParams>;
+}
 
-  const [boxes, counts] = await Promise.all([
-    getAllBoxes(session.currentOrganization.id, session.id),
+export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
+  const session = await requireOrganization();
+  const params = await searchParams;
+
+  const [boxes, counts, savedFilters] = await Promise.all([
+    getFilteredBoxes(
+      session.currentOrganization.id, 
+      session.id,
+      session.currentOrganization.role,
+      params
+    ),
     getStatusCounts(session.currentOrganization.id, session.id),
+    getSavedFilters(),
   ]);
+
+  const hasActiveFilters = !!(params.search || params.status || params.type || params.reimburse);
 
   return (
     <>
@@ -112,7 +183,20 @@ export default async function DocumentsPage() {
         showCreateButton={false}
       />
       
-      <div className="p-6">
+      <div className="p-6 space-y-4">
+        {/* Filters */}
+        <Suspense fallback={null}>
+          <DocumentFilters savedFilters={savedFilters} />
+        </Suspense>
+
+        {/* Results info when filtering */}
+        {hasActiveFilters && (
+          <p className="text-sm text-muted-foreground">
+            พบ {boxes.length} รายการ
+          </p>
+        )}
+
+        {/* Document List */}
         <UnifiedDocumentView
           boxes={boxes}
           counts={counts}

@@ -21,6 +21,9 @@ import {
   Receipt,
   Menu,
   X,
+  Calendar,
+  Wallet,
+  Briefcase,
 } from "lucide-react";
 import type { SessionUser } from "@/types";
 
@@ -35,6 +38,7 @@ const mainNavItems = [
 
 const accountingItems = [
   { title: "ติดตาม WHT", href: "/wht-tracking", icon: Receipt },
+  { title: "รอคืนเงิน", href: "/documents?reimburse=pending", icon: Wallet },
   { title: "Export", href: "/export", icon: Download },
   { title: "รายงาน", href: "/reports", icon: BarChart3 },
 ];
@@ -44,6 +48,7 @@ const settingsNavItems = [
   { title: "สมาชิก", href: "/settings/members", icon: Users },
   { title: "ผู้ติดต่อ", href: "/settings/contacts", icon: UserRound },
   { title: "หมวดหมู่", href: "/settings/categories", icon: Tags },
+  { title: "งวดบัญชี", href: "/settings/fiscal-periods", icon: Calendar },
 ];
 
 export function MobileNav({ user }: MobileNavProps) {
@@ -60,6 +65,8 @@ export function MobileNav({ user }: MobileNavProps) {
   
   const isAdmin = user.currentOrganization && 
     ["ADMIN", "OWNER"].includes(user.currentOrganization.role);
+
+  const isFirmMember = !!user.firmMembership;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -169,6 +176,46 @@ export function MobileNav({ user }: MobileNavProps) {
                       </Link>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Firm Menu */}
+            {(isFirmMember || isAdmin) && (
+              <div className="mt-6">
+                <p className="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  สำนักงานบัญชี
+                </p>
+                <div className="space-y-1">
+                  {isFirmMember ? (
+                    <Link
+                      href="/firm"
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                        pathname.startsWith("/firm")
+                          ? "bg-violet-50 text-violet-700 font-medium"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      )}
+                    >
+                      <Briefcase className={cn("h-4 w-4", pathname.startsWith("/firm") && "text-violet-600")} />
+                      ภาพรวมลูกค้า
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/firm/setup"
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                        pathname === "/firm/setup"
+                          ? "bg-violet-50 text-violet-700 font-medium"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      )}
+                    >
+                      <Plus className="h-4 w-4" />
+                      สร้างสำนักงานบัญชี
+                    </Link>
+                  )}
                 </div>
               </div>
             )}

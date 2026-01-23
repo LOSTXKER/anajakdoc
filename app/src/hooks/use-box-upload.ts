@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBox } from "@/server/actions/box";
+import { getContactsForUpload, type ContactWithDefaults } from "@/server/actions/settings";
 import { toast } from "sonner";
 import { getTodayForInput } from "@/lib/formatters";
 import type { BoxType, ExpenseType } from "@/types";
@@ -23,6 +24,11 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
   const [hasWht, setHasWht] = useState(false);
   const [whtRate, setWhtRate] = useState("3"); // Default 3% for services
   
+  // Contact state (Smart Guess - Section 9)
+  const [contacts, setContacts] = useState<ContactWithDefaults[]>([]);
+  const [selectedContactId, setSelectedContactId] = useState<string>("");
+  const [contactsLoading, setContactsLoading] = useState(false);
+  
   // Files state
   const [files, setFiles] = useState<ExtractedFile[]>([]);
   
@@ -32,6 +38,51 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Load contacts on mount (Section 9 - Vendor Memory)
+  useEffect(() => {
+    const loadContacts = async () => {
+      setContactsLoading(true);
+      const result = await getContactsForUpload(boxType === "EXPENSE" ? "VENDOR" : "CUSTOMER");
+      if (result.success) {
+        setContacts(result.data);
+      }
+      setContactsLoading(false);
+    };
+    loadContacts();
+  }, [boxType]);
+
+  // Handle contact selection - Auto-fill VAT/WHT (Section 9 - Smart Guess)
+  const handleContactSelect = useCallback((contactId: string) => {
+    setSelectedContactId(contactId);
+    
+    if (!contactId) return;
+    
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    // Auto-fill VAT setting based on contact defaults
+    if (contact.defaultVatRequired) {
+      setExpenseType("STANDARD"); // Has VAT
+    }
+    
+    // Auto-fill WHT settings based on contact defaults
+    if (contact.whtApplicable) {
+      setHasWht(true);
+      if (contact.defaultWhtRate) {
+        setWhtRate(contact.defaultWhtRate.toString());
+      }
+    } else {
+      setHasWht(false);
+    }
+
+    // Show toast for smart guess
+    if (contact.defaultVatRequired || contact.whtApplicable) {
+      toast.info(`ตั้งค่า VAT/WHT อัตโนมัติจาก "${contact.name}"`, {
+        description: `VAT: ${contact.defaultVatRequired ? "มี" : "ไม่มี"}, WHT: ${contact.whtApplicable ? `${contact.defaultWhtRate || 3}%` : "ไม่มี"}`,
+      });
+    }
+  }, [contacts]);
 
   // Handle file drop/select (simple - no AI analysis)
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +168,11 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
           formData.append("notes", notes);
         }
 
+        // Contact (Section 9 - Vendor Memory)
+        if (selectedContactId) {
+          formData.append("contactId", selectedContactId);
+        }
+
         // Add files (simple - no extracted data)
         files.forEach((f) => {
           formData.append(`files`, f.file);
@@ -147,6 +203,7 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
     setIsMultiPayment(false);
     setHasWht(false);
     setWhtRate("3");
+    setSelectedContactId("");
   };
 
   return {
@@ -173,6 +230,12 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
     notes,
     setNotes,
     isPending,
+    
+    // Contact state (Section 9 - Smart Guess)
+    contacts,
+    contactsLoading,
+    selectedContactId,
+    handleContactSelect,
     
     // Actions
     handleFileSelect,

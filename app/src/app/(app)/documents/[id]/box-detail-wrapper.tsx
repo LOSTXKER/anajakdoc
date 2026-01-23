@@ -1,30 +1,42 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { BoxDetailSimple } from "@/components/documents/box-detail/BoxDetailSimple";
-import { submitBox, reviewBox, deleteBox } from "@/server/actions/box";
-import type { SerializedBox } from "@/types";
-import type { Category, Contact, CostCenter } from ".prisma/client";
+import { BoxDetail } from "@/components/documents/box-detail";
+import { submitBox, deleteBox } from "@/server/actions/box";
+import type { SerializedBox, TaskType, TaskStatus } from "@/types";
+
+interface TaskItem {
+  id: string;
+  taskType: TaskType;
+  status: TaskStatus;
+  title: string;
+  description: string | null;
+  dueDate: string | null;
+  escalationLevel: number;
+  assignee: {
+    id: string;
+    name: string | null;
+    email: string;
+    avatarUrl: string | null;
+  } | null;
+  createdAt: string;
+}
 
 interface BoxDetailWrapperProps {
   box: SerializedBox;
-  categories: Category[];
-  contacts: Contact[];
-  costCenters: CostCenter[];
+  tasks: TaskItem[];
+  contacts: { id: string; name: string }[];
   canEdit: boolean;
   canSend: boolean;
-  canReview: boolean;
   canDelete: boolean;
 }
 
 export function BoxDetailWrapper({ 
   box, 
-  categories,
+  tasks,
   contacts,
-  costCenters,
   canEdit, 
   canSend,
-  canReview,
   canDelete,
 }: BoxDetailWrapperProps) {
   const router = useRouter();
@@ -32,15 +44,6 @@ export function BoxDetailWrapper({
   // Send to accounting
   const handleSendToAccounting = async () => {
     const result = await submitBox(box.id);
-    if (!result.success) {
-      throw new Error(result.error || "เกิดข้อผิดพลาด");
-    }
-    router.refresh();
-  };
-
-  // Review actions
-  const handleReview = async (action: "approve" | "reject" | "need_info") => {
-    const result = await reviewBox(box.id, action);
     if (!result.success) {
       throw new Error(result.error || "เกิดข้อผิดพลาด");
     }
@@ -60,16 +63,22 @@ export function BoxDetailWrapper({
     // deleteBox already redirects to /documents
   };
 
+  // Refresh page
+  const handleRefresh = () => {
+    router.refresh();
+  };
+
   return (
-    <BoxDetailSimple
+    <BoxDetail
       box={box}
+      tasks={tasks}
+      contacts={contacts}
       canEdit={canEdit}
       canSend={canSend}
-      canReview={canReview}
       canDelete={canDelete}
       onSendToAccounting={canSend ? handleSendToAccounting : undefined}
-      onReview={canReview ? handleReview : undefined}
       onDelete={canDelete ? handleDelete : undefined}
+      onRefresh={handleRefresh}
     />
   );
 }

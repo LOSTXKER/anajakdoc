@@ -80,7 +80,6 @@ export async function updateBoxTax(
       action: "TAX_UPDATED",
       details: { 
         fields: Object.keys(updateData),
-        values: updateData,
       },
     },
   });
