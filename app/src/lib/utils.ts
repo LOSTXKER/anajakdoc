@@ -17,6 +17,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Generate URL-friendly slug from text
+export function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-ก-๙]/g, "") // Remove special chars except Thai
+    .replace(/[\s_]+/g, "-") // Replace spaces with hyphens
+    .replace(/-+/g, "-") // Replace multiple hyphens with single
+    .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
+}
+
 // Convert Decimal to number
 export function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0;

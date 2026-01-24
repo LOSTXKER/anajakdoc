@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Search, Package, Calendar, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { searchBoxes } from "@/server/actions/box";
@@ -93,11 +94,12 @@ export default function SearchPage() {
             <p className="mt-2 text-muted-foreground">กำลังค้นหา...</p>
           </div>
         ) : hasSearched && results.length === 0 ? (
-          <div className="text-center py-12">
-            <Search className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium">ไม่พบผลลัพธ์</p>
-            <p className="text-muted-foreground">ลองค้นหาด้วยคำอื่น</p>
-          </div>
+          <EmptyState
+            icon={Search}
+            title="ไม่พบผลลัพธ์"
+            description="ลองค้นหาด้วยคำอื่น"
+            className="py-12"
+          />
         ) : results.length > 0 ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">

@@ -1,6 +1,6 @@
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
-import { ContactList } from "@/components/settings/contact-list";
+import { ContactList } from "@/components/settings/ContactList";
 import prisma from "@/lib/prisma";
 
 async function getContacts(orgId: string) {

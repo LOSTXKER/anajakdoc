@@ -547,9 +547,9 @@ src/components/
 
 | [src/server/auth.ts](src/server/auth.ts) | Add firmAssignments to session |
 
-| [src/app/(app)/layout.tsx](src/app/\\\\\\\\\\(app)/layout.tsx) | Add ←Firm button for FirmMembers |
+| [src/app/(app)/layout.tsx](src/app/\\\\\\\\\\\\\(app)/layout.tsx) | Add ←Firm button for FirmMembers |
 
-| [src/app/(app)/dashboard/page.tsx](src/app/\\\\\\\\\\(app)/dashboard/page.tsx) | Route to role-based dashboard |
+| [src/app/(app)/dashboard/page.tsx](src/app/\\\\\\\\\\\\\(app)/dashboard/page.tsx) | Route to role-based dashboard |
 
 | [src/types/index.ts](src/types/index.ts) | Add Firm types |
 

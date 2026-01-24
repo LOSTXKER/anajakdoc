@@ -5,6 +5,7 @@ import { Prisma } from ".prisma/client";
 import { requireOrganization } from "@/server/auth";
 import type { ApiResponse } from "@/types";
 import type { NotificationType } from ".prisma/client";
+import { triggerEvent } from "./integration";
 
 export interface NotificationData {
   id: string;
@@ -125,6 +126,14 @@ export async function createNotification(
       data: data ? (data as Prisma.InputJsonValue) : Prisma.JsonNull,
     },
   });
+
+  // Trigger external integrations (LINE, Slack, Discord, etc.)
+  await triggerEvent(organizationId, type, {
+    type,
+    title,
+    message,
+    ...data,
+  });
 }
 
 // Notify all accounting/admin users in organization
@@ -157,5 +166,13 @@ export async function notifyAccountingTeam(
       message,
       data: data ? (data as Prisma.InputJsonValue) : Prisma.JsonNull,
     })),
+  });
+
+  // Trigger external integrations once (not per user)
+  await triggerEvent(organizationId, type, {
+    type,
+    title,
+    message,
+    ...data,
   });
 }

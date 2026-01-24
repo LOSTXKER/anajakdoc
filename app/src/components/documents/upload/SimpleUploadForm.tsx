@@ -39,13 +39,7 @@ import { cn } from "@/lib/utils";
 import { createBox } from "@/server/actions/box";
 import { toast } from "sonner";
 import type { BoxType } from "@/types";
-
-const WHT_RATES = [
-  { value: "1", label: "1% ค่าขนส่ง" },
-  { value: "2", label: "2% ค่าโฆษณา" },
-  { value: "3", label: "3% ค่าบริการ" },
-  { value: "5", label: "5% ค่าเช่า" },
-];
+import { WHT_RATE_OPTIONS } from "@/lib/constants";
 
 interface FileItem {
   id: string;
@@ -332,7 +326,7 @@ export function SimpleUploadForm({ initialType = "EXPENSE" }: SimpleUploadFormPr
           <div className="px-4 pb-2 -mt-2">
             <Label className="text-sm text-muted-foreground mb-2 block">อัตราหัก ณ ที่จ่าย</Label>
             <div className="grid grid-cols-4 gap-2">
-              {WHT_RATES.map((rate) => (
+              {WHT_RATE_OPTIONS.map((rate) => (
                 <button
                   key={rate.value}
                   type="button"

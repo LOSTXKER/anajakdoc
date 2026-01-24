@@ -1,17 +1,15 @@
-import { getSession } from "@/server/auth";
-import { redirect } from "next/navigation";
+import { requireFirmManager } from "@/server/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Plus, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getFirmRoleDisplayName, getFirmRoleBadgeColor } from "@/lib/firm-permissions";
+import type { FirmRole } from ".prisma/client";
 
 export default async function FirmTeamPage() {
-  const session = await getSession();
-  
-  if (!session?.firmMembership) {
-    redirect("/dashboard");
-  }
+  // Only firm managers and owners can access this page
+  const session = await requireFirmManager();
 
   // TODO: Fetch team members from database
   const teamMembers = [
@@ -46,16 +44,12 @@ export default async function FirmTeamPage() {
   ];
 
   const getRoleBadge = (role: string) => {
-    switch (role) {
-      case "OWNER":
-        return <Badge variant="default">เจ้าของ</Badge>;
-      case "ADMIN":
-        return <Badge variant="secondary">ผู้ดูแล</Badge>;
-      case "ACCOUNTANT":
-        return <Badge variant="outline">นักบัญชี</Badge>;
-      default:
-        return <Badge variant="outline">พนักงาน</Badge>;
-    }
+    const firmRole = role as FirmRole;
+    return (
+      <Badge variant="secondary" className={getFirmRoleBadgeColor(firmRole)}>
+        {getFirmRoleDisplayName(firmRole)}
+      </Badge>
+    );
   };
 
   const getInitials = (name: string) => {

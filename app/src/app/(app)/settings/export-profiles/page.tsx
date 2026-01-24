@@ -1,7 +1,7 @@
 import { requireOrganization } from "@/server/auth";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
-import { ExportProfileList } from "@/components/settings/export-profile-list";
+import { ExportProfileList } from "@/components/settings/ExportProfileList";
 import { getExportProfiles, ensureDefaultProfiles } from "@/server/actions/export-profile";
 
 export default async function ExportProfilesPage() {

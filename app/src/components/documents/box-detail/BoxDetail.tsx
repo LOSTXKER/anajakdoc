@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,11 @@ import { DocumentList } from "./DocumentList";
 import { DocStatusCard } from "./DocStatusCard";
 import { BoxSettings } from "./BoxSettings";
 import { TaskList } from "@/components/tasks";
-import { ShareDialog } from "@/components/documents/share-dialog";
+import { ShareDialog } from "@/components/documents/ShareDialog";
+import { CommentList } from "@/components/documents/comments";
+import { ActivityTimeline } from "@/components/documents/ActivityTimeline";
+import type { CommentData } from "@/server/actions/comment";
+import type { AuditLogEntry } from "@/server/actions/audit";
 
 import { updateBox } from "@/server/actions/box/update";
 import { addFileToBox, deleteBoxFile } from "@/server/actions/box/files";
@@ -54,6 +59,10 @@ interface BoxDetailProps {
   box: SerializedBox;
   tasks?: TaskItem[];
   contacts?: { id: string; name: string }[];
+  comments?: CommentData[];
+  activities?: AuditLogEntry[];
+  currentUserId?: string;
+  isAdmin?: boolean;
   canEdit?: boolean;
   canSend?: boolean;
   canDelete?: boolean;
@@ -66,6 +75,10 @@ export function BoxDetail({
   box,
   tasks = [],
   contacts = [],
+  comments = [],
+  activities = [],
+  currentUserId = "",
+  isAdmin = false,
   canEdit = false,
   canSend = false,
   canDelete = false,
@@ -345,6 +358,31 @@ export function BoxDetail({
           tasks={tasks}
           onRefresh={onRefresh}
         />
+
+        {/* Comments Section */}
+        <div className="rounded-2xl border bg-card p-5">
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            ความคิดเห็น
+          </h3>
+          <CommentList
+            boxId={box.id}
+            comments={comments}
+            currentUserId={currentUserId}
+            isAdmin={isAdmin}
+          />
+        </div>
+
+        {/* Activity Timeline */}
+        {activities.length > 0 && (
+          <div className="rounded-2xl border bg-card p-5">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <History className="h-4 w-4" />
+              ประวัติกิจกรรม
+            </h3>
+            <ActivityTimeline activities={activities} />
+          </div>
+        )}
 
       </div>
     </div>

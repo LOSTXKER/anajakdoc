@@ -1,7 +1,7 @@
 import { requireOrganization } from "@/server/auth";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
-import { FiscalPeriodList } from "@/components/settings/fiscal-period-list";
+import { FiscalPeriodList } from "@/components/settings/FiscalPeriodList";
 import { getFiscalPeriods } from "@/server/actions/fiscal-period";
 
 export default async function FiscalPeriodsPage() {

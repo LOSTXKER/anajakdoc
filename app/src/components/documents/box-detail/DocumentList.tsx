@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { DocType } from "@/types";
 
 interface FileItem {
@@ -139,13 +140,11 @@ export function DocumentList({
 
       {/* Empty State */}
       {files.length === 0 ? (
-        <div className="p-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3">
-            <Upload className="h-7 w-7 text-muted-foreground" />
-          </div>
-          <p className="text-foreground font-medium mb-1">ยังไม่มีเอกสาร</p>
-          <p className="text-sm text-muted-foreground mb-4">อัปโหลดเอกสารเพื่อเริ่มต้น</p>
-          {canEdit && (
+        <EmptyState
+          icon={Upload}
+          title="ยังไม่มีเอกสาร"
+          description="อัปโหลดเอกสารเพื่อเริ่มต้น"
+          action={canEdit ? (
             <Button 
               onClick={() => fileInputRef.current?.click()}
               disabled={isPending}
@@ -157,8 +156,9 @@ export function DocumentList({
               )}
               เพิ่มเอกสาร
             </Button>
-          )}
-        </div>
+          ) : undefined}
+          className="py-8"
+        />
       ) : (
         /* File List */
         <div className="divide-y">

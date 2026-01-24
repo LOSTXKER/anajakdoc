@@ -36,20 +36,24 @@ model Organization {
   firm   AccountingFirm? @relation("FirmClients", fields: [firmId], references: [id])
 
   // Relations
-  members         OrganizationMember[]
-  boxes           Box[]
-  contacts        Contact[]
-  costCenters     CostCenter[]
-  categories      Category[]
-  fiscalPeriods   FiscalPeriod[]
-  exportHistories ExportHistory[]
-  exportProfiles  ExportProfile[]
-  savedFilters    SavedFilter[]
-  notifications   Notification[]
-  bookingEntries  BookingEntry[]
-  integrations    Integration[]
-  shareLinks      ShareLink[]
-  firmAssignments FirmClientAssignment[] // Client assignments from firm
+  members           OrganizationMember[]
+  boxes             Box[]
+  contacts          Contact[]
+  costCenters       CostCenter[]
+  categories        Category[]
+  fiscalPeriods     FiscalPeriod[]
+  exportHistories   ExportHistory[]
+  exportProfiles    ExportProfile[]
+  savedFilters      SavedFilter[]
+  notifications     Notification[]
+  bookingEntries    BookingEntry[]
+  integrations      Integration[]
+  shareLinks        ShareLink[]
+  firmAssignments   FirmClientAssignment[] // Client assignments from firm
+  firmRelations     FirmClientRelation[]   // Firm-Client invitation relations
+  approvalWorkflows ApprovalWorkflow[]
+  documentTemplates DocumentTemplate[]
+  invitations       Invitation[]
 
   @@index([firmId])
   @@map("organizations")
@@ -83,13 +87,16 @@ model AccountingFirm {
   clients           Organization[]         @relation("FirmClients")
   members           FirmMember[]
   clientAssignments FirmClientAssignment[]
+  clientRelations   FirmClientRelation[]   // Firm-Client invitation relations
+  invitations       Invitation[]
 
   @@map("accounting_firms")
 }
 
 enum FirmPlan {
-  STARTER // ฿990/mo - 10 members
-  PRO // ฿2,500/mo - unlimited, white-label
+  STARTER    // ฿990/mo - 10 clients, 5 members
+  PRO        // ฿2,500/mo - 50 clients, 20 members, white-label
+  ENTERPRISE // Contact - unlimited, custom domain
 }
 
 model FirmMember {
@@ -137,6 +144,52 @@ enum AssignmentRole {
   SUPPORT // ช่วยเสริม
 }
 
+// ============================================
+// FIRM-CLIENT RELATION (Invitation Model)
+// ธุรกิจเชิญสำนักบัญชีมาดูแล
+// ============================================
+
+model FirmClientRelation {
+  id             String         @id @default(cuid())
+  firmId         String         @map("firm_id")
+  organizationId String         @map("organization_id")
+  status         RelationStatus @default(PENDING)
+
+  // ใครเชิญ
+  invitedByUserId String      @map("invited_by_user_id")
+  invitedByType   InviterType @default(BUSINESS)
+  invitedAt       DateTime    @default(now()) @map("invited_at")
+
+  // ตอบรับ/ยกเลิก
+  respondedAt      DateTime? @map("responded_at")
+  terminatedAt     DateTime? @map("terminated_at")
+  terminatedReason String?   @map("terminated_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  firm         AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User           @relation("FirmRelationInviter", fields: [invitedByUserId], references: [id])
+
+  @@unique([firmId, organizationId])
+  @@index([firmId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("firm_client_relations")
+}
+
+enum RelationStatus {
+  PENDING    // รอตอบรับ
+  ACTIVE     // กำลังดูแล
+  TERMINATED // ยกเลิกแล้ว
+}
+
+enum InviterType {
+  BUSINESS // ธุรกิจเชิญสำนักบัญชี
+  FIRM     // สำนักบัญชีขอดูแล
+}
+
 enum FirmRole {
   OWNER
   ADMIN
@@ -173,6 +226,9 @@ model User {
   vatVerifiedBoxes Box[]                @relation("VatVerifiedBy")
   bookingEntries   BookingEntry[]       @relation("BookedBy")
   shareLinks       ShareLink[] // External share links
+  approvals        BoxApproval[] // Approval workflow
+  sentInvitations  Invitation[] // Invitations sent by this user
+  firmRelationInvites FirmClientRelation[] @relation("FirmRelationInviter") // Firm relation invites sent
 
   @@map("users")
 }
@@ -203,6 +259,42 @@ enum MemberRole {
 }
 
 // ============================================
+// INVITATIONS
+// ============================================
+
+model Invitation {
+  id             String           @id @default(cuid())
+  code           String           @unique @default(cuid())
+  email          String
+  organizationId String?          @map("organization_id")
+  firmId         String?          @map("firm_id")
+  role           String           // MemberRole or FirmRole as string
+  invitedById    String           @map("invited_by_id")
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime         @map("expires_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firm         AccountingFirm?  @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  invitedBy    User             @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([email])
+  @@index([organizationId])
+  @@index([firmId])
+  @@map("invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+// ============================================
 // MASTER DATA
 // ============================================
 
@@ -229,9 +321,10 @@ model Contact {
   avgResponseDays    Float?    @map("avg_response_days") // ค่าเฉลี่ยวันที่ส่งเอกสาร
   lastUsedAt         DateTime? @map("last_used_at")
 
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  boxes        Box[]
-  whtTrackings WhtTracking[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  boxes             Box[]
+  whtTrackings      WhtTracking[]
+  documentTemplates DocumentTemplate[]
 
   @@map("contacts")
 }
@@ -257,8 +350,9 @@ model CostCenter {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  boxes        Box[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  boxes             Box[]
+  documentTemplates DocumentTemplate[]
 
   @@unique([organizationId, code])
   @@map("cost_centers")
@@ -277,8 +371,9 @@ model Category {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  boxes        Box[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  boxes             Box[]
+  documentTemplates DocumentTemplate[]
 
   @@unique([organizationId, code])
   @@map("categories")
@@ -437,6 +532,11 @@ model Box {
   activityLogs ActivityLog[]
   shareLinks   ShareLink[] // External share links
 
+  // Approval Workflow
+  workflowId String?           @map("workflow_id")
+  workflow   ApprovalWorkflow? @relation("BoxWorkflow", fields: [workflowId], references: [id])
+  approvals  BoxApproval[]
+
   @@unique([organizationId, boxNumber])
   @@index([organizationId, status])
   @@index([organizationId, boxDate])
@@ -446,6 +546,7 @@ model Box {
   @@index([organizationId, possibleDuplicate])
   @@index([contactId])
   @@index([bookingEntryId])
+  @@index([workflowId])
   @@map("boxes")
 }
 
@@ -640,6 +741,9 @@ model Document {
   // === Late Doc Flag ===
   isLateDocs Boolean @default(false) @map("is_late_docs")
 
+  // === Order (for drag & drop) ===
+  pageOrder Int @default(0) @map("page_order")
+
   // === Timestamps ===
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -830,9 +934,22 @@ model Comment {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  // Enhanced: Reply threading
+  parentId   String?   @map("parent_id")
+  parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[] @relation("CommentReplies")
+
+  // Enhanced: @mentions (user IDs)
+  mentions   String[]  @default([])
+
+  // Enhanced: Edit tracking
+  editedAt   DateTime? @map("edited_at")
+
   box  Box  @relation(fields: [boxId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
 
+  @@index([boxId, createdAt])
+  @@index([parentId])
   @@map("comments")
 }
 
@@ -1098,4 +1215,108 @@ model WebhookLog {
 
   @@index([integrationId, createdAt])
   @@map("webhook_logs")
+}
+
+// ============================================
+// APPROVAL WORKFLOW
+// ============================================
+
+model ApprovalWorkflow {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  description    String?
+  isDefault      Boolean  @default(false) @map("is_default")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        ApprovalStep[]
+  boxes        Box[]           @relation("BoxWorkflow")
+
+  @@index([organizationId, isActive])
+  @@map("approval_workflows")
+}
+
+model ApprovalStep {
+  id            String       @id @default(cuid())
+  workflowId    String       @map("workflow_id")
+  order         Int          // Step order (1, 2, 3...)
+  name          String       // e.g. "ผู้จัดการตรวจสอบ"
+  approverType  ApproverType @map("approver_type")
+  approverValue String?      @map("approver_value") // Role name or user ID
+  autoApprove   Boolean      @default(false) @map("auto_approve")
+  threshold     Decimal?     // Auto approve if amount < threshold
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  workflow  ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  approvals BoxApproval[]
+
+  @@unique([workflowId, order])
+  @@map("approval_steps")
+}
+
+model BoxApproval {
+  id         String         @id @default(cuid())
+  boxId      String         @map("box_id")
+  stepId     String         @map("step_id")
+  status     ApprovalStatus @default(PENDING)
+  approvedBy String?        @map("approved_by")
+  comment    String?
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  box      Box          @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  step     ApprovalStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  approver User?        @relation(fields: [approvedBy], references: [id])
+
+  @@unique([boxId, stepId])
+  @@index([boxId, status])
+  @@map("box_approvals")
+}
+
+enum ApproverType {
+  ROLE // Anyone with this role can approve
+  USER // Specific user must approve
+  ANY  // Anyone in org can approve
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+// ============================================
+// DOCUMENT TEMPLATES
+// ============================================
+
+model DocumentTemplate {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String   // e.g. "ค่าเช่า ABC"
+  contactId      String?  @map("contact_id")
+  docType        DocType  @map("doc_type")
+  categoryId     String?  @map("category_id")
+  costCenterId   String?  @map("cost_center_id")
+  expenseType    ExpenseType? @map("expense_type")
+  expectedAmount Decimal? @map("expected_amount") @db.Decimal(15, 2)
+  amountVariance Decimal  @default(0.1) @map("amount_variance") @db.Decimal(5, 2) // 10% variance
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  usageCount     Int      @default(0) @map("usage_count")
+  lastUsedAt     DateTime? @map("last_used_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact?     @relation(fields: [contactId], references: [id])
+  category     Category?    @relation(fields: [categoryId], references: [id])
+  costCenter   CostCenter?  @relation(fields: [costCenterId], references: [id])
+
+  @@index([organizationId, isActive])
+  @@index([contactId])
+  @@map("document_templates")
 }

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
-import { UnifiedDocumentView } from "@/components/documents/unified-document-view";
-import { DocumentFilters } from "@/components/documents/document-filters";
+import { UnifiedDocumentView } from "@/components/documents/UnifiedDocumentView";
+import { DocumentFilters } from "@/components/documents/DocumentFilters";
 import { getSavedFilters } from "@/server/actions/saved-filter";
 import prisma from "@/lib/prisma";
 import type { BoxStatus, BoxType } from "@prisma/client";

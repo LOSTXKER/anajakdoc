@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
   Trash2,
   FileText,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney } from "@/lib/formatters";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { SerializedPayment } from "@/types";
 import type { PaymentMethod } from "@prisma/client";
 
@@ -41,9 +43,11 @@ const METHOD_CONFIG: Record<PaymentMethod, { label: string; icon: typeof CreditC
 export function PaymentList({ payments, canEdit, onDelete }: PaymentListProps) {
   if (payments.length === 0) {
     return (
-      <div className="text-center py-6 text-muted-foreground text-sm">
-        ยังไม่มีรายการชำระเงิน
-      </div>
+      <EmptyState
+        icon={Receipt}
+        title="ยังไม่มีรายการชำระเงิน"
+        className="py-6"
+      />
     );
   }
 

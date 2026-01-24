@@ -1,6 +1,6 @@
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
-import { MemberList } from "@/components/settings/member-list";
+import { MemberList } from "@/components/settings/MemberList";
 import prisma from "@/lib/prisma";
 
 async function getMembers(orgId: string) {

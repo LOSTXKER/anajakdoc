@@ -199,3 +199,5 @@ export { UploadZone } from "./UploadZone";
 export { FileAnalysisCard, type ExtractedFile } from "./FileAnalysisCard";
 export { BoxInfoForm } from "./BoxInfoForm";
 export { SimpleUploadForm } from "./SimpleUploadForm";
+export { ExpenseTypeSelector } from "./ExpenseTypeSelector";
+export { PaymentModeSelector } from "./PaymentModeSelector";

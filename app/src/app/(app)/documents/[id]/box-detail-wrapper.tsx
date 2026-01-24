@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { BoxDetail } from "@/components/documents/box-detail";
 import { submitBox, deleteBox } from "@/server/actions/box";
 import type { SerializedBox, TaskType, TaskStatus } from "@/types";
+import type { CommentData } from "@/server/actions/comment";
+import type { AuditLogEntry } from "@/server/actions/audit";
 
 interface TaskItem {
   id: string;
@@ -26,6 +28,10 @@ interface BoxDetailWrapperProps {
   box: SerializedBox;
   tasks: TaskItem[];
   contacts: { id: string; name: string }[];
+  comments: CommentData[];
+  activities: AuditLogEntry[];
+  currentUserId: string;
+  isAdmin: boolean;
   canEdit: boolean;
   canSend: boolean;
   canDelete: boolean;
@@ -35,6 +41,10 @@ export function BoxDetailWrapper({
   box, 
   tasks,
   contacts,
+  comments,
+  activities,
+  currentUserId,
+  isAdmin,
   canEdit, 
   canSend,
   canDelete,
@@ -73,6 +83,10 @@ export function BoxDetailWrapper({
       box={box}
       tasks={tasks}
       contacts={contacts}
+      comments={comments}
+      activities={activities}
+      currentUserId={currentUserId}
+      isAdmin={isAdmin}
       canEdit={canEdit}
       canSend={canSend}
       canDelete={canDelete}

@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
@@ -69,8 +70,14 @@ export async function getSession(): Promise<SessionUser | null> {
     role: m.role,
   }));
 
-  // Get current organization from cookie or first one
-  const currentOrg = organizations[0] || null;
+  // Get current organization from cookie or fallback to first one
+  const cookieStore = await cookies();
+  const currentOrgId = cookieStore.get("currentOrgId")?.value;
+  
+  // Find org from cookie, validate user has access, fallback to first
+  const currentOrg = (currentOrgId && organizations.find(o => o.id === currentOrgId)) 
+    || organizations[0] 
+    || null;
 
   // Get firm membership (Section 22)
   let firmMembership = null;
@@ -152,4 +159,44 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/**
+ * Require firm membership
+ */
+export async function requireFirmMember(): Promise<SessionUser & { firmMembership: NonNullable<SessionUser["firmMembership"]> }> {
+  const session = await requireAuth();
+  
+  if (!session.firmMembership) {
+    redirect("/dashboard");
+  }
+
+  return session as SessionUser & { firmMembership: NonNullable<SessionUser["firmMembership"]> };
+}
+
+/**
+ * Require firm owner role
+ */
+export async function requireFirmOwner(): Promise<SessionUser & { firmMembership: NonNullable<SessionUser["firmMembership"]> }> {
+  const session = await requireFirmMember();
+  
+  if (session.firmMembership.role !== "OWNER") {
+    redirect("/firm/dashboard?error=unauthorized");
+  }
+
+  return session;
+}
+
+/**
+ * Require firm manager or above
+ */
+export async function requireFirmManager(): Promise<SessionUser & { firmMembership: NonNullable<SessionUser["firmMembership"]> }> {
+  const session = await requireFirmMember();
+  
+  const role = session.firmMembership.role;
+  if (role !== "OWNER" && role !== "MANAGER") {
+    redirect("/firm/dashboard?error=unauthorized");
+  }
+
+  return session;
 }

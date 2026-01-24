@@ -30,14 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { BoxType, ExpenseType } from "@/types";
 import type { ContactWithDefaults } from "@/server/actions/settings";
-
-// WHT rate options
-const WHT_RATE_OPTIONS = [
-  { value: "1", label: "1% - ค่าโฆษณา" },
-  { value: "2", label: "2% - ค่าขนส่ง" },
-  { value: "3", label: "3% - ค่าบริการ/จ้างทำของ" },
-  { value: "5", label: "5% - ค่าเช่า" },
-];
+import { WHT_RATE_OPTIONS } from "@/lib/constants";
 
 // Expense type cards for visual selection (Simple: only STANDARD and NO_VAT)
 const EXPENSE_TYPE_CARDS: { 

@@ -11,10 +11,96 @@
  */
 
 import prisma from "@/lib/prisma";
-import { requireUser } from "@/server/auth";
+import { requireUser, requireAuth } from "@/server/auth";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+
+// ============================================
+// FIRM CREATION (Onboarding)
+// ============================================
+
+function generateFirmSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+  
+  if (!slug || slug.length < 2) {
+    return `firm-${Date.now().toString(36)}`;
+  }
+  
+  return slug;
+}
+
+async function generateUniqueFirmSlug(baseSlug: string): Promise<string> {
+  let slug = baseSlug;
+  let counter = 1;
+  
+  while (true) {
+    const existing = await prisma.accountingFirm.findUnique({
+      where: { slug },
+    });
+    
+    if (!existing) {
+      return slug;
+    }
+    
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+}
+
+/**
+ * Create accounting firm from onboarding form
+ * Returns { error, success } for useActionState compatibility
+ */
+export async function createAccountingFirm(
+  _prevState: { error: string | null; success: boolean }, 
+  formData: FormData
+): Promise<{ error: string | null; success: boolean }> {
+  const session = await requireAuth();
+  
+  const name = formData.get("name") as string;
+  const taxId = formData.get("taxId") as string || null;
+  const address = formData.get("address") as string || null;
+  const phone = formData.get("phone") as string || null;
+  const email = formData.get("email") as string || null;
+
+  if (!name || name.trim().length < 2) {
+    return { success: false, error: "กรุณากรอกชื่อสำนักงานบัญชี" };
+  }
+
+  try {
+    const baseSlug = generateFirmSlug(name);
+    const slug = await generateUniqueFirmSlug(baseSlug);
+
+    await prisma.accountingFirm.create({
+      data: {
+        name: name.trim(),
+        slug,
+        taxId,
+        address,
+        phone,
+        email,
+        members: {
+          create: {
+            userId: session.id,
+            role: "OWNER",
+          },
+        },
+      },
+    });
+
+    return { success: true, error: null };
+  } catch (error) {
+    console.error("Error creating accounting firm:", error);
+    return { success: false, error: "เกิดข้อผิดพลาดในการสร้างสำนักงานบัญชี" };
+  }
+}
 
 // ============================================
 // FIRM DASHBOARD DATA

@@ -1,6 +1,6 @@
 import { requireOrganization } from "@/server/auth";
 import { getIntegrations } from "@/server/actions/integration";
-import { IntegrationList } from "@/components/settings/integration-list";
+import { IntegrationList } from "@/components/settings/IntegrationList";
 
 export default async function IntegrationsPage() {
   await requireOrganization();

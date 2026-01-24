@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useActionState, useEffect } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { login } from "@/server/actions/auth";
@@ -9,13 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Loader2, Mail, Lock } from "lucide-react";
+import { UserTypeToggle, type UserType } from "@/components/ui/user-type-toggle";
+import { Package, Loader2, Mail, Lock, Building2 } from "lucide-react";
 
-function SubmitButton() {
+function SubmitButton({ isFirm }: { isFirm: boolean }) {
   const { pending } = useFormStatus();
   
   return (
-    <Button type="submit" className="w-full h-12 text-base font-medium" disabled={pending}>
+    <Button 
+      type="submit" 
+      className={`w-full h-12 text-base font-medium ${isFirm ? "bg-violet-600 hover:bg-violet-700" : ""}`}
+      disabled={pending}
+    >
       {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -29,42 +33,58 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
+  const [userType, setUserType] = useState<UserType>("sme");
   const [state, formAction] = useActionState(login, { error: null, success: false });
+  const isFirm = userType === "firm";
 
   useEffect(() => {
     if (state.success) {
-      // Use smart redirect to handle role-based routing
-      // Firm members → /firm/dashboard
-      // Regular users → /dashboard
-      // No organization → /onboarding
+      // Redirect based on user type
+      // Both go through /api/auth/redirect which handles role-based routing
       window.location.href = "/api/auth/redirect";
     }
   }, [state.success]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Logo & Brand */}
       <div className="text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 animate-float">
-          <Package className="w-8 h-8 text-primary" />
+        <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl animate-float ${
+          isFirm ? "bg-violet-600/10" : "bg-primary/10"
+        }`}>
+          {isFirm ? (
+            <Building2 className="w-8 h-8 text-violet-600" />
+          ) : (
+            <Package className="w-8 h-8 text-primary" />
+          )}
         </div>
         <h1 className="text-2xl font-bold tracking-tight">กล่องเอกสารดิจิทัล</h1>
         <p className="text-muted-foreground text-sm">
-          สร้างกล่อง → ใส่เอกสาร → ส่งให้บัญชี
+          {isFirm ? "Firm Portal สำหรับสำนักบัญชี" : "สร้างกล่อง → ใส่เอกสาร → ส่งให้บัญชี"}
         </p>
       </div>
 
+      {/* User Type Toggle */}
+      <div className="flex justify-center">
+        <UserTypeToggle value={userType} onChange={setUserType} size="sm" />
+      </div>
+
       {/* Login Card */}
-      <Card className="border-0 shadow-xl shadow-primary/5">
+      <Card className={`border-0 shadow-xl ${isFirm ? "shadow-violet-500/5" : "shadow-primary/5"}`}>
         <CardHeader className="space-y-1 pb-4">
           <CardTitle className="text-xl">เข้าสู่ระบบ</CardTitle>
           <CardDescription>
-            กรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งาน
+            {isFirm 
+              ? "เข้าสู่ระบบสำหรับสำนักบัญชี"
+              : "กรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งาน"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-4">
+            {/* Hidden field for user type */}
+            <input type="hidden" name="userType" value={userType} />
+            
             {state.error && (
               <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm animate-in fade-in slide-in-from-top-2">
                 {state.error}
@@ -91,7 +111,7 @@ export default function LoginPage() {
                 <Label htmlFor="password">รหัสผ่าน</Label>
                 <Link 
                   href="/forgot-password" 
-                  className="text-xs text-primary hover:underline"
+                  className={`text-xs hover:underline ${isFirm ? "text-violet-600" : "text-primary"}`}
                 >
                   ลืมรหัสผ่าน?
                 </Link>
@@ -109,7 +129,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <SubmitButton />
+            <SubmitButton isFirm={isFirm} />
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4 pt-0">
@@ -123,7 +143,10 @@ export default function LoginPage() {
           </div>
           <p className="text-sm text-center text-muted-foreground">
             ยังไม่มีบัญชี?{" "}
-            <Link href="/register" className="text-primary font-medium hover:underline">
+            <Link 
+              href="/register" 
+              className={`font-medium hover:underline ${isFirm ? "text-violet-600" : "text-primary"}`}
+            >
               สมัครสมาชิก
             </Link>
           </p>

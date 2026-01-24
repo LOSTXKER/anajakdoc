@@ -1,6 +1,6 @@
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
-import { CategoryList } from "@/components/settings/category-list";
+import { CategoryList } from "@/components/settings/CategoryList";
 import prisma from "@/lib/prisma";
 
 async function getCategories(orgId: string) {

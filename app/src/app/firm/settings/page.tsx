@@ -1,5 +1,4 @@
-import { getSession } from "@/server/auth";
-import { redirect } from "next/navigation";
+import { requireFirmOwner } from "@/server/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Settings, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,11 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
 export default async function FirmSettingsPage() {
-  const session = await getSession();
-  
-  if (!session?.firmMembership) {
-    redirect("/dashboard");
-  }
+  // Only firm owners can access this page
+  const session = await requireFirmOwner();
 
   // TODO: Fetch firm settings from database
   const firmSettings = {

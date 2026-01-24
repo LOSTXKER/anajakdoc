@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { updateBox } from "@/server/actions/box/update";
 import type { ExpenseType, PaymentMode, ReimbursementStatus } from "@/types";
+import { WHT_RATE_SIMPLE } from "@/lib/constants";
 
 // Contact with vendor defaults (Section 9)
 interface ContactWithDefaults {
@@ -58,13 +59,6 @@ const EXPENSE_TYPES = [
   { value: "NO_VAT", label: "ไม่มีใบกำกับภาษี" },
   { value: "PETTY_CASH", label: "เบิกเงินสดย่อย" },
   { value: "FOREIGN", label: "จ่ายต่างประเทศ" },
-];
-
-const WHT_RATES = [
-  { value: "1", label: "1%" },
-  { value: "2", label: "2%" },
-  { value: "3", label: "3%" },
-  { value: "5", label: "5%" },
 ];
 
 const PAYMENT_MODES = [
@@ -306,7 +300,7 @@ export function BoxSettings({
                   <SelectValue placeholder="เลือกอัตรา" />
                 </SelectTrigger>
                 <SelectContent>
-                  {WHT_RATES.map((rate) => (
+                  {WHT_RATE_SIMPLE.map((rate) => (
                     <SelectItem key={rate.value} value={rate.value}>{rate.label}</SelectItem>
                   ))}
                 </SelectContent>

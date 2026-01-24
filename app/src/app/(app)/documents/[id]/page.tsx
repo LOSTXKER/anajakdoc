@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { requireOrganization } from "@/server/auth";
 import { getBox } from "@/server/actions/box";
+import { getBoxComments } from "@/server/actions/comment";
+import { getBoxAuditLogs } from "@/server/actions/audit";
 import { serializeBox } from "@/lib/utils";
 import { BoxDetailWrapper } from "./box-detail-wrapper";
 import prisma from "@/lib/prisma";
@@ -67,10 +69,12 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const session = await requireOrganization();
   const { id } = await params;
   
-  const [box, tasks, contacts] = await Promise.all([
+  const [box, tasks, contacts, commentsResult, activitiesResult] = await Promise.all([
     getBox(id),
     getBoxTasks(id),
     getContacts(session.currentOrganization.id),
+    getBoxComments(id),
+    getBoxAuditLogs(id),
   ]);
 
   if (!box) {
@@ -79,6 +83,8 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
   const serializedBox = serializeBox(box);
   const userRole = session.currentOrganization.role;
+  const comments = commentsResult.success ? commentsResult.data : [];
+  const activities = activitiesResult.success ? activitiesResult.data : [];
 
   // Determine permissions
   const canEdit = ["OWNER", "ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
@@ -88,12 +94,17 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     ["OWNER", "ADMIN"].includes(userRole) || 
     box.createdById === session.id
   );
+  const isAdmin = ["OWNER", "ADMIN"].includes(userRole);
 
   return (
     <BoxDetailWrapper 
       box={serializedBox}
       tasks={tasks}
       contacts={contacts}
+      comments={comments}
+      activities={activities}
+      currentUserId={session.id}
+      isAdmin={isAdmin}
       canEdit={canEdit}
       canSend={canSend}
       canDelete={canDelete}
