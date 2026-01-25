@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/values";
 import type { BoxFilters, PaginatedResponse, BoxWithRelations, BoxListItem, ApiResponse } from "@/types";
 import { DocStatus, Prisma } from "@prisma/client";
 
@@ -46,7 +47,7 @@ const boxWithRelationsInclude = Prisma.validator<Prisma.BoxInclude>()({
 export async function getBoxes(
   filters?: BoxFilters,
   page = 1,
-  pageSize = 20
+  pageSize = DEFAULT_PAGE_SIZE
 ): Promise<PaginatedResponse<BoxWithRelations>> {
   const session = await requireOrganization();
   

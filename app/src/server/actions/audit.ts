@@ -13,8 +13,7 @@ import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import * as XLSX from "xlsx";
 import crypto from "crypto";
-
-type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // ============================================
 // AUDIT LOG TYPES

@@ -6,7 +6,7 @@ export default async function IntegrationsPage() {
   await requireOrganization();
   
   const result = await getIntegrations();
-  const integrations = result.success ? result.data : [];
+  const integrations = result.success && result.data ? result.data : [];
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

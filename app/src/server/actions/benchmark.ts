@@ -11,8 +11,7 @@
 
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
-
-type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // ============================================
 // TYPES
@@ -235,8 +234,8 @@ export async function getInsightReport(): Promise<ApiResponse<InsightReport>> {
   const session = await requireOrganization();
   
   const metricsResult = await getOrganizationMetrics();
-  if (!metricsResult.success) {
-    return { success: false, error: metricsResult.error };
+  if (!metricsResult.success || !metricsResult.data) {
+    return { success: false, error: metricsResult.error || "ไม่พบข้อมูลเมตริก" };
   }
 
   const metrics = metricsResult.data;

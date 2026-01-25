@@ -14,8 +14,7 @@ import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
 import type { NotificationType, IntegrationType } from "@prisma/client";
-
-type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // ============================================
 // Integration CRUD

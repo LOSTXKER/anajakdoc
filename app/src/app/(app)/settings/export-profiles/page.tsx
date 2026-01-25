@@ -27,7 +27,7 @@ export default async function ExportProfilesPage() {
 
       <div className="p-6">
         <ExportProfileList 
-          profiles={result.success ? result.data : []} 
+          profiles={result.success && result.data ? result.data : []} 
         />
       </div>
     </>

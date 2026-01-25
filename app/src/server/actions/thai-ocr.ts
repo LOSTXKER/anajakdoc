@@ -11,8 +11,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { PROMPTPAY_EXTRACTION_PROMPT, type PromptPaySlipData } from "@/lib/ocr/promptpay";
-
-type ApiResponse<T> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 

@@ -1,7 +1,7 @@
 "use server";
 
 import type { Box } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import type { SessionUser } from "@/types";
 
 export type ValidateBoxResult =

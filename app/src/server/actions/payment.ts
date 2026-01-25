@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
+import { calculatePaymentStatus } from "@/lib/helpers/payment";
 import type { ApiResponse, CreatePaymentInput } from "@/types";
 import { PaymentStatus } from "@prisma/client";
 
@@ -45,16 +46,7 @@ export async function createPayment(input: CreatePaymentInput): Promise<ApiRespo
   const paidAmount = totalPaid._sum.amount?.toNumber() || 0;
   const totalAmount = box.totalAmount.toNumber();
 
-  let paymentStatus: PaymentStatus;
-  if (paidAmount === 0) {
-    paymentStatus = PaymentStatus.UNPAID;
-  } else if (paidAmount < totalAmount) {
-    paymentStatus = PaymentStatus.PARTIAL;
-  } else if (paidAmount === totalAmount) {
-    paymentStatus = PaymentStatus.PAID;
-  } else {
-    paymentStatus = PaymentStatus.OVERPAID;
-  }
+  const paymentStatus = calculatePaymentStatus(paidAmount, totalAmount);
 
   await prisma.box.update({
     where: { id: input.boxId },

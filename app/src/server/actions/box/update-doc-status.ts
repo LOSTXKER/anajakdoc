@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { getSession } from "@/server/auth";
 import { sendDocumentRequestNotification } from "@/lib/external-notifications";
 import type { VatDocStatus, WhtDocStatus } from "@/types";

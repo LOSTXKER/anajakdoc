@@ -132,6 +132,34 @@ export function serializeContact(contact: Contact | null): SerializedContact | n
   };
 }
 
+/**
+ * Parse boolean value from FormData
+ * FormData returns strings, this helper converts "true"/"false" strings to boolean
+ */
+export function parseBooleanFormData(
+  formData: FormData,
+  key: string,
+  defaultValue = false
+): boolean {
+  const value = formData.get(key);
+  if (value === null) return defaultValue;
+  return value === "true";
+}
+
+/**
+ * Generate timestamp for filenames
+ * Format: YYYYMMDD_HHMM
+ */
+export function generateTimestamp(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  
+  return `${year}${month}${day}_${hours}${minutes}`;
+}
+
 // Serialize Box for Client Components
 export function serializeBox(box: BoxWithRelations): SerializedBox {
   return {

@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
+import { generateTimestamp } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import type { ApiResponse } from "@/types";
@@ -219,8 +220,7 @@ export async function exportBoxesToExcel(
   // Generate buffer
   const buffer = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
   
-  const now = new Date();
-  const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, "0")}${now.getDate().toString().padStart(2, "0")}_${now.getHours().toString().padStart(2, "0")}${now.getMinutes().toString().padStart(2, "0")}`;
+  const timestamp = generateTimestamp();
   const fileName = `export_${profile.toLowerCase()}_${timestamp}.xlsx`;
 
   // Save export history
@@ -413,7 +413,7 @@ export async function exportBoxesToZip(
   // Generate ZIP
   const zipBuffer = await zip.generateAsync({ type: "base64" });
   
-  const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, "0")}${now.getDate().toString().padStart(2, "0")}_${now.getHours().toString().padStart(2, "0")}${now.getMinutes().toString().padStart(2, "0")}`;
+  const timestamp = generateTimestamp(now);
   const fileName = `export_bundle_${timestamp}.zip`;
 
   // Save export history

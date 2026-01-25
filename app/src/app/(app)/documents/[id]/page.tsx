@@ -87,8 +87,8 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
   const serializedBox = serializeBox(box);
   const userRole = session.currentOrganization.role;
-  const comments = commentsResult.success ? commentsResult.data : [];
-  const activities = activitiesResult.success ? activitiesResult.data : [];
+  const comments = commentsResult.success && commentsResult.data ? commentsResult.data : [];
+  const activities = activitiesResult.success && activitiesResult.data ? activitiesResult.data : [];
 
   // Determine permissions
   // canEdit: allow editing box details and advancing status (using new 4-status system)

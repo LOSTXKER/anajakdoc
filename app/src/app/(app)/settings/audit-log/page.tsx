@@ -6,7 +6,7 @@ export default async function AuditLogPage() {
   await requireOrganization();
   
   const result = await getOrganizationAuditLogs({ page: 1, limit: 50 });
-  const initialData = result.success ? result.data : { logs: [], total: 0, page: 1, totalPages: 0 };
+  const initialData = result.success && result.data ? result.data : { logs: [], total: 0, page: 1, totalPages: 0 };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

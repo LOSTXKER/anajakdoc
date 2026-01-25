@@ -52,11 +52,11 @@ export function IdCardScanner({ onExtracted }: IdCardScannerProps) {
 
       const response = await extractThaiIdCard(base64, file.type);
 
-      if (response.success) {
+      if (response.success && response.data) {
         setResult(response.data);
         toast.success("อ่านข้อมูลบัตรประชาชนสำเร็จ");
       } else {
-        toast.error(response.error);
+        toast.error(response.error || "เกิดข้อผิดพลาด");
       }
     } catch {
       toast.error("เกิดข้อผิดพลาดในการอ่านบัตรประชาชน");

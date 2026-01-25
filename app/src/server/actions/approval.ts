@@ -14,8 +14,7 @@ import { requireOrganization } from "@/server/auth";
 import { createNotification } from "./notification";
 import { revalidatePath } from "next/cache";
 import type { ApprovalStatus } from "@prisma/client";
-
-type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // ============================================
 // TYPES
@@ -281,8 +280,8 @@ export async function approveBox(
   const session = await requireOrganization();
 
   const statusResult = await getBoxApprovalStatus(boxId);
-  if (!statusResult.success) {
-    return statusResult;
+  if (!statusResult.success || !statusResult.data) {
+    return { success: false, error: statusResult.error || "ไม่พบสถานะการอนุมัติ" };
   }
 
   const status = statusResult.data;
@@ -385,8 +384,8 @@ export async function rejectBox(
   }
 
   const statusResult = await getBoxApprovalStatus(boxId);
-  if (!statusResult.success) {
-    return statusResult;
+  if (!statusResult.success || !statusResult.data) {
+    return { success: false, error: statusResult.error || "ไม่พบสถานะการอนุมัติ" };
   }
 
   const status = statusResult.data;

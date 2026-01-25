@@ -66,7 +66,7 @@ export default function SharePage({ params }: SharePageProps) {
     async function checkLink() {
       try {
         const result = await checkShareLinkPassword(token);
-        if (result.success) {
+        if (result.success && result.data) {
           setRequiresPassword(result.data.requiresPassword);
           setLinkName(result.data.name);
           
@@ -77,7 +77,7 @@ export default function SharePage({ params }: SharePageProps) {
             setLoading(false);
           }
         } else {
-          setError(result.error);
+          setError(result.error || "ไม่พบข้อมูล");
           setLoading(false);
         }
       } catch {
@@ -95,11 +95,11 @@ export default function SharePage({ params }: SharePageProps) {
 
     try {
       const result = await getShareLinkPublic(token, pwd);
-      if (result.success) {
+      if (result.success && result.data) {
         setData(result.data);
         setRequiresPassword(false);
       } else {
-        setError(result.error);
+        setError(result.error || "ไม่พบข้อมูล");
       }
     } catch {
       setError("เกิดข้อผิดพลาด");

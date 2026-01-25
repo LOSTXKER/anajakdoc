@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAutoPaymentFromSlip } from "../payment-helpers";
 import crypto from "crypto";
 import type { ApiResponse, DocType } from "@/types";
+import { DEFAULT_WHT_RATE_PERCENT, DEFAULT_WHT_RATE, DEFAULT_AMOUNT, DEFAULT_DOC_TYPE, CACHE_CONTROL_ONE_HOUR, VAT_RATE } from "@/lib/constants/values";
 import { BoxStatus, DocStatus, ExpenseType } from "@prisma/client";
 
 // Import recalculateBoxChecklist - will be created in checklist.ts
@@ -85,8 +86,8 @@ export async function createBox(formData: FormData): Promise<ApiResponse<{ id: s
   const boxDateStr = formData.get("boxDate") as string;
   const dueDateStr = formData.get("dueDate") as string || undefined;
   const totalAmountStr = formData.get("totalAmount") as string;
-  const vatAmountStr = formData.get("vatAmount") as string || "0";
-  const whtAmountStr = formData.get("whtAmount") as string || "0";
+  const vatAmountStr = formData.get("vatAmount") as string || DEFAULT_AMOUNT;
+  const whtAmountStr = formData.get("whtAmount") as string || DEFAULT_AMOUNT;
   const vatRateStr = formData.get("vatRate") as string || undefined;
   const whtRateStr = formData.get("whtRate") as string || undefined;
   
@@ -252,18 +253,22 @@ export async function handleFileUploads(
       // In Server Actions, files might be Blob-like objects, not File instances
       if (!file || typeof file === "string" || !(file as Blob).arrayBuffer) break;
       files.push(file as File);
-      const fileType = formData.get(`fileType_${index}`) as string || "OTHER";
+      const fileType = formData.get(`fileType_${index}`) as string || DEFAULT_DOC_TYPE;
       fileTypes.push(fileType);
       index++;
     }
   }
 
   if (files.length === 0) {
-    console.log("[handleFileUploads] No files found in formData");
+    if (process.env.NODE_ENV === "development") {
+      console.log("[handleFileUploads] No files found in formData");
+    }
     return;
   }
-  
-  console.log(`[handleFileUploads] Processing ${files.length} files for box ${boxId}`);
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[handleFileUploads] Processing ${files.length} files for box ${boxId}`);
+  }
 
   const supabase = await createClient();
 
@@ -273,7 +278,9 @@ export async function handleFileUploads(
     
     // Get file name - handle both File and Blob-like objects
     const originalFileName = file.name || `file_${i}`;
-    console.log(`[handleFileUploads] Processing file ${i}: ${originalFileName}, type: ${file.type}, size: ${file.size}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[handleFileUploads] Processing file ${i}: ${originalFileName}, type: ${file.type}, size: ${file.size}`);
+    }
 
     try {
       // Generate unique filename
@@ -302,7 +309,9 @@ export async function handleFileUploads(
         continue;
       }
       
-      console.log(`[handleFileUploads] File uploaded to storage: ${fileName}`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[handleFileUploads] File uploaded to storage: ${fileName}`);
+      }
 
       // Get public URL
       const { data: urlData } = supabase.storage
@@ -340,7 +349,9 @@ export async function handleFileUploads(
         },
       });
       
-      console.log(`[handleFileUploads] Created DocumentFile: ${docFile.id} for document ${document.id}`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[handleFileUploads] Created DocumentFile: ${docFile.id} for document ${document.id}`);
+      }
 
       // Auto-create payment record when payment slip is uploaded
       const isPaymentSlip = ["SLIP_TRANSFER", "SLIP_CHEQUE"].includes(docType);

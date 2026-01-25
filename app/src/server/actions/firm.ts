@@ -14,8 +14,7 @@ import prisma from "@/lib/prisma";
 import { requireUser, requireAuth } from "@/server/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-
-type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // ============================================
 // FIRM CREATION (Onboarding)

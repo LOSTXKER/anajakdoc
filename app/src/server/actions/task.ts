@@ -5,6 +5,7 @@ import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
 import { createNotification } from "./notification";
 import { withErrorHandling } from "@/lib/error-handler";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/values";
 import type { ApiResponse, CreateTaskInput, UpdateTaskInput, TaskFilters, PaginatedResponse } from "@/types";
 import { TaskStatus, TaskType, NotificationType, BoxStatus } from "@prisma/client";
 
@@ -255,7 +256,7 @@ export async function getTasksForBox(boxId: string) {
 export async function getTasks(
   filters?: TaskFilters,
   page = 1,
-  pageSize = 20
+  pageSize = DEFAULT_PAGE_SIZE
 ): Promise<PaginatedResponse<unknown>> {
   const session = await requireOrganization();
   

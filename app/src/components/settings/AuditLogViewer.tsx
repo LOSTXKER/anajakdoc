@@ -121,13 +121,13 @@ export function AuditLogViewer({ initialData }: AuditLogViewerProps) {
         action: actionFilter || undefined,
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
         setLogs(result.data.logs);
         setTotal(result.data.total);
         setPage(result.data.page);
         setTotalPages(result.data.totalPages);
       } else {
-        toast.error(result.error);
+        toast.error(result.error || "เกิดข้อผิดพลาด");
       }
     } catch {
       toast.error("เกิดข้อผิดพลาดในการโหลดข้อมูล");
@@ -145,7 +145,7 @@ export function AuditLogViewer({ initialData }: AuditLogViewerProps) {
         format,
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
         // Create download link
         const link = document.createElement("a");
         link.href = result.data.downloadUrl;
@@ -161,7 +161,7 @@ export function AuditLogViewer({ initialData }: AuditLogViewerProps) {
           }
         );
       } else {
-        toast.error(result.error);
+        toast.error(result.error || "เกิดข้อผิดพลาด");
       }
     } catch {
       toast.error("เกิดข้อผิดพลาดในการ Export");

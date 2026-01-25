@@ -63,11 +63,11 @@ export function ShareDialog({ boxId, boxNumber, trigger }: ShareDialogProps) {
         allowDownload: formData.allowDownload,
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
         setShareUrl(result.data.shareUrl);
         toast.success("สร้างลิงก์แชร์สำเร็จ");
       } else {
-        toast.error(result.error);
+        toast.error(result.error || "เกิดข้อผิดพลาด");
       }
     } catch {
       toast.error("เกิดข้อผิดพลาด");

@@ -13,8 +13,7 @@ import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { createNotification } from "./notification";
 import { revalidatePath } from "next/cache";
-
-type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // ============================================
 // TYPES

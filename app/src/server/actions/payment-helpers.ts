@@ -49,7 +49,9 @@ export async function createAutoPaymentFromSlip({
 
     const totalAmount = box.totalAmount.toNumber();
     if (totalAmount <= 0) {
-      console.log(`[createAutoPaymentFromSlip] Skipping: totalAmount is ${totalAmount}`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[createAutoPaymentFromSlip] Skipping: totalAmount is ${totalAmount}`);
+      }
       return { success: false };
     }
 
@@ -59,7 +61,9 @@ export async function createAutoPaymentFromSlip({
     if (isMultiPayment && slipAmount && slipAmount > 0) {
       // Multi-payment mode: use the explicit slip amount
       paymentAmount = slipAmount;
-      console.log(`[createAutoPaymentFromSlip] Multi-payment mode: ${slipAmount}`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[createAutoPaymentFromSlip] Multi-payment mode: ${slipAmount}`);
+      }
     } else if (amount > 0) {
       // Use provided amount (e.g., extracted from slip via OCR)
       paymentAmount = amount;
@@ -128,7 +132,9 @@ export async function createAutoPaymentFromSlip({
     const isOverpaid = newPaymentStatus === PaymentStatus.OVERPAID;
     const overpaidAmount = isOverpaid ? newPaidAmount - totalAmount : 0;
 
-    console.log(`[createAutoPaymentFromSlip] Created payment ${payment.id} for box ${boxId}, amount: ${paymentAmount}, status: ${newPaymentStatus}${isOverpaid ? `, overpaid by ${overpaidAmount}` : ""}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[createAutoPaymentFromSlip] Created payment ${payment.id} for box ${boxId}, amount: ${paymentAmount}, status: ${newPaymentStatus}${isOverpaid ? `, overpaid by ${overpaidAmount}` : ""}`);
+    }
 
     return {
       success: true,

@@ -12,8 +12,7 @@
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
-
-type ApiResponse<T = void> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // Available fields for export (defined in component files for "use server" compatibility)
 

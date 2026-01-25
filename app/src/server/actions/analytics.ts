@@ -12,8 +12,7 @@
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { withErrorHandling } from "@/lib/error-handler";
-
-type ApiResponse<T> = { success: true; data: T } | { success: false; error: string };
+import type { ApiResponse } from "@/types";
 
 // ============================================
 // TYPES
@@ -90,9 +89,9 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
   const stages: ProcessingStageMetrics[] = [];
 
   // Stage 1: DRAFT → SUBMITTED
-  const draftToSubmitted = boxes.filter((b) => b.submittedAt);
+  const draftToSubmitted = boxes.filter((b): b is typeof b & { submittedAt: Date } => b.submittedAt !== null);
   const draftDays = draftToSubmitted.map((b) =>
-    Math.ceil((b.submittedAt!.getTime() - b.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    Math.ceil((b.submittedAt.getTime() - b.createdAt.getTime()) / (1000 * 60 * 60 * 24))
   );
   const avgDraftDays = draftDays.length > 0
     ? draftDays.reduce((a, b) => a + b, 0) / draftDays.length
@@ -107,9 +106,11 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
   });
 
   // Stage 2: PENDING → Review complete
-  const submittedToReviewed = boxes.filter((b) => b.submittedAt && b.reviewedAt);
+  const submittedToReviewed = boxes.filter((b): b is typeof b & { submittedAt: Date; reviewedAt: Date } => 
+    b.submittedAt !== null && b.reviewedAt !== null
+  );
   const reviewDays = submittedToReviewed.map((b) =>
-    Math.ceil((b.reviewedAt!.getTime() - b.submittedAt!.getTime()) / (1000 * 60 * 60 * 24))
+    Math.ceil((b.reviewedAt.getTime() - b.submittedAt.getTime()) / (1000 * 60 * 60 * 24))
   );
   const avgReviewDays = reviewDays.length > 0
     ? reviewDays.reduce((a, b) => a + b, 0) / reviewDays.length
@@ -124,9 +125,11 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
   });
 
   // Stage 3: REVIEWED → COMPLETED
-  const reviewedToBooked = boxes.filter((b) => b.reviewedAt && b.bookedAt);
+  const reviewedToBooked = boxes.filter((b): b is typeof b & { reviewedAt: Date; bookedAt: Date } =>
+    b.reviewedAt !== null && b.bookedAt !== null
+  );
   const bookDays = reviewedToBooked.map((b) =>
-    Math.ceil((b.bookedAt!.getTime() - b.reviewedAt!.getTime()) / (1000 * 60 * 60 * 24))
+    Math.ceil((b.bookedAt.getTime() - b.reviewedAt.getTime()) / (1000 * 60 * 60 * 24))
   );
   const avgBookDays = bookDays.length > 0
     ? bookDays.reduce((a, b) => a + b, 0) / bookDays.length
@@ -169,9 +172,11 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
 
   // Calculate overall average
   const completedBoxes = boxes.filter((b) => b.bookedAt);
-  const overallDays = completedBoxes.map((b) =>
-    Math.ceil((b.bookedAt!.getTime() - b.createdAt.getTime()) / (1000 * 60 * 60 * 24))
-  );
+  const overallDays = completedBoxes
+    .filter(b => b.bookedAt)
+    .map((b) =>
+      Math.ceil((b.bookedAt!.getTime() - b.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    );
   const overallAvgDays = overallDays.length > 0
     ? Math.round((overallDays.reduce((a, b) => a + b, 0) / overallDays.length) * 10) / 10
     : 0;

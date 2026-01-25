@@ -6,7 +6,7 @@ export default async function WorkflowsPage() {
   await requireOrganization();
   
   const result = await getWorkflows();
-  const workflows = result.success ? result.data : [];
+  const workflows = result.success && result.data ? result.data : [];
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

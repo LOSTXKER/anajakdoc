@@ -61,12 +61,12 @@ function CommentItem({
     setLoading(true);
     try {
       const result = await updateComment(comment.id, editContent);
-      if (result.success) {
+      if (result.success && result.data) {
         onUpdated(result.data);
         setIsEditing(false);
         toast.success("แก้ไขความคิดเห็นแล้ว");
       } else {
-        toast.error(result.error);
+        toast.error(result.error || "เกิดข้อผิดพลาด");
       }
     } catch {
       toast.error("เกิดข้อผิดพลาด");
@@ -255,20 +255,21 @@ export function CommentList({
         parentId: replyingTo || undefined,
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
+        const newCommentData = result.data;
         if (replyingTo) {
           // Add reply to parent comment
           setComments((prev) =>
             prev.map((c) => {
               if (c.id === replyingTo) {
-                return { ...c, replies: [...c.replies, result.data] };
+                return { ...c, replies: [...c.replies, newCommentData] };
               }
               // Check nested replies
               return {
                 ...c,
                 replies: c.replies.map((r) =>
                   r.id === replyingTo
-                    ? { ...r, replies: [...r.replies, result.data] }
+                    ? { ...r, replies: [...r.replies, newCommentData] }
                     : r
                 ),
               };
@@ -276,14 +277,14 @@ export function CommentList({
           );
         } else {
           // Add new top-level comment
-          setComments((prev) => [result.data, ...prev]);
+          setComments((prev) => [newCommentData, ...prev]);
         }
 
         setNewComment("");
         setReplyingTo(null);
         toast.success("เพิ่มความคิดเห็นแล้ว");
       } else {
-        toast.error(result.error);
+        toast.error(result.error || "เกิดข้อผิดพลาด");
       }
     } catch {
       toast.error("เกิดข้อผิดพลาด");
