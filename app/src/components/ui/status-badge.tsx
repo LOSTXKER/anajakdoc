@@ -1,47 +1,69 @@
 import { cn } from "@/lib/utils";
+import { FileEdit, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { BoxStatus } from "@/types";
 
 interface StatusBadgeProps {
   status: BoxStatus | string;
   size?: "sm" | "md";
+  showIcon?: boolean;
   className?: string;
 }
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  // New 4-status system
+const statusConfig: Record<string, { 
+  label: string; 
+  className: string;
+  description: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}> = {
+  // New 4-status system with distinct colors
   DRAFT: { 
     label: "ร่าง", 
-    className: "bg-slate-100 text-slate-700 border-slate-200" 
+    description: "กำลังร่างเอกสาร ยังไม่ได้ส่ง",
+    className: "bg-slate-100 text-slate-700 border-slate-300",
+    Icon: FileEdit,
   },
   PENDING: { 
     label: "รอตรวจ", 
-    className: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" 
+    description: "ส่งแล้ว รอบัญชีตรวจสอบ",
+    className: "bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-700",
+    Icon: Clock,
   },
   NEED_DOCS: { 
     label: "ขาดเอกสาร", 
-    className: "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" 
+    description: "ต้องเพิ่มเอกสารก่อนดำเนินการ",
+    className: "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700",
+    Icon: AlertCircle,
   },
   COMPLETED: { 
     label: "เสร็จสิ้น", 
-    className: "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" 
+    description: "ลงบัญชีเรียบร้อยแล้ว",
+    className: "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700",
+    Icon: CheckCircle2,
   },
 };
 
-export function StatusBadge({ status, size = "sm", className }: StatusBadgeProps) {
+export function StatusBadge({ status, size = "sm", showIcon = true, className }: StatusBadgeProps) {
   const config = statusConfig[status] || { 
     label: status, 
-    className: "bg-muted text-foreground border" 
+    className: "bg-muted text-foreground border",
+    description: "",
+    Icon: FileEdit,
   };
+  
+  const { Icon } = config;
+  const iconSize = size === "sm" ? "h-3 w-3" : "h-4 w-4";
 
   return (
     <span
+      title={config.description}
       className={cn(
-        "inline-flex items-center font-medium rounded-full border",
+        "inline-flex items-center gap-1 font-medium rounded-full border",
         size === "sm" ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm",
         config.className,
         className
       )}
     >
+      {showIcon && <Icon className={iconSize} />}
       {config.label}
     </span>
   );

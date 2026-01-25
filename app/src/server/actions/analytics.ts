@@ -83,6 +83,7 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
       reviewedAt: true,
       bookedAt: true,
     },
+    take: 5000, // Limit to prevent memory issues
   });
 
   // Calculate stage metrics

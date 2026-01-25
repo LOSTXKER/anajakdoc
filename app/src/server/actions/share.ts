@@ -249,12 +249,14 @@ export async function getShareLinkPublic(token: string, password?: string): Prom
         },
       },
       select: { id: true },
+      take: 1000, // Limit to prevent memory issues
     });
     boxIds = periodBoxes.map(b => b.id);
   }
 
   const boxes = await prisma.box.findMany({
     where: { id: { in: boxIds } },
+    take: 1000, // Limit to prevent memory issues
     include: {
       contact: link.showContacts ? { select: { name: true } } : false,
       category: { select: { name: true } },

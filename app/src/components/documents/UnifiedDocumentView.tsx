@@ -48,6 +48,7 @@ import {
   FileQuestion,
   Send,
   Search,
+  FileSearch,
 } from "lucide-react";
 import { toast } from "sonner";
 import { reviewBox } from "@/server/actions/box";
@@ -55,8 +56,9 @@ import { isAccountingRole, canReviewBox, getBoxTypeConfig, getBoxStatusConfig } 
 import { formatDate, formatMoney } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { MemberRole, SerializedBoxListItem } from "@/types";
+import { StatusLegend, DocStatusIcons } from "./StatusLegend";
 
-type TabValue = "mine" | "pending" | "tracking" | "done" | "reimburse" | "all";
+type TabValue = "mine" | "pending" | "need_docs" | "tracking" | "done" | "reimburse" | "all";
 
 interface UnifiedDocumentViewProps {
   boxes: SerializedBoxListItem[];
@@ -84,11 +86,13 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
   // Using simplified 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
   const filteredBoxes = useMemo(() => ({
     myBoxes: boxes.filter(b => b.createdById === userId),
-    // รอตรวจ: PENDING และ NEED_DOCS
-    pendingBoxes: boxes.filter(b => b.status === "PENDING" || b.status === "NEED_DOCS"),
+    // รอตรวจ: PENDING เท่านั้น (แยกจาก NEED_DOCS)
+    pendingBoxes: boxes.filter(b => b.status === "PENDING"),
+    // ขาดเอกสาร: NEED_DOCS เท่านั้น
+    needDocsBoxes: boxes.filter(b => b.status === "NEED_DOCS"),
     // เสร็จ: COMPLETED
     doneBoxes: boxes.filter(b => b.status === "COMPLETED"),
-    // ติดตาม: boxes that need VAT/WHT documents
+    // ติดตาม VAT/WHT: boxes that need VAT/WHT documents
     trackingBoxes: boxes.filter(b => 
       (b.hasVat && b.vatDocStatus === "MISSING") ||
       (b.hasWht && ["MISSING", "REQUEST_SENT"].includes(b.whtDocStatus))
@@ -99,7 +103,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
     ),
   }), [boxes, userId]);
 
-  const { myBoxes, pendingBoxes, doneBoxes, trackingBoxes, reimburseBoxes } = filteredBoxes;
+  const { myBoxes, pendingBoxes, needDocsBoxes, doneBoxes, trackingBoxes, reimburseBoxes } = filteredBoxes;
   
   // Tracking filter state
   const [trackingFilter, setTrackingFilter] = useState<"all" | "vat_missing" | "wht_missing" | "wht_sent">("all");
@@ -117,12 +121,13 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
     switch (tab) {
       case "mine": return myBoxes;
       case "pending": return pendingBoxes;
+      case "need_docs": return needDocsBoxes;
       case "tracking": return filteredTrackingBoxes;
       case "done": return doneBoxes;
       case "reimburse": return reimburseBoxes;
       default: return boxes;
     }
-  }, [myBoxes, pendingBoxes, filteredTrackingBoxes, doneBoxes, reimburseBoxes, boxes]);
+  }, [myBoxes, pendingBoxes, needDocsBoxes, filteredTrackingBoxes, doneBoxes, reimburseBoxes, boxes]);
   
   // Default tab based on role
   const defaultTab: TabValue = isAccounting ? "pending" : "mine";
@@ -267,31 +272,21 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
         
         {/* Status */}
         <TableCell>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
               {boxStatusConfig.label}
             </Badge>
-            {/* VAT Document Status Icon */}
-            {box.hasVat && box.vatDocStatus === "MISSING" && (
-              <span title="ยังไม่ได้รับใบกำกับภาษี">
-                <FileQuestion className="w-3.5 h-3.5 text-amber-500" />
-              </span>
-            )}
-            {/* WHT Document Status Icons */}
-            {box.hasWht && box.whtDocStatus === "MISSING" && (
-              <span title="ยังไม่ได้รับใบหัก ณ ที่จ่าย">
-                <FileQuestion className="w-3.5 h-3.5 text-orange-500" />
-              </span>
-            )}
-            {box.hasWht && box.whtDocStatus === "REQUEST_SENT" && (
-              <span title="ส่งคำขอใบหัก ณ ที่จ่ายแล้ว">
-                <Send className="w-3.5 h-3.5 text-blue-500" />
-              </span>
-            )}
+            {/* VAT/WHT Status Icons with Tooltips */}
+            <DocStatusIcons 
+              hasVat={box.hasVat}
+              vatDocStatus={box.vatDocStatus}
+              hasWht={box.hasWht}
+              whtDocStatus={box.whtDocStatus}
+            />
             {/* Reimbursement Icon */}
             {box.paymentMode === "EMPLOYEE_ADVANCE" && box.reimbursementStatus === "PENDING" && (
-              <span title="รอเบิกคืนเงิน">
-                <Wallet className="w-3.5 h-3.5 text-orange-500" />
+              <span title="รอเบิกคืนเงิน" className="cursor-help">
+                <Wallet className="w-4 h-4 text-orange-500" />
               </span>
             )}
           </div>
@@ -376,6 +371,9 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
 
   return (
     <div className="space-y-6">
+      {/* Status Legend - คำอธิบายสถานะ */}
+      <StatusLegend showVatWht={isAccounting} />
+      
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -399,11 +397,22 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
               </TabsTrigger>
             )}
             {isAccounting && (
+              <TabsTrigger value="need_docs" className="gap-2 data-[state=active]:bg-card">
+                <AlertCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">ขาดเอกสาร</span>
+                {needDocsBoxes.length > 0 && (
+                  <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+                    {needDocsBoxes.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            )}
+            {isAccounting && (
               <TabsTrigger value="tracking" className="gap-2 data-[state=active]:bg-card">
-                <Search className="h-4 w-4" />
-                <span className="hidden sm:inline">ติดตาม</span>
+                <FileSearch className="h-4 w-4" />
+                <span className="hidden sm:inline">ติดตาม VAT/WHT</span>
                 {trackingBoxes.length > 0 && (
-                  <span className="text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs bg-purple-500 text-white px-1.5 py-0.5 rounded-full">
                     {trackingBoxes.length}
                   </span>
                 )}
@@ -508,6 +517,18 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 icon={Inbox}
                 title="ไม่มีกล่องรอตรวจ"
                 description="กล่องเอกสารที่ส่งเข้ามาใหม่จะแสดงที่นี่"
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="need_docs" className="m-0">
+            {needDocsBoxes.length > 0 ? (
+              renderTable(needDocsBoxes, showCheckbox, showActions)
+            ) : (
+              <EmptyState
+                icon={AlertCircle}
+                title="ไม่มีกล่องที่ขาดเอกสาร"
+                description="กล่องที่ต้องเพิ่มเอกสารจะแสดงที่นี่"
               />
             )}
           </TabsContent>
