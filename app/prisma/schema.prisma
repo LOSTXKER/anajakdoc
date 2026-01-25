@@ -173,6 +173,7 @@ model OrganizationMember {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
+  @@index([organizationId, isActive])
   @@map("organization_members")
 }
 
@@ -225,6 +226,8 @@ model Contact {
   documentTemplates  DocumentTemplate[]
   whtTrackings       WhtTracking[]
 
+  @@index([organizationId])
+  @@index([organizationId, isActive])
   @@map("contacts")
 }
 
@@ -571,6 +574,9 @@ model ActivityLog {
   box       Box?     @relation(fields: [boxId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
 
+  @@index([boxId])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
   @@map("activity_logs")
 }
 
@@ -587,6 +593,7 @@ model ExportHistory {
   createdAt      DateTime     @default(now()) @map("created_at")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, createdAt])
   @@map("export_histories")
 }
 

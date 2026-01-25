@@ -405,7 +405,9 @@ export async function exportBoxesToZip(
         const numberedFileName = `${fileIndex.toString().padStart(2, "0")}_${docType}.${ext}`;
         zip.file(`${folderPath}/${numberedFileName}`, arrayBuffer);
       } else {
-        console.error(`Error fetching file:`, result.reason);
+        if (process.env.NODE_ENV === "development") {
+          console.error(`Error fetching file:`, result.reason);
+        }
       }
     }
   }

@@ -202,30 +202,42 @@ export async function createComment(data: {
     },
   });
 
-  // Send notifications to mentioned users
+  // Batch create notifications for better performance
+  const notificationsToCreate = [];
+  
+  // Add notifications for mentioned users
   for (const userId of allMentions) {
     if (userId !== session.id) {
-      await createNotification(
-        session.currentOrganization.id,
+      notificationsToCreate.push({
+        organizationId: session.currentOrganization.id,
         userId,
-        "COMMENT_ADDED",
-        "มีคนกล่าวถึงคุณในความคิดเห็น",
-        `${session.name || session.email} กล่าวถึงคุณในกล่อง ${box.boxNumber}`,
-        { boxId: box.id, boxNumber: box.boxNumber, commentId: comment.id }
-      );
+        type: "COMMENT_ADDED" as const,
+        title: "มีคนกล่าวถึงคุณในความคิดเห็น",
+        message: `${session.name || session.email} กล่าวถึงคุณในกล่อง ${box.boxNumber}`,
+        actionUrl: `/documents/${box.id}`,
+        metadata: { boxId: box.id, boxNumber: box.boxNumber, commentId: comment.id },
+      });
     }
   }
 
-  // Notify box creator if it's not their comment
+  // Add notification for box creator
   if (box.createdById !== session.id && !allMentions.includes(box.createdById)) {
-    await createNotification(
-      session.currentOrganization.id,
-      box.createdById,
-      "COMMENT_ADDED",
-      "มีความคิดเห็นใหม่",
-      `${session.name || session.email} แสดงความคิดเห็นในกล่อง ${box.boxNumber}`,
-      { boxId: box.id, boxNumber: box.boxNumber, commentId: comment.id }
-    );
+    notificationsToCreate.push({
+      organizationId: session.currentOrganization.id,
+      userId: box.createdById,
+      type: "COMMENT_ADDED" as const,
+      title: "มีความคิดเห็นใหม่",
+      message: `${session.name || session.email} แสดงความคิดเห็นในกล่อง ${box.boxNumber}`,
+      actionUrl: `/documents/${box.id}`,
+      metadata: { boxId: box.id, boxNumber: box.boxNumber, commentId: comment.id },
+    });
+  }
+
+  // Create all notifications at once
+  if (notificationsToCreate.length > 0) {
+    await prisma.notification.createMany({
+      data: notificationsToCreate,
+    });
   }
 
   revalidatePath(`/documents/${data.boxId}`);

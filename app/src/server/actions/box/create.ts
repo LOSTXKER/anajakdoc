@@ -189,17 +189,16 @@ export async function createBox(formData: FormData): Promise<ApiResponse<{ id: s
         amount: number;
       }[];
 
-      for (const payer of payers) {
-        await prisma.boxPayer.create({
-          data: {
-            boxId: box.id,
-            payerType: payer.payerType,
-            memberId: payer.payerType === "MEMBER" ? payer.memberId : null,
-            amount: payer.amount,
-            reimbursementStatus: payer.payerType === "MEMBER" ? "PENDING" : "NONE",
-          },
-        });
-      }
+      // Use createMany for better performance
+      await prisma.boxPayer.createMany({
+        data: payers.map(payer => ({
+          boxId: box.id,
+          payerType: payer.payerType,
+          memberId: payer.payerType === "MEMBER" ? payer.memberId : null,
+          amount: payer.amount,
+          reimbursementStatus: payer.payerType === "MEMBER" ? "PENDING" : "NONE",
+        })),
+      });
     } catch {
       // If payers parsing fails, create default COMPANY payer
       await prisma.boxPayer.create({

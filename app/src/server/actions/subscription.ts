@@ -84,7 +84,9 @@ export async function getSubscriptionStatus(): Promise<{
       },
     };
   } catch (error) {
-    console.error("Error getting subscription status:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error getting subscription status:", error);
+    }
     return { success: false, error: "Failed to get subscription status" };
   }
 }
@@ -107,16 +109,20 @@ export async function createCheckoutSession(plan: OrgPlan): Promise<{
 
     // TODO: Integrate with Stripe/Omise
     // For now, return a placeholder
-    console.log(`Creating checkout session for plan: ${plan}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`Creating checkout session for plan: ${plan}`);
+    }
 
     return {
       success: true,
       checkoutUrl: `/checkout?plan=${plan}`,
     };
-  } catch (error) {
-    console.error("Error creating checkout session:", error);
-    return { success: false, error: "Failed to create checkout session" };
-  }
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error creating checkout session:", error);
+      }
+      return { success: false, error: "Failed to create checkout session" };
+    }
 }
 
 /**
@@ -136,7 +142,9 @@ export async function updateOrganizationPlan(
     revalidatePath("/settings/subscription");
     return { success: true };
   } catch (error) {
-    console.error("Error updating organization plan:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error updating organization plan:", error);
+    }
     return { success: false, error: "Failed to update plan" };
   }
 }
@@ -169,7 +177,9 @@ export async function updateBillingInfo(data: {
     revalidatePath("/settings/subscription");
     return { success: true };
   } catch (error) {
-    console.error("Error updating billing info:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error updating billing info:", error);
+    }
     return { success: false, error: "Failed to update billing info" };
   }
 }
@@ -191,7 +201,9 @@ export async function cancelSubscription(): Promise<{
 
     // TODO: Cancel subscription in payment gateway
     // Downgrade to FREE at end of billing period
-    console.log(`Cancelling subscription for org: ${session.currentOrganization.id}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`Cancelling subscription for org: ${session.currentOrganization.id}`);
+    }
 
     // Schedule downgrade for end of billing period
     await prisma.organization.update({
@@ -205,7 +217,9 @@ export async function cancelSubscription(): Promise<{
     revalidatePath("/settings/subscription");
     return { success: true };
   } catch (error) {
-    console.error("Error cancelling subscription:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error cancelling subscription:", error);
+    }
     return { success: false, error: "Failed to cancel subscription" };
   }
 }
@@ -238,7 +252,9 @@ export async function getBillingHistory(): Promise<{
       data: [], // Empty for now
     };
   } catch (error) {
-    console.error("Error getting billing history:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error getting billing history:", error);
+    }
     return { success: false, error: "Failed to get billing history" };
   }
 }

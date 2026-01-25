@@ -2,27 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { getSession } from "@/server/auth";
+import { requireOrganization } from "@/server/auth";
 import { sendDocumentRequestNotification } from "@/lib/external-notifications";
-import type { VatDocStatus, WhtDocStatus } from "@/types";
+import type { VatDocStatus, WhtDocStatus, ApiResponse } from "@/types";
 
 // ==================== VAT Document Status ====================
 
 export async function updateVatDocStatus(
   boxId: string,
   status: VatDocStatus
-): Promise<{ success: boolean; error?: string }> {
+): Promise<ApiResponse<void>> {
   try {
-    const session = await getSession();
-    if (!session) {
-      return { success: false, error: "ไม่ได้เข้าสู่ระบบ" };
-    }
+    const session = await requireOrganization();
 
     // Check if user has access to this box
     const box = await prisma.box.findFirst({
       where: {
         id: boxId,
-        organizationId: session.currentOrganization?.id,
+        organizationId: session.currentOrganization.id,
       },
     });
 
@@ -68,18 +65,15 @@ export async function updateVatDocStatus(
 export async function updateWhtDocStatus(
   boxId: string,
   status: WhtDocStatus
-): Promise<{ success: boolean; error?: string }> {
+): Promise<ApiResponse<void>> {
   try {
-    const session = await getSession();
-    if (!session) {
-      return { success: false, error: "ไม่ได้เข้าสู่ระบบ" };
-    }
+    const session = await requireOrganization();
 
     // Check if user has access to this box
     const box = await prisma.box.findFirst({
       where: {
         id: boxId,
-        organizationId: session.currentOrganization?.id,
+        organizationId: session.currentOrganization.id,
       },
     });
 
@@ -137,18 +131,15 @@ export async function markDocumentReceived(
 export async function sendDocumentRequest(
   boxId: string,
   docType: "VAT" | "WHT"
-): Promise<{ success: boolean; error?: string }> {
+): Promise<ApiResponse<void>> {
   try {
-    const session = await getSession();
-    if (!session) {
-      return { success: false, error: "ไม่ได้เข้าสู่ระบบ" };
-    }
+    const session = await requireOrganization();
 
     // Check if user has access to this box
     const box = await prisma.box.findFirst({
       where: {
         id: boxId,
-        organizationId: session.currentOrganization?.id,
+        organizationId: session.currentOrganization.id,
       },
       include: {
         contact: true,

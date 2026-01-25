@@ -88,7 +88,9 @@ export async function addFileToBox(
       });
 
     if (uploadError) {
-      console.error("Upload error:", uploadError);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Upload error:", uploadError);
+      }
       return { success: false, error: `อัปโหลดไฟล์ไม่สำเร็จ: ${uploadError.message}` };
     }
 
@@ -204,7 +206,9 @@ export async function addFileToBox(
       },
     };
   } catch (error) {
-    console.error("Error adding file:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error adding file:", error);
+    }
     return { success: false, error: "เกิดข้อผิดพลาด" };
   }
 }
@@ -315,7 +319,9 @@ export async function updateFileDocType(
 
     return { success: true, message: "เปลี่ยนประเภทเอกสารสำเร็จ" };
   } catch (error) {
-    console.error("Error updating file doc type:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error updating file doc type:", error);
+    }
     return { success: false, error: "เกิดข้อผิดพลาด" };
   }
 }
@@ -389,7 +395,9 @@ export async function deleteBoxFile(
         await prisma.payment.deleteMany({
           where: { documentId: file.documentId },
         });
-        console.log(`[deleteBoxFile] Deleted ${linkedPayments.length} linked payment(s) for document ${file.documentId}`);
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[deleteBoxFile] Deleted ${linkedPayments.length} linked payment(s) for document ${file.documentId}`);
+        }
 
         // Recalculate payment status after deleting payments
         await recalculateBoxPaymentStatus(box.id);
@@ -422,7 +430,9 @@ export async function deleteBoxFile(
 
     return { success: true, message: "ลบไฟล์สำเร็จ" };
   } catch (error) {
-    console.error("Error deleting file:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error deleting file:", error);
+    }
     return { success: false, error: "เกิดข้อผิดพลาด" };
   }
 }
