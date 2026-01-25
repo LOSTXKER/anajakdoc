@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { MemberRole, FirmRole, BoxStatus, ExpenseType, ContactType, ContactRole, RelationStatus, InviterType, PrismaClient } from ".prisma/client";
+import { 
+  MemberRole, 
+  FirmRole, 
+  BoxStatus, 
+  BoxType,
+  ExpenseType, 
+  ContactType, 
+  ContactRole, 
+  RelationStatus, 
+  InviterType, 
+  VatDocStatus,
+  WhtDocStatus,
+  PaymentStatus,
+  ReimbursementStatus,
+  PrismaClient 
+} from ".prisma/client";
 
 // Lazy import prisma to avoid initialization issues with Turbopack
 async function getPrisma(): Promise<PrismaClient> {
@@ -11,57 +26,338 @@ async function getPrisma(): Promise<PrismaClient> {
 // Only allow in development
 const isDev = process.env.NODE_ENV === "development";
 
-// Test accounts configuration
+// ==================== TEST ACCOUNTS ====================
+
 const TEST_ACCOUNTS = [
+  // SME - Main Business
   { email: "owner@business.com", name: "สมชาย เจ้าของธุรกิจ", orgRole: MemberRole.OWNER },
-  { email: "owner2@company.com", name: "สมหญิง เจ้าของบริษัท", orgRole: MemberRole.OWNER },
   { email: "admin@business.com", name: "อดิศร ผู้ดูแล", orgRole: MemberRole.ADMIN },
   { email: "accounting@business.com", name: "บัญชา นักบัญชี", orgRole: MemberRole.ACCOUNTING },
   { email: "staff@business.com", name: "พนักงาน ทั่วไป", orgRole: MemberRole.STAFF },
+  
+  // SME - Second Business
+  { email: "owner2@company.com", name: "สมหญิง เจ้าของบริษัท", orgRole: MemberRole.OWNER, isSecondOrg: true },
+  
+  // Accounting Firm
   { email: "firm@accounting.com", name: "วิชัย สำนักบัญชี", firmRole: FirmRole.OWNER },
   { email: "staff@accounting.com", name: "นักบัญชี สำนักงาน", firmRole: FirmRole.ACCOUNTANT },
 ];
 
+// ==================== TEST CONTACTS ====================
+
 const TEST_CONTACTS = [
-  { name: "บริษัท ซัพพลายเออร์ A จำกัด", type: ContactType.COMPANY, role: ContactRole.VENDOR, taxId: "0105561234567" },
-  { name: "ร้านค้าส่ง B", type: ContactType.COMPANY, role: ContactRole.VENDOR, taxId: "0105567891234" },
-  { name: "นายสมศักดิ์ รับจ้าง", type: ContactType.INDIVIDUAL, role: ContactRole.VENDOR },
+  // Vendors
+  { name: "บริษัท ซัพพลายเออร์ A จำกัด", type: ContactType.COMPANY, role: ContactRole.VENDOR, taxId: "0105561234567", whtRate: 3 },
+  { name: "ร้านค้าส่ง B", type: ContactType.COMPANY, role: ContactRole.VENDOR, taxId: "0105567891234", whtRate: 3 },
+  { name: "นายสมศักดิ์ รับจ้าง", type: ContactType.INDIVIDUAL, role: ContactRole.VENDOR, whtRate: 3 },
+  { name: "บริษัท IT Solutions จำกัด", type: ContactType.COMPANY, role: ContactRole.VENDOR, taxId: "0105599887766", whtRate: 3 },
+  { name: "หจก. ขนส่งด่วน", type: ContactType.COMPANY, role: ContactRole.VENDOR, taxId: "0103598765432", whtRate: 1 },
+  
+  // Customers
   { name: "บริษัท ลูกค้า X จำกัด", type: ContactType.COMPANY, role: ContactRole.CUSTOMER, taxId: "0105598765432" },
   { name: "หจก. ลูกค้า Y", type: ContactType.COMPANY, role: ContactRole.CUSTOMER, taxId: "0103512345678" },
+  { name: "บริษัท ABC Corporation", type: ContactType.COMPANY, role: ContactRole.CUSTOMER, taxId: "0105511223344" },
+  { name: "นางสาวมาลี ลูกค้า", type: ContactType.INDIVIDUAL, role: ContactRole.CUSTOMER },
 ];
 
+// ==================== TEST CATEGORIES ====================
+
 const TEST_CATEGORIES = [
+  // Expense categories
   { code: "OFC", name: "ค่าใช้จ่ายสำนักงาน", type: "EXPENSE" },
   { code: "TRV", name: "ค่าเดินทาง", type: "EXPENSE" },
   { code: "MTG", name: "ค่าประชุม/สัมมนา", type: "EXPENSE" },
   { code: "UTL", name: "ค่าสาธารณูปโภค", type: "EXPENSE" },
   { code: "MKT", name: "ค่าการตลาด/โฆษณา", type: "EXPENSE" },
   { code: "EQP", name: "ค่าอุปกรณ์", type: "EXPENSE" },
+  { code: "SVC", name: "ค่าบริการ", type: "EXPENSE" },
+  { code: "RNT", name: "ค่าเช่า", type: "EXPENSE" },
+  
+  // Income categories
   { code: "SAL", name: "รายได้จากการขาย", type: "INCOME" },
-  { code: "SVC", name: "รายได้จากบริการ", type: "INCOME" },
+  { code: "SVCI", name: "รายได้จากบริการ", type: "INCOME" },
+  { code: "INT", name: "ดอกเบี้ยรับ", type: "INCOME" },
+  { code: "OTH", name: "รายได้อื่น", type: "INCOME" },
 ];
 
-// Using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
+// ==================== TEST BOXES ====================
+
+// Comprehensive test boxes covering all scenarios
 const BOX_TEMPLATES = [
-  { title: "ค่าเช่าออฟฟิศ ม.ค.", status: BoxStatus.COMPLETED, amount: 35000, hasVat: true, hasWht: true, whtRate: 5 },
-  { title: "ค่าน้ำมันรถ", status: BoxStatus.PENDING, amount: 2500, hasVat: true, hasWht: false },
-  { title: "ค่าอินเทอร์เน็ต", status: BoxStatus.PENDING, amount: 1200, hasVat: true, hasWht: false },
-  { title: "ค่าจ้างออกแบบ", status: BoxStatus.NEED_DOCS, amount: 15000, hasVat: true, hasWht: true, whtRate: 3 },
-  { title: "ค่าที่ปรึกษา", status: BoxStatus.PENDING, amount: 50000, hasVat: true, hasWht: true, whtRate: 3 },
-  { title: "ค่าโฆษณา Facebook", status: BoxStatus.PENDING, amount: 8500, hasVat: false, hasWht: false },
-  { title: "ค่าอุปกรณ์คอมพิวเตอร์", status: BoxStatus.COMPLETED, amount: 25000, hasVat: true, hasWht: false },
-  { title: "ค่าบริการ AWS", status: BoxStatus.PENDING, amount: 3200, hasVat: false, hasWht: false },
-  { title: "ค่าทำความสะอาด", status: BoxStatus.PENDING, amount: 4500, hasVat: true, hasWht: true, whtRate: 1 },
-  { title: "ค่าซ่อมแอร์", status: BoxStatus.PENDING, amount: 6800, hasVat: true, hasWht: true, whtRate: 3 },
+  // ============ EXPENSE - Standard ============
+  {
+    title: "ค่าเช่าออฟฟิศ ม.ค.",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.COMPLETED,
+    amount: 35000,
+    hasVat: true,
+    hasWht: true,
+    whtRate: 5,
+    vatDocStatus: VatDocStatus.RECEIVED,
+    whtDocStatus: WhtDocStatus.RECEIVED,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "VENDOR",
+  },
+  {
+    title: "ค่าน้ำมันรถ",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.PENDING,
+    amount: 2500,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.MISSING,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "VENDOR",
+  },
+  {
+    title: "ค่าจ้างออกแบบโลโก้",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.NEED_DOCS,
+    amount: 15000,
+    hasVat: true,
+    hasWht: true,
+    whtRate: 3,
+    vatDocStatus: VatDocStatus.MISSING,
+    whtDocStatus: WhtDocStatus.REQUEST_SENT,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "VENDOR",
+  },
+  {
+    title: "ค่าที่ปรึกษากฎหมาย",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.PENDING,
+    amount: 50000,
+    hasVat: true,
+    hasWht: true,
+    whtRate: 3,
+    vatDocStatus: VatDocStatus.MISSING,
+    whtDocStatus: WhtDocStatus.MISSING,
+    paymentStatus: PaymentStatus.UNPAID,
+    contactType: "VENDOR",
+  },
+  {
+    title: "ค่าโฆษณา Facebook",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.COMPLETED,
+    amount: 8500,
+    hasVat: false,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.NA,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "VENDOR",
+  },
+  {
+    title: "ค่าอุปกรณ์คอมพิวเตอร์",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.DRAFT,
+    amount: 25000,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.MISSING,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.UNPAID,
+    contactType: "VENDOR",
+  },
+  {
+    title: "ค่าบริการ AWS",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.PENDING,
+    amount: 3200,
+    hasVat: false,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.NA,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "VENDOR",
+  },
+  {
+    title: "ค่าขนส่งสินค้า",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.COMPLETED,
+    amount: 4500,
+    hasVat: true,
+    hasWht: true,
+    whtRate: 1,
+    vatDocStatus: VatDocStatus.RECEIVED,
+    whtDocStatus: WhtDocStatus.RECEIVED,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "VENDOR",
+  },
+
+  // ============ EXPENSE - Reimbursement (uses reimbursementStatus) ============
+  {
+    title: "เบิกค่าเดินทางไปพบลูกค้า",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.PENDING,
+    amount: 1850,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.RECEIVED,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.UNPAID,
+    reimbursementStatus: ReimbursementStatus.PENDING,
+    contactType: null,
+  },
+  {
+    title: "เบิกค่าอาหารประชุมทีม",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.COMPLETED,
+    amount: 2400,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.RECEIVED,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.PAID,
+    reimbursementStatus: ReimbursementStatus.REIMBURSED,
+    contactType: null,
+  },
+  {
+    title: "เบิกค่าที่จอดรถ",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.PETTY_CASH,
+    status: BoxStatus.DRAFT,
+    amount: 300,
+    hasVat: false,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.NA,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.UNPAID,
+    reimbursementStatus: ReimbursementStatus.PENDING,
+    contactType: null,
+  },
+  {
+    title: "เบิกค่าของขวัญลูกค้า",
+    boxType: BoxType.EXPENSE,
+    expenseType: ExpenseType.STANDARD,
+    status: BoxStatus.NEED_DOCS,
+    amount: 1500,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.MISSING,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.UNPAID,
+    reimbursementStatus: ReimbursementStatus.PENDING,
+    contactType: null,
+  },
+
+  // ============ INCOME ============
+  {
+    title: "รายได้จากขายสินค้า - ลูกค้า X",
+    boxType: BoxType.INCOME,
+    expenseType: null,
+    status: BoxStatus.COMPLETED,
+    amount: 150000,
+    hasVat: true,
+    hasWht: true,
+    whtRate: 3,
+    vatDocStatus: VatDocStatus.RECEIVED, // เราออก VAT Invoice แล้ว
+    whtDocStatus: WhtDocStatus.RECEIVED, // ลูกค้าส่ง WHT มาให้แล้ว
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "CUSTOMER",
+  },
+  {
+    title: "รายได้จากบริการ - ลูกค้า Y",
+    boxType: BoxType.INCOME,
+    expenseType: null,
+    status: BoxStatus.PENDING,
+    amount: 85000,
+    hasVat: true,
+    hasWht: true,
+    whtRate: 3,
+    vatDocStatus: VatDocStatus.RECEIVED, // ออก Invoice แล้ว
+    whtDocStatus: WhtDocStatus.MISSING, // รอลูกค้าส่ง WHT
+    paymentStatus: PaymentStatus.UNPAID,
+    contactType: "CUSTOMER",
+  },
+  {
+    title: "รายได้จากขายสินค้า - ABC Corp",
+    boxType: BoxType.INCOME,
+    expenseType: null,
+    status: BoxStatus.COMPLETED,
+    amount: 220000,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.RECEIVED,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "CUSTOMER",
+  },
+  {
+    title: "รายได้จากบริการ - มาลี",
+    boxType: BoxType.INCOME,
+    expenseType: null,
+    status: BoxStatus.DRAFT,
+    amount: 12000,
+    hasVat: false,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.NA,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.UNPAID,
+    contactType: "CUSTOMER",
+  },
+  {
+    title: "รายได้จากบริการ - ลูกค้า X (งวด 2)",
+    boxType: BoxType.INCOME,
+    expenseType: null,
+    status: BoxStatus.PENDING,
+    amount: 75000,
+    hasVat: true,
+    hasWht: true,
+    whtRate: 3,
+    vatDocStatus: VatDocStatus.MISSING, // ยังไม่ออก Invoice
+    whtDocStatus: WhtDocStatus.MISSING,
+    paymentStatus: PaymentStatus.PARTIAL,
+    contactType: "CUSTOMER",
+  },
+
+  // ============ ADJUSTMENT ============
+  {
+    title: "ปรับปรุง CN - ส่วนลดสินค้า",
+    boxType: BoxType.ADJUSTMENT,
+    expenseType: null,
+    status: BoxStatus.COMPLETED,
+    amount: -5000,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.RECEIVED,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.PAID,
+    contactType: "CUSTOMER",
+  },
+  {
+    title: "ปรับปรุง DN - ค่าบริการเพิ่มเติม",
+    boxType: BoxType.ADJUSTMENT,
+    expenseType: null,
+    status: BoxStatus.PENDING,
+    amount: 3500,
+    hasVat: true,
+    hasWht: false,
+    vatDocStatus: VatDocStatus.MISSING,
+    whtDocStatus: WhtDocStatus.NA,
+    paymentStatus: PaymentStatus.UNPAID,
+    contactType: "VENDOR",
+  },
 ];
+
+// ==================== HELPER FUNCTIONS ====================
 
 async function createSupabaseUser(prisma: PrismaClient, email: string, name: string): Promise<string | null> {
-  console.log("[Seed API] Creating Supabase user:", email);
+  console.log("[Seed] Creating Supabase user:", email);
   
-  // Check if service role key is available
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn("[Seed API] SUPABASE_SERVICE_ROLE_KEY not set, using signUp fallback");
-    // Fallback to regular signUp
+    console.warn("[Seed] SUPABASE_SERVICE_ROLE_KEY not set, using signUp fallback");
     const supabase = await createClient();
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -74,58 +370,51 @@ async function createSupabaseUser(prisma: PrismaClient, email: string, name: str
         const existingUser = await prisma.user.findUnique({ where: { email } });
         return existingUser?.supabaseId || null;
       }
-      console.error(`[Seed API] SignUp error ${email}:`, error);
+      console.error(`[Seed] SignUp error ${email}:`, error);
       return null;
     }
     return data.user?.id || null;
   }
   
   try {
-    // Use admin client to create users
     const supabaseAdmin = createAdminClient();
     
-    // Try to create the user with admin API
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: "password123",
-      email_confirm: true, // Auto-confirm email
+      email_confirm: true,
       user_metadata: { name },
     });
 
     if (error) {
-      // If user already exists, try to get their ID
       if (error.message.includes("already been registered") || error.message.includes("duplicate key")) {
-        console.log("[Seed API] User already exists, looking up:", email);
+        console.log("[Seed] User already exists:", email);
         const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser?.supabaseId) {
-          return existingUser.supabaseId;
-        }
+        if (existingUser?.supabaseId) return existingUser.supabaseId;
         
-        // Try to find in Supabase by email
         const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
         const existingSupabaseUser = listData?.users?.find(u => u.email === email);
         return existingSupabaseUser?.id || null;
       }
-      console.error(`[Seed API] Error creating Supabase user ${email}:`, error);
+      console.error(`[Seed] Error creating user ${email}:`, error);
       return null;
     }
 
-    console.log("[Seed API] Created Supabase user:", data.user?.id);
+    console.log("[Seed] Created Supabase user:", data.user?.id);
     return data.user?.id || null;
   } catch (error) {
-    console.error(`[Seed API] Exception creating user ${email}:`, error);
+    console.error(`[Seed] Exception creating user ${email}:`, error);
     return null;
   }
 }
+
+// ==================== SEED FUNCTIONS ====================
 
 async function seedAccounts(prisma: PrismaClient) {
   const results: string[] = [];
 
   // Create main organization
-  let mainOrg = await prisma.organization.findFirst({
-    where: { slug: "abc-company" },
-  });
-
+  let mainOrg = await prisma.organization.findFirst({ where: { slug: "abc-company" } });
   if (!mainOrg) {
     mainOrg = await prisma.organization.create({
       data: {
@@ -137,14 +426,11 @@ async function seedAccounts(prisma: PrismaClient) {
         email: "contact@abc-company.com",
       },
     });
-    results.push(`Created organization: ${mainOrg.name}`);
+    results.push(`✅ Created organization: ${mainOrg.name}`);
   }
 
   // Create second organization
-  let secondOrg = await prisma.organization.findFirst({
-    where: { slug: "xyz-cafe" },
-  });
-
+  let secondOrg = await prisma.organization.findFirst({ where: { slug: "xyz-cafe" } });
   if (!secondOrg) {
     secondOrg = await prisma.organization.create({
       data: {
@@ -156,14 +442,11 @@ async function seedAccounts(prisma: PrismaClient) {
         email: "contact@xyz-cafe.com",
       },
     });
-    results.push(`Created organization: ${secondOrg.name}`);
+    results.push(`✅ Created organization: ${secondOrg.name}`);
   }
 
   // Create accounting firm
-  let firm = await prisma.accountingFirm.findFirst({
-    where: { slug: "wichai-accounting" },
-  });
-
+  let firm = await prisma.accountingFirm.findFirst({ where: { slug: "wichai-accounting" } });
   if (!firm) {
     firm = await prisma.accountingFirm.create({
       data: {
@@ -175,12 +458,8 @@ async function seedAccounts(prisma: PrismaClient) {
         email: "contact@wichai-accounting.com",
       },
     });
-    results.push(`Created accounting firm: ${firm.name}`);
+    results.push(`✅ Created accounting firm: ${firm.name}`);
   }
-
-  // Get owner user for creating relations (will be set after user creation loop)
-  let ownerUser = await prisma.user.findUnique({ where: { email: "owner@business.com" } });
-  let owner2User = await prisma.user.findUnique({ where: { email: "owner2@company.com" } });
 
   // Create users and memberships
   for (const account of TEST_ACCOUNTS) {
@@ -197,14 +476,14 @@ async function seedAccounts(prisma: PrismaClient) {
             supabaseId,
           },
         });
-        results.push(`Created user: ${account.name}`);
+        results.push(`✅ Created user: ${account.name}`);
       }
     }
 
     if (user) {
       // Create organization membership
       if (account.orgRole) {
-        const targetOrg = account.email === "owner2@company.com" ? secondOrg : mainOrg;
+        const targetOrg = account.isSecondOrg ? secondOrg : mainOrg;
         const existingMembership = await prisma.organizationMember.findFirst({
           where: { userId: user.id, organizationId: targetOrg.id },
         });
@@ -218,7 +497,7 @@ async function seedAccounts(prisma: PrismaClient) {
               joinedAt: new Date(),
             },
           });
-          results.push(`Added ${account.name} to ${targetOrg.name} as ${account.orgRole}`);
+          results.push(`  → Added to ${targetOrg.name} as ${account.orgRole}`);
         }
       }
 
@@ -236,25 +515,22 @@ async function seedAccounts(prisma: PrismaClient) {
               role: account.firmRole,
             },
           });
-          results.push(`Added ${account.name} to ${firm.name} as ${account.firmRole}`);
+          results.push(`  → Added to ${firm.name} as ${account.firmRole}`);
         }
       }
     }
   }
 
-  // Re-fetch owner users after creation loop
-  ownerUser = await prisma.user.findUnique({ where: { email: "owner@business.com" } });
-  owner2User = await prisma.user.findUnique({ where: { email: "owner2@company.com" } });
+  // Create Firm-Client Relations
+  const ownerUser = await prisma.user.findUnique({ where: { email: "owner@business.com" } });
+  const owner2User = await prisma.user.findUnique({ where: { email: "owner2@company.com" } });
 
-  // Create Firm-Client Relations (Business-to-Firm Invitation Model)
-  // SME invites Firm to manage their accounts
   if (firm && ownerUser) {
-    // Main org invites firm
-    const existingRelation1 = await prisma.firmClientRelation.findUnique({
+    const existingRelation = await prisma.firmClientRelation.findUnique({
       where: { firmId_organizationId: { firmId: firm.id, organizationId: mainOrg.id } },
     });
 
-    if (!existingRelation1) {
+    if (!existingRelation) {
       await prisma.firmClientRelation.create({
         data: {
           firmId: firm.id,
@@ -265,17 +541,16 @@ async function seedAccounts(prisma: PrismaClient) {
           respondedAt: new Date(),
         },
       });
-      results.push(`Created firm-client relation: ${mainOrg.name} → ${firm.name} (ACTIVE)`);
+      results.push(`✅ Firm-Client: ${mainOrg.name} → ${firm.name} (ACTIVE)`);
     }
   }
 
   if (firm && owner2User) {
-    // Second org invites firm (PENDING - waiting for firm to accept)
-    const existingRelation2 = await prisma.firmClientRelation.findUnique({
+    const existingRelation = await prisma.firmClientRelation.findUnique({
       where: { firmId_organizationId: { firmId: firm.id, organizationId: secondOrg.id } },
     });
 
-    if (!existingRelation2) {
+    if (!existingRelation) {
       await prisma.firmClientRelation.create({
         data: {
           firmId: firm.id,
@@ -285,7 +560,7 @@ async function seedAccounts(prisma: PrismaClient) {
           invitedByType: InviterType.BUSINESS,
         },
       });
-      results.push(`Created firm-client relation: ${secondOrg.name} → ${firm.name} (PENDING)`);
+      results.push(`✅ Firm-Client: ${secondOrg.name} → ${firm.name} (PENDING)`);
     }
   }
 
@@ -309,10 +584,10 @@ async function seedContacts(prisma: PrismaClient, organizationId: string) {
           contactRole: contact.role,
           taxId: contact.taxId,
           whtApplicable: contact.role === ContactRole.VENDOR,
-          defaultWhtRate: contact.role === ContactRole.VENDOR ? 3 : null,
+          defaultWhtRate: contact.whtRate || null,
         },
       });
-      results.push(`Created contact: ${contact.name}`);
+      results.push(`✅ Contact: ${contact.name} (${contact.role})`);
     }
   }
 
@@ -336,7 +611,7 @@ async function seedCategories(prisma: PrismaClient, organizationId: string) {
           categoryType: cat.type as "EXPENSE" | "INCOME",
         },
       });
-      results.push(`Created category: ${cat.name}`);
+      results.push(`✅ Category: ${cat.name}`);
     }
   }
 
@@ -347,12 +622,23 @@ async function seedBoxes(prisma: PrismaClient, organizationId: string, userId: s
   const results: string[] = [];
 
   // Get contacts and categories
-  const contacts = await prisma.contact.findMany({
+  const vendors = await prisma.contact.findMany({
     where: { organizationId, contactRole: ContactRole.VENDOR },
   });
-  const categories = await prisma.category.findMany({
+  const customers = await prisma.contact.findMany({
+    where: { organizationId, contactRole: ContactRole.CUSTOMER },
+  });
+  const expenseCategories = await prisma.category.findMany({
     where: { organizationId, categoryType: "EXPENSE" },
   });
+  const incomeCategories = await prisma.category.findMany({
+    where: { organizationId, categoryType: "INCOME" },
+  });
+
+  let vendorIndex = 0;
+  let customerIndex = 0;
+  let expenseCatIndex = 0;
+  let incomeCatIndex = 0;
 
   for (let i = 0; i < BOX_TEMPLATES.length; i++) {
     const template = BOX_TEMPLATES[i];
@@ -363,17 +649,38 @@ async function seedBoxes(prisma: PrismaClient, organizationId: string, userId: s
     });
 
     if (!existing) {
-      const contact = contacts[i % contacts.length];
-      const category = categories[i % categories.length];
-      const daysAgo = Math.floor(Math.random() * 30);
-      const boxDate = new Date();
-      boxDate.setDate(boxDate.getDate() - daysAgo);
+      // Select contact based on type
+      let contactId: string | null = null;
+      if (template.contactType === "VENDOR" && vendors.length > 0) {
+        contactId = vendors[vendorIndex % vendors.length].id;
+        vendorIndex++;
+      } else if (template.contactType === "CUSTOMER" && customers.length > 0) {
+        contactId = customers[customerIndex % customers.length].id;
+        customerIndex++;
+      }
 
-      const vatAmount = template.hasVat ? Math.round(template.amount * 7 / 107) : 0;
-      const baseForWht = template.amount - vatAmount;
+      // Select category
+      let categoryId: string | null = null;
+      if (template.boxType === BoxType.EXPENSE && expenseCategories.length > 0) {
+        categoryId = expenseCategories[expenseCatIndex % expenseCategories.length].id;
+        expenseCatIndex++;
+      } else if (template.boxType === BoxType.INCOME && incomeCategories.length > 0) {
+        categoryId = incomeCategories[incomeCatIndex % incomeCategories.length].id;
+        incomeCatIndex++;
+      }
+
+      // Calculate VAT and WHT
+      const amount = Math.abs(template.amount);
+      const vatAmount = template.hasVat ? Math.round(amount * 7 / 107) : 0;
+      const baseForWht = amount - vatAmount;
       const whtAmount = template.hasWht && template.whtRate
         ? Math.round(baseForWht * (template.whtRate / 100))
         : 0;
+
+      // Random date in last 60 days
+      const daysAgo = Math.floor(Math.random() * 60);
+      const boxDate = new Date();
+      boxDate.setDate(boxDate.getDate() - daysAgo);
 
       await prisma.box.create({
         data: {
@@ -381,72 +688,78 @@ async function seedBoxes(prisma: PrismaClient, organizationId: string, userId: s
           createdById: userId,
           boxNumber,
           title: template.title,
-          description: `รายละเอียด ${template.title}`,
+          description: `รายละเอียด: ${template.title}`,
           boxDate,
+          boxType: template.boxType,
           status: template.status,
-          expenseType: ExpenseType.STANDARD,
+          expenseType: template.expenseType,
           totalAmount: template.amount,
           hasVat: template.hasVat,
           vatAmount,
+          vatDocStatus: template.vatDocStatus,
           hasWht: template.hasWht,
           whtRate: template.whtRate || 0,
           whtAmount,
-          contactId: contact?.id,
-          categoryId: category?.id,
+          whtDocStatus: template.whtDocStatus,
+          paymentStatus: template.paymentStatus,
+          reimbursementStatus: template.reimbursementStatus || ReimbursementStatus.NONE,
+          contactId,
+          categoryId,
         },
       });
-      results.push(`Created box: ${template.title}`);
+
+      const isReimbursement = !!template.reimbursementStatus;
+      const typeLabel = template.boxType === BoxType.INCOME ? "📈" : 
+                       template.boxType === BoxType.ADJUSTMENT ? "🔄" :
+                       isReimbursement ? "💰" : "📤";
+      results.push(`${typeLabel} Box: ${template.title} [${template.status}]`);
     }
   }
 
   return results;
 }
 
+// ==================== MAIN API HANDLER ====================
+
 export async function POST(request: NextRequest) {
-  console.log("[Seed API] Request received, isDev:", isDev);
+  console.log("[Seed] Request received, isDev:", isDev);
   
   if (!isDev) {
     return NextResponse.json({ success: false, error: "Not allowed in production" }, { status: 403 });
   }
 
   try {
-    // Get prisma instance using lazy import
-    console.log("[Seed API] Getting prisma client...");
+    console.log("[Seed] Getting prisma client...");
     const prisma = await getPrisma();
     
     if (!prisma) {
-      console.error("[Seed API] Prisma client is undefined");
-      return NextResponse.json({ 
-        success: false, 
-        error: "Prisma client not initialized" 
-      }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Prisma client not initialized" }, { status: 500 });
     }
-    console.log("[Seed API] Prisma client obtained");
 
-    // Test database connection first
+    // Test database connection
     try {
       await prisma.$queryRaw`SELECT 1`;
-      console.log("[Seed API] Database connection OK");
+      console.log("[Seed] Database connection OK");
     } catch (dbError) {
-      console.error("[Seed API] Database connection failed:", dbError);
+      console.error("[Seed] Database connection failed:", dbError);
       return NextResponse.json({ 
         success: false, 
-        error: "Database connection failed. Check DATABASE_URL in .env" 
+        error: "Database connection failed. Check DATABASE_URL" 
       }, { status: 500 });
     }
 
     const body = await request.json();
     const { type } = body;
-    console.log("[Seed API] Seeding type:", type);
+    console.log("[Seed] Seeding type:", type);
     const results: string[] = [];
 
-    // Always seed accounts first for any operation
+    // Always seed accounts first
     if (type === "all" || type === "accounts") {
       const accountResults = await seedAccounts(prisma);
-      results.push(...accountResults);
+      results.push("=== Accounts ===", ...accountResults);
     }
 
-    // Get current organization for seeding
+    // Get current organization
     const supabase = await createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
     
@@ -457,10 +770,7 @@ export async function POST(request: NextRequest) {
       const user = await prisma.user.findUnique({
         where: { supabaseId: supabaseUser.id },
         include: {
-          memberships: {
-            where: { isActive: true },
-            take: 1,
-          },
+          memberships: { where: { isActive: true }, take: 1 },
         },
       });
       
@@ -470,46 +780,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fallback to main org if not logged in
+    // Fallback to main org
     if (!organizationId) {
-      const mainOrg = await prisma.organization.findFirst({
-        where: { slug: "abc-company" },
-      });
+      const mainOrg = await prisma.organization.findFirst({ where: { slug: "abc-company" } });
       organizationId = mainOrg?.id || null;
     }
 
     if (!userId) {
-      const ownerUser = await prisma.user.findUnique({
-        where: { email: "owner@business.com" },
-      });
+      const ownerUser = await prisma.user.findUnique({ where: { email: "owner@business.com" } });
       userId = ownerUser?.id || null;
     }
 
     if (organizationId) {
       if (type === "all" || type === "contacts") {
         const contactResults = await seedContacts(prisma, organizationId);
-        results.push(...contactResults);
+        results.push("=== Contacts ===", ...contactResults);
       }
 
       if (type === "all" || type === "categories") {
         const categoryResults = await seedCategories(prisma, organizationId);
-        results.push(...categoryResults);
+        results.push("=== Categories ===", ...categoryResults);
       }
 
       if ((type === "all" || type === "boxes") && userId) {
         const boxResults = await seedBoxes(prisma, organizationId, userId);
-        results.push(...boxResults);
+        results.push("=== Boxes ===", ...boxResults);
       }
     }
 
-    console.log("[Seed API] Success, results:", results.length);
+    console.log("[Seed] Success, results:", results.length);
     return NextResponse.json({
       success: true,
-      message: `Seeded: ${results.length} items`,
+      message: `Seeded: ${results.filter(r => r.startsWith("✅") || r.startsWith("📈") || r.startsWith("📤") || r.startsWith("💰") || r.startsWith("🔄")).length} items`,
       details: results,
     });
   } catch (error) {
-    console.error("[Seed API] Error:", error);
+    console.error("[Seed] Error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
