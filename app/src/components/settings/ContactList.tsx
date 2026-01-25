@@ -3,7 +3,16 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -17,18 +26,20 @@ import { deleteContact } from "@/server/actions/settings";
 import { ContactForm } from "./ContactForm";
 import type { Contact } from ".prisma/client";
 
-type ContactWithCount = Contact & {
+// Serialized contact from server (Decimal converted to number)
+type SerializedContact = Omit<Contact, 'defaultWhtRate'> & {
+  defaultWhtRate: number | null;
   _count: { boxes: number };
 };
 
 interface ContactListProps {
-  contacts: ContactWithCount[];
+  contacts: SerializedContact[];
 }
 
 export function ContactList({ contacts }: ContactListProps) {
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<ContactWithCount | null>(null);
+  const [editingContact, setEditingContact] = useState<SerializedContact | null>(null);
   const [search, setSearch] = useState("");
 
   const filteredContacts = contacts.filter((c) =>
@@ -48,7 +59,7 @@ export function ContactList({ contacts }: ContactListProps) {
     });
   };
 
-  const openEditDialog = (contact: ContactWithCount) => {
+  const openEditDialog = (contact: SerializedContact) => {
     setEditingContact(contact);
     setDialogOpen(true);
   };
@@ -64,10 +75,10 @@ export function ContactList({ contacts }: ContactListProps) {
   };
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+        <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="ค้นหาผู้ติดต่อ..."
@@ -98,77 +109,95 @@ export function ContactList({ contacts }: ContactListProps) {
         </Dialog>
       </div>
 
-      {/* Contact List */}
-      <div className="rounded-xl border bg-card divide-y">
-        {filteredContacts.length > 0 ? (
-          filteredContacts.map((contact) => (
-            <div key={contact.id} className="group flex items-center gap-3 p-4 hover:bg-muted transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                {contact.contactType === "COMPANY" ? (
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                ) : (
-                  <User className="h-5 w-5 text-muted-foreground" />
-                )}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">{contact.name}</p>
-                {contact.taxId && (
-                  <p className="text-sm text-muted-foreground">เลขที่ {contact.taxId}</p>
-                )}
-              </div>
-              
-              {contact._count.boxes > 0 && (
-                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground shrink-0">
-                  {contact._count.boxes} เอกสาร
-                </span>
-              )}
-              
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openEditDialog(contact)}
-                >
-                  <Pencil className="h-4 w-4" />
+      {/* Contact Table */}
+      {filteredContacts.length > 0 ? (
+        <div className="rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">ประเภท</TableHead>
+                <TableHead>ชื่อ</TableHead>
+                <TableHead>เลขประจำตัวผู้เสียภาษี</TableHead>
+                <TableHead className="text-center">เอกสาร</TableHead>
+                <TableHead className="w-[100px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredContacts.map((contact) => (
+                <TableRow key={contact.id} className="group">
+                  <TableCell>
+                    <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+                      {contact.contactType === "COMPANY" ? (
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <User className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{contact.name}</p>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {contact.taxId || "-"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {contact._count.boxes > 0 ? (
+                      <Badge variant="secondary" className="text-xs">
+                        {contact._count.boxes}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEditDialog(contact)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600"
+                        onClick={() => handleDelete(contact.id, contact.name)}
+                        disabled={isPending || contact._count.boxes > 0}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-card p-4">
+          {search ? (
+            <p className="text-center text-muted-foreground py-8">ไม่พบ &quot;{search}&quot;</p>
+          ) : (
+            <EmptyState
+              icon={Users}
+              title="ยังไม่มีผู้ติดต่อ"
+              description="เพิ่มรายชื่อที่ใช้บ่อยเพื่อความสะดวก"
+              action={
+                <Button size="sm" onClick={openCreateDialog}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  เพิ่มผู้ติดต่อ
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-red-500 hover:text-red-600"
-                  onClick={() => handleDelete(contact.id, contact.name)}
-                  disabled={isPending || contact._count.boxes > 0}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="p-4">
-            {search ? (
-              <p className="text-center text-muted-foreground py-8">ไม่พบ &quot;{search}&quot;</p>
-            ) : (
-              <EmptyState
-                icon={Users}
-                title="ยังไม่มีผู้ติดต่อ"
-                description="เพิ่มรายชื่อที่ใช้บ่อยเพื่อความสะดวก"
-                action={
-                  <Button size="sm" onClick={openCreateDialog}>
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    เพิ่มผู้ติดต่อ
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        )}
-      </div>
+              }
+            />
+          )}
+        </div>
+      )}
       
       {contacts.length > 0 && (
-        <p className="text-sm text-muted-foreground text-center">
-          {contacts.length} รายชื่อ
+        <p className="text-sm text-muted-foreground">
+          ทั้งหมด {contacts.length} รายชื่อ
         </p>
       )}
     </div>

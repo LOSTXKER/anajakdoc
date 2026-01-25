@@ -95,6 +95,14 @@ async function getFilteredBoxes(
     exportedAt: box.exportedAt?.toISOString() ?? null,
     createdAt: box.createdAt.toISOString(),
     updatedAt: box.updatedAt.toISOString(),
+    // Serialize contact (has Decimal fields)
+    contact: box.contact ? {
+      ...box.contact,
+      defaultWhtRate: box.contact.defaultWhtRate?.toNumber() ?? null,
+      createdAt: box.contact.createdAt.toISOString(),
+      updatedAt: box.contact.updatedAt.toISOString(),
+      lastUsedAt: box.contact.lastUsedAt?.toISOString() ?? null,
+    } : null,
     documents: box.documents.map(doc => ({
       ...doc,
       amount: doc.amount?.toNumber() ?? null,
@@ -113,19 +121,20 @@ async function getFilteredBoxes(
   }));
 }
 
+// Using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
 async function getStatusCounts(orgId: string, userId: string) {
-  const [myBoxes, submitted, inReview, needMoreDocs, readyToBook, whtPending, booked, total, incomplete, complete, reimbursePending] = await Promise.all([
+  const [myBoxes, draft, pending, needDocs, completed, total, vatMissing, whtMissing, reimbursePending] = await Promise.all([
     prisma.box.count({ where: { organizationId: orgId, createdById: userId } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "SUBMITTED" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "IN_REVIEW" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "NEED_MORE_DOCS" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "READY_TO_BOOK" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "WHT_PENDING" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "BOOKED" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "DRAFT" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "PENDING" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "NEED_DOCS" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "COMPLETED" } }),
     prisma.box.count({ where: { organizationId: orgId } }),
-    prisma.box.count({ where: { organizationId: orgId, docStatus: "INCOMPLETE" } }),
-    prisma.box.count({ where: { organizationId: orgId, docStatus: "COMPLETE" } }),
-    // Reimbursement pending (Section 19)
+    // VAT missing tracking
+    prisma.box.count({ where: { organizationId: orgId, hasVat: true, vatDocStatus: "MISSING" } }),
+    // WHT missing tracking  
+    prisma.box.count({ where: { organizationId: orgId, hasWht: true, whtDocStatus: { in: ["MISSING", "REQUEST_SENT"] } } }),
+    // Reimbursement pending
     prisma.box.count({ 
       where: { 
         organizationId: orgId, 
@@ -137,19 +146,13 @@ async function getStatusCounts(orgId: string, userId: string) {
 
   return {
     myBoxes,
-    pendingReview: submitted + inReview,
-    needInfo: needMoreDocs,
-    approved: readyToBook + whtPending,
-    exported: booked,
+    draft,
+    pending,
+    needDocs,
+    completed,
     total,
-    incomplete,
-    complete,
-    submitted,
-    inReview,
-    needMoreDocs,
-    readyToBook,
-    whtPending,
-    booked,
+    vatMissing,
+    whtMissing,
     reimbursePending,
   };
 }

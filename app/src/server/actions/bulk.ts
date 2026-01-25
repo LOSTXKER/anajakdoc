@@ -26,7 +26,7 @@ export async function bulkApproveBoxes(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW, BoxStatus.NEED_MORE_DOCS] },
+      status: { in: [BoxStatus.PENDING, BoxStatus.NEED_DOCS] },
     },
   });
 
@@ -44,7 +44,7 @@ export async function bulkApproveBoxes(
     await tx.box.updateMany({
       where: { id: { in: validIds } },
       data: {
-        status: BoxStatus.READY_TO_BOOK,
+        status: BoxStatus.COMPLETED,
       },
     });
 
@@ -105,7 +105,7 @@ export async function bulkRejectBoxes(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW, BoxStatus.NEED_MORE_DOCS] },
+      status: { in: [BoxStatus.PENDING, BoxStatus.NEED_DOCS] },
     },
   });
 
@@ -123,7 +123,7 @@ export async function bulkRejectBoxes(
     await tx.box.updateMany({
       where: { id: { in: validIds } },
       data: {
-        status: BoxStatus.CANCELLED,
+        status: BoxStatus.DRAFT, // Revert to draft instead of cancel
       },
     });
 
@@ -320,7 +320,7 @@ export async function bulkRequestDocs(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW] },
+      status: BoxStatus.PENDING,
     },
   });
 
@@ -334,7 +334,7 @@ export async function bulkRequestDocs(
     // Update status
     await tx.box.updateMany({
       where: { id: { in: validIds } },
-      data: { status: BoxStatus.NEED_MORE_DOCS },
+      data: { status: BoxStatus.NEED_DOCS },
     });
 
     // Add comments
@@ -393,7 +393,7 @@ export async function bulkMarkReady(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW, BoxStatus.NEED_MORE_DOCS] },
+      status: { in: [BoxStatus.PENDING, BoxStatus.NEED_DOCS] },
     },
   });
 
@@ -406,7 +406,7 @@ export async function bulkMarkReady(
   await prisma.$transaction(async (tx) => {
     await tx.box.updateMany({
       where: { id: { in: validIds } },
-      data: { status: BoxStatus.READY_TO_BOOK },
+      data: { status: BoxStatus.COMPLETED },
     });
 
     await tx.activityLog.createMany({
@@ -439,7 +439,7 @@ export async function bulkMarkBooked(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.READY_TO_BOOK, BoxStatus.WHT_PENDING] },
+      status: BoxStatus.PENDING,
     },
   });
 
@@ -452,7 +452,7 @@ export async function bulkMarkBooked(
   await prisma.$transaction(async (tx) => {
     await tx.box.updateMany({
       where: { id: { in: validIds } },
-      data: { status: BoxStatus.BOOKED },
+      data: { status: BoxStatus.COMPLETED },
     });
 
     await tx.activityLog.createMany({

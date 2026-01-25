@@ -39,7 +39,8 @@ export async function checkDuplicateByHash(
     },
   });
 
-  if (existingFile && existingFile.document.box.status !== "CANCELLED") {
+  // Check status - in new system we don't have CANCELLED, so check not DRAFT
+  if (existingFile && existingFile.document.box.status !== "DRAFT") {
     return {
       isDuplicate: true,
       existingBoxId: existingFile.document.box.id,
@@ -76,11 +77,11 @@ export async function checkDuplicateByHeuristic(
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
 
-  // Find similar boxes
+  // Find similar boxes (exclude DRAFT, include all active statuses)
   const similarBoxes = await prisma.box.findMany({
     where: {
       organizationId,
-      status: { notIn: ["CANCELLED", "DRAFT"] },
+      status: { notIn: ["DRAFT"] },
       totalAmount: { gte: minAmount, lte: maxAmount },
       boxDate: { gte: startOfDay, lte: endOfDay },
       ...(contactId ? { contactId } : {}),
@@ -198,7 +199,7 @@ export async function scanBoxForDuplicates(boxId: string): Promise<ApiResponse<{
             document: {
               box: { 
                 organizationId: session.currentOrganization.id,
-                status: { notIn: ["CANCELLED"] },
+                status: { notIn: ["DRAFT"] },
               },
             },
           },
@@ -255,11 +256,11 @@ export async function batchScanForDuplicates(): Promise<ApiResponse<{
 }>> {
   const session = await requireOrganization();
   
-  // Get all boxes that haven't been scanned
+  // Get all boxes that haven't been scanned (exclude only COMPLETED)
   const boxes = await prisma.box.findMany({
     where: {
       organizationId: session.currentOrganization.id,
-      status: { notIn: ["CANCELLED", "ARCHIVED", "LOCKED"] },
+      status: { notIn: ["COMPLETED"] },
       possibleDuplicate: false, // Only scan boxes not already flagged
     },
     select: { id: true },
@@ -327,7 +328,7 @@ export async function getPotentialDuplicates() {
     where: {
       organizationId: session.currentOrganization.id,
       possibleDuplicate: true,
-      status: { notIn: ["CANCELLED"] },
+      status: { notIn: ["DRAFT"] },
     },
     include: {
       contact: { select: { name: true } },

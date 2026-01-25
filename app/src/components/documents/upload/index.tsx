@@ -16,9 +16,17 @@ import { UploadZone } from "./UploadZone";
 import { FileAnalysisCard, type ExtractedFile } from "./FileAnalysisCard";
 import { BoxInfoForm } from "./BoxInfoForm";
 
-interface UploadFirstFormProps {}
+interface MemberOption {
+  id: string;
+  name: string;
+  visibleName?: string | null;
+}
 
-export function UploadFirstForm({}: UploadFirstFormProps) {
+interface UploadFirstFormProps {
+  members?: MemberOption[];
+}
+
+export function UploadFirstForm({ members = [] }: UploadFirstFormProps) {
   const searchParams = useSearchParams();
   
   // Get initial type from URL params
@@ -56,12 +64,17 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
     selectedContactId,
     handleContactSelect,
     
+    // Payers
+    payers,
+    setPayers,
+    
     // Actions
     handleFileSelect,
     removeFile,
     handleSubmit,
   } = useBoxUpload({ 
     initialType, 
+    members,
   });
 
   return (
@@ -167,6 +180,10 @@ export function UploadFirstForm({}: UploadFirstFormProps) {
                 contactsLoading={contactsLoading}
                 selectedContactId={selectedContactId}
                 onContactSelect={handleContactSelect}
+                // Payers (who pays)
+                payers={payers}
+                onPayersChange={setPayers}
+                members={members}
               />
 
               {/* Action Buttons */}

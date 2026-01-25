@@ -7,7 +7,9 @@ import { createNotification, notifyAccountingTeam } from "../notification";
 import type { ApiResponse, MemberRole } from "@/types";
 import { BoxStatus, NotificationType } from "@prisma/client";
 
-// ==================== Status Transition Rules (Section 5.3) ====================
+// ==================== Status Transition Rules (Simplified 4-status system) ====================
+// Using: DRAFT → PENDING → NEED_DOCS / COMPLETED
+// Import from status-transitions.ts for the canonical config
 
 type TransitionRule = {
   from: BoxStatus[];
@@ -18,102 +20,61 @@ type TransitionRule = {
   notificationTitle?: string;
 };
 
+// Using existing NotificationType values (BOX_SUBMITTED, BOX_NEED_MORE_DOCS, BOX_BOOKED)
 const TRANSITIONS: TransitionRule[] = [
-  // Draft → Submitted
+  // Draft → Pending (ส่งตรวจ)
   {
     from: [BoxStatus.DRAFT],
-    to: BoxStatus.SUBMITTED,
+    to: BoxStatus.PENDING,
     allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"],
     action: "SUBMIT",
     notificationType: NotificationType.BOX_SUBMITTED,
     notificationTitle: "กล่องเอกสารใหม่รอตรวจ",
   },
-  // Submitted → In Review
+  // Pending → Need Docs (ขอเอกสารเพิ่ม)
   {
-    from: [BoxStatus.SUBMITTED],
-    to: BoxStatus.IN_REVIEW,
-    allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
-    action: "START_REVIEW",
-    notificationType: NotificationType.BOX_IN_REVIEW,
-    notificationTitle: "กำลังตรวจสอบกล่องเอกสาร",
-  },
-  // In Review → Need More Docs
-  {
-    from: [BoxStatus.IN_REVIEW],
-    to: BoxStatus.NEED_MORE_DOCS,
+    from: [BoxStatus.PENDING],
+    to: BoxStatus.NEED_DOCS,
     allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
     action: "REQUEST_DOCS",
     notificationType: NotificationType.BOX_NEED_MORE_DOCS,
-    notificationTitle: "ขอเอกสารเพิ่ม",
+    notificationTitle: "ขาดเอกสาร",
   },
-  // Need More Docs → Submitted (resubmit)
+  // Need Docs → Pending (ส่งใหม่)
   {
-    from: [BoxStatus.NEED_MORE_DOCS],
-    to: BoxStatus.SUBMITTED,
+    from: [BoxStatus.NEED_DOCS],
+    to: BoxStatus.PENDING,
     allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"],
     action: "RESUBMIT",
     notificationType: NotificationType.BOX_SUBMITTED,
     notificationTitle: "กล่องเอกสารถูกส่งใหม่",
   },
-  // In Review → Ready to Book
+  // Pending → Completed (อนุมัติ/ลงบัญชี)
   {
-    from: [BoxStatus.IN_REVIEW],
-    to: BoxStatus.READY_TO_BOOK,
+    from: [BoxStatus.PENDING],
+    to: BoxStatus.COMPLETED,
     allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
-    action: "MARK_READY",
-    notificationType: NotificationType.BOX_READY_TO_BOOK,
-    notificationTitle: "พร้อมลงบัญชี",
-  },
-  // In Review → WHT Pending (Bookable but WHT pending)
-  {
-    from: [BoxStatus.IN_REVIEW],
-    to: BoxStatus.WHT_PENDING,
-    allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
-    action: "MARK_WHT_PENDING",
-    notificationType: NotificationType.WHT_PENDING,
-    notificationTitle: "รอ WHT",
-  },
-  // Ready to Book → Booked
-  {
-    from: [BoxStatus.READY_TO_BOOK, BoxStatus.WHT_PENDING],
-    to: BoxStatus.BOOKED,
-    allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
-    action: "BOOK",
+    action: "APPROVE",
     notificationType: NotificationType.BOX_BOOKED,
-    notificationTitle: "ลงบัญชีแล้ว",
+    notificationTitle: "เสร็จสิ้น",
   },
-  // Booked → Archived
+  // Need Docs → Completed (อนุมัติ/ลงบัญชี - กรณีแก้ไขแล้ว)
   {
-    from: [BoxStatus.BOOKED],
-    to: BoxStatus.ARCHIVED,
+    from: [BoxStatus.NEED_DOCS],
+    to: BoxStatus.COMPLETED,
     allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
-    action: "ARCHIVE",
-    notificationType: NotificationType.BOX_ARCHIVED,
-    notificationTitle: "เก็บเข้าคลังแล้ว",
+    action: "APPROVE",
+    notificationType: NotificationType.BOX_BOOKED,
+    notificationTitle: "เสร็จสิ้น",
   },
-  // Archived → Locked
+  // Revert: Completed → Pending (กรณีต้องแก้ไข)
   {
-    from: [BoxStatus.ARCHIVED],
-    to: BoxStatus.LOCKED,
+    from: [BoxStatus.COMPLETED],
+    to: BoxStatus.PENDING,
     allowedRoles: ["ADMIN", "OWNER"],
-    action: "LOCK",
-  },
-  // Cancel transitions
-  {
-    from: [BoxStatus.DRAFT],
-    to: BoxStatus.CANCELLED,
-    allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"],
-    action: "CANCEL",
-    notificationType: NotificationType.BOX_CANCELLED,
-    notificationTitle: "ยกเลิกกล่องเอกสาร",
-  },
-  {
-    from: [BoxStatus.SUBMITTED, BoxStatus.IN_REVIEW, BoxStatus.NEED_MORE_DOCS],
-    to: BoxStatus.CANCELLED,
-    allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
-    action: "CANCEL",
-    notificationType: NotificationType.BOX_CANCELLED,
-    notificationTitle: "ยกเลิกกล่องเอกสาร",
+    action: "REVERT",
+    notificationType: NotificationType.BOX_SUBMITTED,
+    notificationTitle: "กล่องถูกเปิดใหม่เพื่อแก้ไข",
   },
 ];
 
@@ -136,17 +97,12 @@ export async function getAvailableTransitions(
   from: BoxStatus,
   role: MemberRole
 ): Promise<{ to: BoxStatus; action: string; label: string }[]> {
+  // Using new 4-status system
   const statusLabels: Record<BoxStatus, string> = {
     DRAFT: "แบบร่าง",
-    SUBMITTED: "ส่งตรวจ",
-    IN_REVIEW: "เริ่มตรวจ",
-    NEED_MORE_DOCS: "ขอเอกสารเพิ่ม",
-    READY_TO_BOOK: "พร้อมลงบัญชี",
-    WHT_PENDING: "รอ WHT",
-    BOOKED: "ลงบัญชี",
-    ARCHIVED: "เก็บเข้าคลัง",
-    LOCKED: "ล็อค",
-    CANCELLED: "ยกเลิก",
+    PENDING: "รอตรวจ",
+    NEED_DOCS: "ขาดเอกสาร",
+    COMPLETED: "เสร็จสิ้น",
   };
 
   return TRANSITIONS
@@ -177,10 +133,10 @@ export async function submitBox(boxId: string): Promise<ApiResponse> {
     };
   }
 
-  // Check valid transition
+  // Check valid transition (DRAFT → PENDING)
   const transition = findTransition(
     box.status,
-    BoxStatus.SUBMITTED,
+    BoxStatus.PENDING,
     session.currentOrganization.role
   );
 
@@ -195,7 +151,7 @@ export async function submitBox(boxId: string): Promise<ApiResponse> {
     await tx.box.update({
       where: { id: boxId },
       data: {
-        status: BoxStatus.SUBMITTED,
+        status: BoxStatus.PENDING,
         submittedAt: new Date(),
       },
     });
@@ -215,7 +171,7 @@ export async function submitBox(boxId: string): Promise<ApiResponse> {
     session.currentOrganization.id,
     transition.notificationType || NotificationType.BOX_SUBMITTED,
     transition.notificationTitle || "กล่องเอกสารใหม่รอตรวจ",
-    `${box.boxNumber} ${box.status === BoxStatus.NEED_MORE_DOCS ? "ถูกส่งใหม่" : "ถูกส่งเข้ามาใหม่"}`,
+    `${box.boxNumber} ${box.status === BoxStatus.NEED_DOCS ? "ถูกส่งใหม่" : "ถูกส่งเข้ามาใหม่"}`,
     { boxId }
   );
 
@@ -266,24 +222,16 @@ export async function changeBoxStatus(
     };
   }
 
-  // Build update data based on new status
+  // Build update data based on new status (using new 4-status system)
   const updateData: Record<string, unknown> = { status: newStatus };
   
   switch (newStatus) {
-    case BoxStatus.SUBMITTED:
+    case BoxStatus.PENDING:
       updateData.submittedAt = new Date();
       break;
-    case BoxStatus.IN_REVIEW:
-      updateData.reviewedAt = new Date();
-      break;
-    case BoxStatus.BOOKED:
+    case BoxStatus.COMPLETED:
       updateData.bookedAt = new Date();
-      break;
-    case BoxStatus.ARCHIVED:
-      updateData.archivedAt = new Date();
-      break;
-    case BoxStatus.LOCKED:
-      updateData.lockedAt = new Date();
+      updateData.reviewedAt = new Date();
       break;
   }
 
@@ -346,20 +294,21 @@ export async function changeBoxStatus(
   };
 }
 
-// ==================== Review Box (Legacy wrapper) ====================
+// ==================== Review Box (Simplified for new 4-status system) ====================
 
 export async function reviewBox(
   boxId: string,
   action: "approve" | "reject" | "need_info" | "ready" | "wht_pending" | "book",
   comment?: string
 ): Promise<ApiResponse> {
+  // Map old actions to new 4-status system
   const actionToStatus: Record<string, BoxStatus> = {
-    approve: BoxStatus.READY_TO_BOOK,
-    reject: BoxStatus.CANCELLED,
-    need_info: BoxStatus.NEED_MORE_DOCS,
-    ready: BoxStatus.READY_TO_BOOK,
-    wht_pending: BoxStatus.WHT_PENDING,
-    book: BoxStatus.BOOKED,
+    approve: BoxStatus.COMPLETED,
+    reject: BoxStatus.DRAFT, // Revert to draft instead of cancel
+    need_info: BoxStatus.NEED_DOCS,
+    ready: BoxStatus.COMPLETED,
+    wht_pending: BoxStatus.PENDING, // No separate WHT_PENDING, stays in PENDING
+    book: BoxStatus.COMPLETED,
   };
 
   const newStatus = actionToStatus[action];
@@ -370,69 +319,29 @@ export async function reviewBox(
     };
   }
 
-  // First, if current status is SUBMITTED, move to IN_REVIEW
-  const session = await requireOrganization();
-  const box = await prisma.box.findFirst({
-    where: {
-      id: boxId,
-      organizationId: session.currentOrganization.id,
-    },
-  });
-
-  if (!box) {
-    return {
-      success: false,
-      error: "ไม่พบกล่องเอกสาร",
-    };
-  }
-
-  // Auto-transition to IN_REVIEW if needed
-  if (box.status === BoxStatus.SUBMITTED && newStatus !== BoxStatus.SUBMITTED) {
-    await prisma.box.update({
-      where: { id: boxId },
-      data: { 
-        status: BoxStatus.IN_REVIEW,
-        reviewedAt: new Date(),
-      },
-    });
-  }
-
+  // Just change status directly in new 4-status system
   return changeBoxStatus(boxId, newStatus, comment);
 }
 
-// ==================== Quick Actions ====================
-
-export async function startReview(boxId: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.IN_REVIEW);
-}
+// ==================== Quick Actions (Simplified for 4-status system) ====================
 
 export async function requestMoreDocs(boxId: string, comment?: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.NEED_MORE_DOCS, comment);
+  return changeBoxStatus(boxId, BoxStatus.NEED_DOCS, comment);
 }
 
-export async function markReadyToBook(boxId: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.READY_TO_BOOK);
+export async function approveBox(boxId: string): Promise<ApiResponse> {
+  return changeBoxStatus(boxId, BoxStatus.COMPLETED);
 }
 
-export async function markWhtPending(boxId: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.WHT_PENDING);
+export async function revertToEdit(boxId: string, reason?: string): Promise<ApiResponse> {
+  return changeBoxStatus(boxId, BoxStatus.PENDING, reason);
 }
 
-export async function bookBox(boxId: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.BOOKED);
-}
-
-export async function archiveBox(boxId: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.ARCHIVED);
-}
-
-export async function lockBox(boxId: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.LOCKED);
-}
-
-export async function cancelBox(boxId: string, reason?: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.CANCELLED, reason);
-}
+// Legacy aliases for backward compatibility
+export const startReview = approveBox;
+export const markReadyToBook = approveBox;
+export const bookBox = approveBox;
+export const archiveBox = approveBox;
 
 // ==================== Batch Status Change ====================
 

@@ -13,13 +13,11 @@ interface FilterableBox {
 interface UseBoxFiltersResult<T extends FilterableBox> {
   /** Boxes created by current user */
   myBoxes: T[];
-  /** Boxes pending review (SUBMITTED, IN_REVIEW, NEED_MORE_DOCS) */
+  /** Boxes pending review (PENDING, NEED_DOCS) */
   pendingBoxes: T[];
   /** Boxes with incomplete documents */
   incompleteBoxes: T[];
-  /** Boxes ready (READY_TO_BOOK, WHT_PENDING) */
-  readyBoxes: T[];
-  /** Completed boxes (BOOKED, ARCHIVED) */
+  /** Completed boxes (COMPLETED) */
   doneBoxes: T[];
   /** Draft boxes */
   draftBoxes: T[];
@@ -30,14 +28,13 @@ interface UseBoxFiltersResult<T extends FilterableBox> {
     myBoxes: number;
     pendingBoxes: number;
     incompleteBoxes: number;
-    readyBoxes: number;
     doneBoxes: number;
     draftBoxes: number;
     total: number;
   };
 }
 
-export type TabValue = "mine" | "pending" | "incomplete" | "ready" | "done" | "draft" | "all";
+export type TabValue = "mine" | "pending" | "incomplete" | "done" | "draft" | "all";
 
 /**
  * Hook สำหรับ filter boxes ตาม status และ user
@@ -51,10 +48,11 @@ export function useBoxFilters<T extends FilterableBox>(
     [boxes, userId]
   );
 
+  // Using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
   const pendingBoxes = useMemo(
     () =>
       boxes.filter((b) =>
-        ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"].includes(b.status)
+        ["PENDING", "NEED_DOCS"].includes(b.status)
       ),
     [boxes]
   );
@@ -64,13 +62,8 @@ export function useBoxFilters<T extends FilterableBox>(
     [boxes]
   );
 
-  const readyBoxes = useMemo(
-    () => boxes.filter((b) => ["READY_TO_BOOK", "WHT_PENDING"].includes(b.status)),
-    [boxes]
-  );
-
   const doneBoxes = useMemo(
-    () => boxes.filter((b) => ["BOOKED", "ARCHIVED", "LOCKED"].includes(b.status)),
+    () => boxes.filter((b) => b.status === "COMPLETED"),
     [boxes]
   );
 
@@ -88,8 +81,6 @@ export function useBoxFilters<T extends FilterableBox>(
           return pendingBoxes;
         case "incomplete":
           return incompleteBoxes;
-        case "ready":
-          return readyBoxes;
         case "done":
           return doneBoxes;
         case "draft":
@@ -99,26 +90,24 @@ export function useBoxFilters<T extends FilterableBox>(
           return boxes;
       }
     };
-  }, [myBoxes, pendingBoxes, incompleteBoxes, readyBoxes, doneBoxes, draftBoxes, boxes]);
+  }, [myBoxes, pendingBoxes, incompleteBoxes, doneBoxes, draftBoxes, boxes]);
 
   const counts = useMemo(
     () => ({
       myBoxes: myBoxes.length,
       pendingBoxes: pendingBoxes.length,
       incompleteBoxes: incompleteBoxes.length,
-      readyBoxes: readyBoxes.length,
       doneBoxes: doneBoxes.length,
       draftBoxes: draftBoxes.length,
       total: boxes.length,
     }),
-    [myBoxes, pendingBoxes, incompleteBoxes, readyBoxes, doneBoxes, draftBoxes, boxes]
+    [myBoxes, pendingBoxes, incompleteBoxes, doneBoxes, draftBoxes, boxes]
   );
 
   return {
     myBoxes,
     pendingBoxes,
     incompleteBoxes,
-    readyBoxes,
     doneBoxes,
     draftBoxes,
     getBoxesForTab,

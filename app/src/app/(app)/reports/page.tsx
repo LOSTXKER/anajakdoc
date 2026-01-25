@@ -9,11 +9,11 @@ async function getKpiData(orgId: string) {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  // Get processing time data (boxes that have been booked)
+  // Get processing time data (completed boxes)
   const bookedBoxes = await prisma.box.findMany({
     where: {
       organizationId: orgId,
-      status: { in: ["BOOKED", "ARCHIVED", "LOCKED"] },
+      status: "COMPLETED",
       bookedAt: { not: null },
       submittedAt: { not: null },
       boxDate: { gte: thirtyDaysAgo },
@@ -37,23 +37,23 @@ async function getKpiData(orgId: string) {
     avgProcessingDays = Math.round((totalDays / bookedBoxes.length) * 10) / 10;
   }
 
-  // First-pass completion rate (boxes that went directly to READY_TO_BOOK without NEED_MORE_DOCS)
+  // First-pass completion rate (boxes that went directly to COMPLETED without NEED_DOCS)
   // We'll check activity logs for this
   const totalCompletedBoxes = await prisma.box.count({
     where: {
       organizationId: orgId,
-      status: { in: ["BOOKED", "ARCHIVED", "LOCKED", "READY_TO_BOOK"] },
+      status: { in: ["PENDING", "COMPLETED"] },
       boxDate: { gte: thirtyDaysAgo },
     },
   });
 
-  // Count boxes that had NEED_MORE_DOCS status at some point
+  // Count boxes that had NEED_DOCS status at some point
   const boxesWithNeedMoreDocs = await prisma.activityLog.findMany({
     where: {
       action: "STATUS_CHANGED",
       details: {
         path: ["newStatus"],
-        equals: "NEED_MORE_DOCS",
+        equals: "NEED_DOCS",
       },
       box: {
         organizationId: orgId,
@@ -92,7 +92,7 @@ async function getKpiData(orgId: string) {
   const boxesThisMonth = await prisma.box.count({
     where: {
       organizationId: orgId,
-      status: { in: ["BOOKED", "ARCHIVED", "LOCKED"] },
+      status: "COMPLETED",
       bookedAt: { gte: startOfMonth },
     },
   });
@@ -106,7 +106,7 @@ async function getKpiData(orgId: string) {
     where: {
       organizationId: orgId,
       boxType: "EXPENSE",
-      status: { notIn: ["CANCELLED", "DRAFT"] },
+      status: { notIn: ["DRAFT"] },
       contactId: { not: null },
       boxDate: { gte: thirtyDaysAgo },
     },
@@ -133,12 +133,12 @@ async function getKpiData(orgId: string) {
     };
   });
 
-  // Pending boxes by status
+  // Pending boxes by status (not completed)
   const pendingByStatus = await prisma.box.groupBy({
     by: ["status"],
     where: {
       organizationId: orgId,
-      status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+      status: { notIn: ["COMPLETED"] },
     },
     _count: true,
   });
@@ -174,7 +174,7 @@ async function getReportData(orgId: string) {
     WHERE organization_id = ${orgId}
       AND box_date >= ${startOfYear}
       AND box_date <= ${endOfYear}
-      AND status NOT IN ('CANCELLED')
+      AND status NOT IN ('DRAFT')
     GROUP BY EXTRACT(MONTH FROM box_date)
     ORDER BY month
   `;
@@ -185,7 +185,7 @@ async function getReportData(orgId: string) {
     where: {
       organizationId: orgId,
       boxType: "EXPENSE",
-      status: { notIn: ["CANCELLED"] },
+      status: { notIn: ["DRAFT"] },
       boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },
@@ -211,7 +211,7 @@ async function getReportData(orgId: string) {
     where: {
       organizationId: orgId,
       boxType: "EXPENSE",
-      status: { notIn: ["CANCELLED"] },
+      status: { notIn: ["DRAFT"] },
       boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },
@@ -235,7 +235,7 @@ async function getReportData(orgId: string) {
   const totals = await prisma.box.aggregate({
     where: {
       organizationId: orgId,
-      status: { notIn: ["CANCELLED"] },
+      status: { notIn: ["DRAFT"] },
       boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true, vatAmount: true, whtAmount: true },
@@ -246,7 +246,7 @@ async function getReportData(orgId: string) {
     where: {
       organizationId: orgId,
       boxType: "EXPENSE",
-      status: { notIn: ["CANCELLED"] },
+      status: { notIn: ["DRAFT"] },
       boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },
@@ -256,7 +256,7 @@ async function getReportData(orgId: string) {
     where: {
       organizationId: orgId,
       boxType: "INCOME",
-      status: { notIn: ["CANCELLED"] },
+      status: { notIn: ["DRAFT"] },
       boxDate: { gte: startOfYear, lte: endOfYear },
     },
     _sum: { totalAmount: true },

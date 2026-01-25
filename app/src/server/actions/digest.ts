@@ -64,21 +64,21 @@ export async function generateDigest(
     startDate.setDate(startDate.getDate() - 7);
   }
 
-  // Get box stats
+  // Get box stats (using new 4-status system)
   const [pendingBoxes, inReviewBoxes, readyToBookBoxes, completedBoxes] = await Promise.all([
     prisma.box.count({
       where: { organizationId, status: "DRAFT" },
     }),
     prisma.box.count({
-      where: { organizationId, status: { in: ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"] } },
+      where: { organizationId, status: { in: ["PENDING", "NEED_DOCS"] } },
     }),
     prisma.box.count({
-      where: { organizationId, status: "READY_TO_BOOK" },
+      where: { organizationId, status: "PENDING" },
     }),
     prisma.box.count({
       where: {
         organizationId,
-        status: "BOOKED",
+        status: "COMPLETED",
         bookedAt: { gte: startDate },
       },
     }),
@@ -88,7 +88,7 @@ export async function generateDigest(
   const completedAmount = await prisma.box.aggregate({
     where: {
       organizationId,
-      status: "BOOKED",
+      status: "COMPLETED",
       bookedAt: { gte: startDate },
     },
     _sum: { totalAmount: true },
@@ -119,7 +119,7 @@ export async function generateDigest(
   const oldPendingBoxes = await prisma.box.findMany({
     where: {
       organizationId,
-      status: { in: ["SUBMITTED", "IN_REVIEW"] },
+      status: { in: ["PENDING", "NEED_DOCS"] },
       submittedAt: {
         lte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // > 7 days old
       },

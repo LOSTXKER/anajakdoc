@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import type { BoxType, ExpenseType } from "@/types";
 import type { ContactWithDefaults } from "@/server/actions/settings";
 import { WHT_RATE_OPTIONS } from "@/lib/constants";
+import { PayerSelector, type Payer } from "./PayerSelector";
 
 // Expense type cards for visual selection (Simple: only STANDARD and NO_VAT)
 const EXPENSE_TYPE_CARDS: { 
@@ -43,16 +44,16 @@ const EXPENSE_TYPE_CARDS: {
 }[] = [
   { 
     value: "STANDARD", 
-    label: "มีใบกำกับภาษี", 
-    description: "ขอคืน VAT ได้", 
+    label: "มี VAT", 
+    description: "ร้านจด VAT, คำนวณ 7% อัตโนมัติ", 
     icon: FileCheck,
     iconBg: "bg-emerald-100 dark:bg-emerald-900",
     iconColor: "text-emerald-600",
   },
   { 
     value: "NO_VAT", 
-    label: "ไม่มีใบกำกับภาษี", 
-    description: "บิลเงินสด / ร้านไม่จด VAT", 
+    label: "ไม่มี VAT", 
+    description: "ร้านไม่จด VAT, บิลเงินสด", 
     icon: Receipt,
     iconBg: "bg-slate-100",
     iconColor: "text-slate-600",
@@ -85,6 +86,10 @@ interface BoxInfoFormProps {
   contactsLoading?: boolean;
   selectedContactId?: string;
   onContactSelect?: (contactId: string) => void;
+  // Payers (who pays)
+  payers?: { id: string; payerType: "COMPANY" | "PETTY_CASH" | "MEMBER"; memberId?: string; amount: number }[];
+  onPayersChange?: (payers: { id: string; payerType: "COMPANY" | "PETTY_CASH" | "MEMBER"; memberId?: string; amount: number }[]) => void;
+  members?: { id: string; name: string; visibleName?: string | null }[];
 }
 
 export function BoxInfoForm({
@@ -112,6 +117,10 @@ export function BoxInfoForm({
   contactsLoading = false,
   selectedContactId = "",
   onContactSelect,
+  // Payers
+  payers = [],
+  onPayersChange,
+  members = [],
 }: BoxInfoFormProps) {
   const selectedContact = contacts.find(c => c.id === selectedContactId);
 
@@ -480,6 +489,18 @@ export function BoxInfoForm({
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
+
+        {/* Payer Selector (who pays) - only for EXPENSE */}
+        {boxType === "EXPENSE" && onPayersChange && (
+          <div className="pt-4 border-t">
+            <PayerSelector
+              totalAmount={parseFloat(amount) || 0}
+              payers={payers as Payer[]}
+              onPayersChange={onPayersChange}
+              members={members}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -90,7 +90,7 @@ export function MobileNav({ user }: MobileNavProps) {
 
   const accountingNavItems = [
     { title: "ติดตาม WHT", href: "/wht-tracking", icon: Receipt },
-    { title: "รอคืนเงิน", href: "/reimbursement", icon: Wallet },
+    { title: "คืนเงินสมาชิก", href: "/reimbursements", icon: Wallet },
     { title: "Export", href: "/export", icon: Download },
     { title: "รายงาน", href: "/reports", icon: BarChart3 },
   ];

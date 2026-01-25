@@ -4,7 +4,7 @@ import { ContactList } from "@/components/settings/ContactList";
 import prisma from "@/lib/prisma";
 
 async function getContacts(orgId: string) {
-  return prisma.contact.findMany({
+  const contacts = await prisma.contact.findMany({
     where: { 
       organizationId: orgId,
       isActive: true,
@@ -17,6 +17,12 @@ async function getContacts(orgId: string) {
       { name: "asc" },
     ],
   });
+
+  // Serialize Decimal fields for client component
+  return contacts.map(c => ({
+    ...c,
+    defaultWhtRate: c.defaultWhtRate?.toNumber() ?? null,
+  }));
 }
 
 export default async function ContactsPage() {

@@ -84,7 +84,17 @@ export const BOX_TYPE_CONFIG: Record<BoxType, BoxTypeConfig> = {
  * return <Icon className={config.iconColor} />;
  */
 export function getBoxTypeConfig(type: BoxType): BoxTypeConfig {
-  return BOX_TYPE_CONFIG[type];
+  // Fallback for unknown types
+  const fallback: BoxTypeConfig = {
+    label: type || "ไม่ทราบ",
+    icon: Repeat,
+    colorClass: "bg-gray-100 text-gray-700 border-gray-200",
+    badgeClass: "bg-gray-100 text-gray-700",
+    iconColor: "text-gray-500",
+    bgLight: "bg-gray-50",
+    amountColor: "text-gray-600",
+  };
+  return BOX_TYPE_CONFIG[type] || fallback;
 }
 
 /**
@@ -98,5 +108,5 @@ export function getBoxTypeConfig(type: BoxType): BoxTypeConfig {
  * getBoxTypeLabel("INCOME")  // "รายรับ"
  */
 export function getBoxTypeLabel(type: BoxType): string {
-  return BOX_TYPE_CONFIG[type].label;
+  return BOX_TYPE_CONFIG[type]?.label || type || "ไม่ทราบ";
 }

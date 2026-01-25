@@ -186,18 +186,18 @@ export async function getFirmDashboard(): Promise<ApiResponse<FirmDashboardStats
         aging8to14,
         aging15plus,
       ] = await Promise.all([
-        // Pending boxes
+        // Pending boxes (not COMPLETED)
         prisma.box.count({
           where: {
             organizationId: client.id,
-            status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+            status: { notIn: ["COMPLETED"] },
           },
         }),
         // Pending amount
         prisma.box.aggregate({
           where: {
             organizationId: client.id,
-            status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+            status: { notIn: ["COMPLETED"] },
           },
           _sum: { totalAmount: true },
         }),
@@ -207,7 +207,6 @@ export async function getFirmDashboard(): Promise<ApiResponse<FirmDashboardStats
             organizationId: client.id,
             hasWht: true,
             whtDocStatus: { in: ["MISSING", "REQUEST_SENT"] },
-            status: { notIn: ["CANCELLED"] },
           },
           _sum: { whtAmount: true },
         }),
@@ -217,16 +216,15 @@ export async function getFirmDashboard(): Promise<ApiResponse<FirmDashboardStats
             organizationId: client.id,
             hasWht: true,
             whtOverdue: true,
-            status: { notIn: ["CANCELLED"] },
           },
         }),
-        // Need more docs
+        // Need docs (using new status)
         prisma.box.count({
-          where: { organizationId: client.id, status: "NEED_MORE_DOCS" },
+          where: { organizationId: client.id, status: "NEED_DOCS" },
         }),
-        // Ready to book
+        // Ready to book (PENDING in new system)
         prisma.box.count({
-          where: { organizationId: client.id, status: "READY_TO_BOOK" },
+          where: { organizationId: client.id, status: "PENDING" },
         }),
         // Overdue tasks
         prisma.task.count({
@@ -236,46 +234,46 @@ export async function getFirmDashboard(): Promise<ApiResponse<FirmDashboardStats
             dueDate: { lt: now },
           },
         }),
-        // Total boxes (for completion rate)
+        // Total boxes (all non-draft)
         prisma.box.count({
           where: {
             organizationId: client.id,
-            status: { notIn: ["CANCELLED"] },
+            status: { notIn: ["DRAFT"] },
           },
         }),
         // Completed boxes
         prisma.box.count({
           where: {
             organizationId: client.id,
-            status: { in: ["BOOKED", "ARCHIVED", "LOCKED"] },
+            status: "COMPLETED",
           },
         }),
-        // Aging buckets
+        // Aging buckets (not completed)
         prisma.box.count({
           where: {
             organizationId: client.id,
-            status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+            status: { notIn: ["COMPLETED"] },
             createdAt: { gte: threeDaysAgo },
           },
         }),
         prisma.box.count({
           where: {
             organizationId: client.id,
-            status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+            status: { notIn: ["COMPLETED"] },
             createdAt: { lt: threeDaysAgo, gte: sevenDaysAgo },
           },
         }),
         prisma.box.count({
           where: {
             organizationId: client.id,
-            status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+            status: { notIn: ["COMPLETED"] },
             createdAt: { lt: sevenDaysAgo, gte: fourteenDaysAgo },
           },
         }),
         prisma.box.count({
           where: {
             organizationId: client.id,
-            status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+            status: { notIn: ["COMPLETED"] },
             createdAt: { lt: fourteenDaysAgo },
           },
         }),

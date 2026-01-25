@@ -45,10 +45,11 @@ export async function updateBox(
   }
 
   // Check if box can be edited
+  // Using new 4-status system
   const editableStatuses: BoxStatus[] = [
     BoxStatus.DRAFT,
-    BoxStatus.NEED_MORE_DOCS,
-    BoxStatus.SUBMITTED,
+    BoxStatus.NEED_DOCS,
+    BoxStatus.PENDING,
   ];
   
   if (!editableStatuses.includes(box.status) && 
@@ -178,10 +179,11 @@ export async function updateBoxData(
   }
 
   // Check if box can be edited
+  // Using new 4-status system
   const editableStatuses: BoxStatus[] = [
     BoxStatus.DRAFT,
-    BoxStatus.NEED_MORE_DOCS,
-    BoxStatus.SUBMITTED,
+    BoxStatus.NEED_DOCS,
+    BoxStatus.PENDING,
   ];
   
   if (!editableStatuses.includes(box.status) && 

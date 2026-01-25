@@ -3,33 +3,34 @@
 import { useRouter } from "next/navigation";
 import { BoxDetail } from "@/components/documents/box-detail";
 import { submitBox, deleteBox } from "@/server/actions/box";
-import type { SerializedBox, TaskType, TaskStatus } from "@/types";
+import type { SerializedBox } from "@/types";
 import type { CommentData } from "@/server/actions/comment";
 import type { AuditLogEntry } from "@/server/actions/audit";
 
-interface TaskItem {
+interface PayerInfo {
   id: string;
-  taskType: TaskType;
-  status: TaskStatus;
-  title: string;
-  description: string | null;
-  dueDate: string | null;
-  escalationLevel: number;
-  assignee: {
+  payerType: "COMPANY" | "PETTY_CASH" | "MEMBER";
+  amount: number;
+  reimbursementStatus: "NONE" | "PENDING" | "REIMBURSED";
+  reimbursedAt: string | null;
+  member: {
     id: string;
-    name: string | null;
-    email: string;
-    avatarUrl: string | null;
+    visibleName: string | null;
+    bankName: string | null;
+    bankAccount: string | null;
+    user: {
+      name: string | null;
+      email: string;
+    };
   } | null;
-  createdAt: string;
 }
 
 interface BoxDetailWrapperProps {
   box: SerializedBox;
-  tasks: TaskItem[];
   contacts: { id: string; name: string }[];
   comments: CommentData[];
   activities: AuditLogEntry[];
+  payers?: PayerInfo[];
   currentUserId: string;
   isAdmin: boolean;
   canEdit: boolean;
@@ -39,10 +40,10 @@ interface BoxDetailWrapperProps {
 
 export function BoxDetailWrapper({ 
   box, 
-  tasks,
   contacts,
   comments,
   activities,
+  payers = [],
   currentUserId,
   isAdmin,
   canEdit, 
@@ -73,18 +74,13 @@ export function BoxDetailWrapper({
     // deleteBox already redirects to /documents
   };
 
-  // Refresh page
-  const handleRefresh = () => {
-    router.refresh();
-  };
-
   return (
     <BoxDetail
       box={box}
-      tasks={tasks}
       contacts={contacts}
       comments={comments}
       activities={activities}
+      payers={payers}
       currentUserId={currentUserId}
       isAdmin={isAdmin}
       canEdit={canEdit}
@@ -92,7 +88,6 @@ export function BoxDetailWrapper({
       canDelete={canDelete}
       onSendToAccounting={canSend ? handleSendToAccounting : undefined}
       onDelete={canDelete ? handleDelete : undefined}
-      onRefresh={handleRefresh}
     />
   );
 }

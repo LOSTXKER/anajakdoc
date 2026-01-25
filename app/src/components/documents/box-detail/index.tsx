@@ -11,3 +11,5 @@ export { BoxDetail } from "./BoxDetail";
 export { DocumentList } from "./DocumentList";
 export { DocStatusCard } from "./DocStatusCard";
 export { BoxSettings } from "./BoxSettings";
+export { AmountSummary } from "./AmountSummary";
+export { BoxInfoCard } from "./BoxInfoCard";

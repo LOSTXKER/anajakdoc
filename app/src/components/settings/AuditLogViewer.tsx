@@ -50,7 +50,7 @@ import {
   type AuditLogEntry,
 } from "@/server/actions/audit";
 
-// Action types for filtering
+// Action types for filtering (includes historical actions and new status system)
 const ACTION_TYPES = [
   { value: "CREATED", label: "สร้างกล่อง" },
   { value: "UPDATED", label: "แก้ไขข้อมูล" },
@@ -58,9 +58,11 @@ const ACTION_TYPES = [
   { value: "SUBMITTED", label: "ส่งตรวจ" },
   { value: "APPROVED", label: "อนุมัติ" },
   { value: "REJECTED", label: "ปฏิเสธ" },
-  { value: "NEED_MORE_DOCS", label: "ขอเอกสารเพิ่ม" },
-  { value: "BOOKED", label: "ลงบัญชี" },
-  { value: "ARCHIVED", label: "เก็บถาวร" },
+  { value: "NEED_DOCS", label: "ขาดเอกสาร" },
+  { value: "NEED_MORE_DOCS", label: "ขอเอกสารเพิ่ม" }, // Historical
+  { value: "COMPLETED", label: "เสร็จสิ้น" },
+  { value: "BOOKED", label: "ลงบัญชี" }, // Historical
+  { value: "ARCHIVED", label: "เก็บถาวร" }, // Historical
   { value: "FILE_UPLOADED", label: "อัปโหลดไฟล์" },
   { value: "FILE_DELETED", label: "ลบไฟล์" },
   { value: "COMMENT_ADDED", label: "เพิ่มความคิดเห็น" },
@@ -71,7 +73,7 @@ const ACTION_TYPES = [
 
 // Get action badge color
 function getActionColor(action: string): "default" | "secondary" | "destructive" | "outline" {
-  if (["APPROVED", "BOOKED", "TASK_COMPLETED"].includes(action)) return "default";
+  if (["APPROVED", "BOOKED", "COMPLETED", "TASK_COMPLETED"].includes(action)) return "default";
   if (["REJECTED", "FILE_DELETED"].includes(action)) return "destructive";
   if (["CREATED", "FILE_UPLOADED", "PAYMENT_ADDED"].includes(action)) return "secondary";
   return "outline";

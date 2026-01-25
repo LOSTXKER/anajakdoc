@@ -95,6 +95,7 @@ const userTypeLabels: Record<string, string> = {
 export function DevTools() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
   const [state, setState] = useState<DevToolsState>({
     isOpen: false,
     isMinimized: true,
@@ -103,6 +104,11 @@ export function DevTools() {
   const [seedingProgress, setSeedingProgress] = useState<string | null>(null);
   const [currentAccount, setCurrentAccount] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string } | null>(null);
+
+  // Only render after mount to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch current user on mount
   useEffect(() => {
@@ -150,8 +156,8 @@ export function DevTools() {
     }
   }, [state.isOpen]);
 
-  // Don't render in production
-  if (!isDev) return null;
+  // Don't render until mounted (prevents hydration mismatch) or in production
+  if (!mounted || !isDev) return null;
 
   const handleSwitchAccount = async (account: TestAccount) => {
     console.log("[DevTools] Switching to account:", account.email);

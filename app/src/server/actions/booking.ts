@@ -42,12 +42,12 @@ export async function createBookingEntry(
     return { success: false, error: "กรุณาเลือกกล่องอย่างน้อย 1 กล่อง" };
   }
 
-  // Verify boxes exist and are in correct status
+  // Verify boxes exist and are in correct status (PENDING = ready to book)
   const boxes = await prisma.box.findMany({
     where: {
       id: { in: input.boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.READY_TO_BOOK, BoxStatus.WHT_PENDING] },
+      status: BoxStatus.PENDING,
     },
   });
 
@@ -81,12 +81,12 @@ export async function createBookingEntry(
       },
     });
 
-    // Link boxes to entry and update status
+    // Link boxes to entry and update status to COMPLETED
     await tx.box.updateMany({
       where: { id: { in: input.boxIds } },
       data: {
         bookingEntryId: newEntry.id,
-        status: BoxStatus.BOOKED,
+        status: BoxStatus.COMPLETED,
         bookedAt: new Date(),
       },
     });
@@ -153,12 +153,12 @@ export async function linkBoxesToEntry(
     return { success: false, error: "ไม่พบ Booking Entry" };
   }
 
-  // Verify boxes
+  // Verify boxes (PENDING = ready to book)
   const boxes = await prisma.box.findMany({
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.READY_TO_BOOK, BoxStatus.WHT_PENDING] },
+      status: BoxStatus.PENDING,
     },
   });
 
@@ -180,12 +180,12 @@ export async function linkBoxesToEntry(
       data: { totalAmount: newTotal },
     });
 
-    // Link and update boxes
+    // Link and update boxes to COMPLETED
     await tx.box.updateMany({
       where: { id: { in: boxIds } },
       data: {
         bookingEntryId: entryId,
-        status: BoxStatus.BOOKED,
+        status: BoxStatus.COMPLETED,
         bookedAt: new Date(),
       },
     });
@@ -239,12 +239,12 @@ export async function unlinkBoxFromEntry(boxId: string): Promise<ApiResponse> {
   }
 
   await prisma.$transaction(async (tx) => {
-    // Unlink box
+    // Unlink box - revert to PENDING status
     await tx.box.update({
       where: { id: boxId },
       data: {
         bookingEntryId: null,
-        status: BoxStatus.READY_TO_BOOK, // Revert to ready status
+        status: BoxStatus.PENDING,
         bookedAt: null,
       },
     });
@@ -394,12 +394,12 @@ export async function deleteBookingEntry(entryId: string): Promise<ApiResponse> 
   }
 
   await prisma.$transaction(async (tx) => {
-    // Unlink all boxes
+    // Unlink all boxes - revert to PENDING
     await tx.box.updateMany({
       where: { bookingEntryId: entryId },
       data: {
         bookingEntryId: null,
-        status: BoxStatus.READY_TO_BOOK,
+        status: BoxStatus.PENDING,
         bookedAt: null,
       },
     });
@@ -421,7 +421,7 @@ export async function getReadyToBookBoxes() {
   return prisma.box.findMany({
     where: {
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.READY_TO_BOOK, BoxStatus.WHT_PENDING] },
+      status: BoxStatus.PENDING,
       bookingEntryId: null,
     },
     include: {
@@ -443,7 +443,7 @@ export async function getBookingSummary() {
     prisma.box.count({
       where: {
         organizationId: session.currentOrganization.id,
-        status: { in: [BoxStatus.READY_TO_BOOK, BoxStatus.WHT_PENDING] },
+        status: BoxStatus.PENDING,
         bookingEntryId: null,
       },
     }),

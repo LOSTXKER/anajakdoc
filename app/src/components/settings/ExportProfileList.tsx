@@ -5,6 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -33,14 +41,13 @@ import {
 } from "@/components/ui/select";
 import {
   Plus,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Trash2,
   FileSpreadsheet,
   Star,
   Lock,
   Loader2,
-  Check,
   GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -125,7 +132,7 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -137,7 +144,7 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
 
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />
               สร้าง Profile
             </Button>
@@ -206,111 +213,114 @@ export function ExportProfileList({ profiles }: ExportProfileListProps) {
         </Dialog>
       </div>
 
-      {/* Profile List */}
-      <div className="space-y-3">
-        {profiles.map((profile) => (
-          <div
-            key={profile.id}
-            className="rounded-lg border bg-card p-4 hover:border-border transition-colors"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <FileSpreadsheet className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium text-foreground">{profile.name}</h4>
-                    {profile.isDefault && (
-                      <Badge variant="secondary" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
-                        <Star className="mr-1 h-3 w-3 fill-amber-500" />
-                        ค่าเริ่มต้น
-                      </Badge>
-                    )}
-                    {profile.isSystem && (
-                      <Badge variant="secondary">
-                        <Lock className="mr-1 h-3 w-3" />
-                        ระบบ
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {profile.description || "ไม่มีรายละเอียด"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {profile.columns.length} คอลัมน์
-                  </p>
-                </div>
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="shrink-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setEditingProfile(profile)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    แก้ไขคอลัมน์
-                  </DropdownMenuItem>
-                  {!profile.isDefault && (
-                    <DropdownMenuItem onClick={() => handleSetDefault(profile.id)}>
-                      <Star className="mr-2 h-4 w-4" />
-                      ตั้งเป็นค่าเริ่มต้น
-                    </DropdownMenuItem>
-                  )}
-                  {!profile.isSystem && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(profile.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        ลบ
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Column Preview */}
-            <div className="mt-4 pt-4 border-t">
-              <p className="text-xs text-muted-foreground mb-2">คอลัมน์:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {profile.columns.slice(0, 8).map((col) => (
-                  <Badge key={col.field} variant="outline" className="text-xs">
-                    {col.header}
-                  </Badge>
-                ))}
-                {profile.columns.length > 8 && (
-                  <Badge variant="outline" className="text-xs text-muted-foreground">
-                    +{profile.columns.length - 8} อื่นๆ
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {profiles.length === 0 && (
-          <div className="rounded-lg border bg-card p-4">
-            <EmptyState
-              icon={FileSpreadsheet}
-              title="ยังไม่มี Export Profile"
-              description="สร้าง Profile เพื่อ export ข้อมูลในรูปแบบที่ต้องการ"
-              action={
-                <Button onClick={() => setIsCreateOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  สร้าง Profile แรก
-                </Button>
-              }
-            />
-          </div>
-        )}
-      </div>
+      {/* Profile Table */}
+      {profiles.length === 0 ? (
+        <div className="rounded-xl border bg-card p-6">
+          <EmptyState
+            icon={FileSpreadsheet}
+            title="ยังไม่มี Export Profile"
+            description="สร้าง Profile เพื่อ export ข้อมูลในรูปแบบที่ต้องการ"
+            action={
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                สร้าง Profile แรก
+              </Button>
+            }
+          />
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ชื่อ Profile</TableHead>
+                <TableHead>รายละเอียด</TableHead>
+                <TableHead className="text-center">คอลัมน์</TableHead>
+                <TableHead>สถานะ</TableHead>
+                <TableHead className="w-[60px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {profiles.map((profile) => (
+                <TableRow key={profile.id} className="group">
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <FileSpreadsheet className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="font-medium">{profile.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground max-w-[250px]">
+                    <p className="truncate">{profile.description || "-"}</p>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="secondary" className="text-xs">
+                      {profile.columns.length}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {profile.isDefault && (
+                        <Badge variant="secondary" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-xs gap-1">
+                          <Star className="h-3 w-3 fill-amber-500" />
+                          ค่าเริ่มต้น
+                        </Badge>
+                      )}
+                      {profile.isSystem && (
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          <Lock className="h-3 w-3" />
+                          ระบบ
+                        </Badge>
+                      )}
+                      {!profile.isDefault && !profile.isSystem && (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setEditingProfile(profile)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          แก้ไขคอลัมน์
+                        </DropdownMenuItem>
+                        {!profile.isDefault && (
+                          <DropdownMenuItem onClick={() => handleSetDefault(profile.id)}>
+                            <Star className="mr-2 h-4 w-4" />
+                            ตั้งเป็นค่าเริ่มต้น
+                          </DropdownMenuItem>
+                        )}
+                        {!profile.isSystem && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(profile.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              ลบ
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       <ProfileEditDialog

@@ -177,6 +177,51 @@ export async function createBox(formData: FormData): Promise<ApiResponse<{ id: s
     }).catch(() => {}); // Ignore if contact not found
   }
 
+  // Create BoxPayer records (who pays - supports multiple payers)
+  const payersJson = formData.get("payers") as string;
+  if (payersJson) {
+    try {
+      const payers = JSON.parse(payersJson) as {
+        id: string;
+        payerType: "COMPANY" | "PETTY_CASH" | "MEMBER";
+        memberId?: string;
+        amount: number;
+      }[];
+
+      for (const payer of payers) {
+        await prisma.boxPayer.create({
+          data: {
+            boxId: box.id,
+            payerType: payer.payerType,
+            memberId: payer.payerType === "MEMBER" ? payer.memberId : null,
+            amount: payer.amount,
+            reimbursementStatus: payer.payerType === "MEMBER" ? "PENDING" : "NONE",
+          },
+        });
+      }
+    } catch {
+      // If payers parsing fails, create default COMPANY payer
+      await prisma.boxPayer.create({
+        data: {
+          boxId: box.id,
+          payerType: "COMPANY",
+          amount: totalAmount,
+          reimbursementStatus: "NONE",
+        },
+      });
+    }
+  } else {
+    // No payers specified - default to COMPANY
+    await prisma.boxPayer.create({
+      data: {
+        boxId: box.id,
+        payerType: "COMPANY",
+        amount: totalAmount,
+        reimbursementStatus: "NONE",
+      },
+    });
+  }
+
   revalidatePath("/documents");
   revalidatePath("/wht-tracking");
   

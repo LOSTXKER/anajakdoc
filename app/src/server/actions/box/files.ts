@@ -3,7 +3,7 @@
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { createAutoPaymentFromSlip, recalculateBoxPaymentStatus } from "../payment-helpers";
 import crypto from "crypto";
 import type { ApiResponse, DocType } from "@/types";
@@ -42,7 +42,7 @@ export async function addFileToBox(
     return { success: false, error: "ไม่พบไฟล์" };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   try {
     // Generate unique filename
@@ -79,17 +79,17 @@ export async function addFileToBox(
       };
     }
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage using admin client (bypasses RLS)
     const { error: uploadError } = await supabase.storage
       .from("documents")
-      .upload(fileName, file, {
+      .upload(fileName, buffer, {
         contentType: file.type,
         cacheControl: "3600",
       });
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
-      return { success: false, error: "อัปโหลดไฟล์ไม่สำเร็จ" };
+      return { success: false, error: `อัปโหลดไฟล์ไม่สำเร็จ: ${uploadError.message}` };
     }
 
     // Get public URL
@@ -209,6 +209,117 @@ export async function addFileToBox(
   }
 }
 
+// ==================== Update File Doc Type ====================
+
+export async function updateFileDocType(
+  boxId: string,
+  fileId: string,
+  newDocType: DocType
+): Promise<ApiResponse> {
+  const session = await requireOrganization();
+
+  const box = await prisma.box.findFirst({
+    where: {
+      id: boxId,
+      organizationId: session.currentOrganization.id,
+    },
+  });
+
+  if (!box) {
+    return { success: false, error: "ไม่พบกล่องเอกสาร" };
+  }
+
+  const file = await prisma.documentFile.findFirst({
+    where: {
+      id: fileId,
+      document: {
+        boxId: box.id,
+      },
+    },
+    include: {
+      document: true,
+    },
+  });
+
+  if (!file) {
+    return { success: false, error: "ไม่พบไฟล์" };
+  }
+
+  const oldDocType = file.document.docType;
+
+  // If same type, no action needed
+  if (oldDocType === newDocType) {
+    return { success: true, message: "ประเภทเอกสารเหมือนเดิม" };
+  }
+
+  try {
+    // Check if there's already a Document with the new type
+    let targetDocument = await prisma.document.findFirst({
+      where: {
+        boxId: box.id,
+        docType: newDocType,
+      },
+    });
+
+    if (targetDocument) {
+      // Move file to existing document
+      await prisma.documentFile.update({
+        where: { id: fileId },
+        data: { documentId: targetDocument.id },
+      });
+    } else {
+      // Create new document with new type and move file
+      targetDocument = await prisma.document.create({
+        data: {
+          boxId: box.id,
+          docType: newDocType,
+        },
+      });
+      await prisma.documentFile.update({
+        where: { id: fileId },
+        data: { documentId: targetDocument.id },
+      });
+    }
+
+    // Check if old document has any files left
+    const remainingFiles = await prisma.documentFile.count({
+      where: { documentId: file.documentId },
+    });
+
+    // If old document is empty, delete it
+    if (remainingFiles === 0) {
+      await prisma.document.delete({
+        where: { id: file.documentId },
+      });
+    }
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        boxId: box.id,
+        userId: session.id,
+        action: "FILE_TYPE_CHANGED",
+        details: {
+          fileName: file.fileName,
+          oldDocType,
+          newDocType,
+        },
+      },
+    });
+
+    // Recalculate checklist
+    await recalculateBoxChecklist(box.id);
+
+    revalidatePath(`/documents/${box.id}`);
+    revalidatePath("/documents");
+
+    return { success: true, message: "เปลี่ยนประเภทเอกสารสำเร็จ" };
+  } catch (error) {
+    console.error("Error updating file doc type:", error);
+    return { success: false, error: "เกิดข้อผิดพลาด" };
+  }
+}
+
 // ==================== Delete File ====================
 
 export async function deleteBoxFile(
@@ -244,7 +355,7 @@ export async function deleteBoxFile(
     return { success: false, error: "ไม่พบไฟล์" };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   try {
     // Delete from storage

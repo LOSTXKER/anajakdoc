@@ -9,7 +9,7 @@ import {
   RecentBoxes,
 } from "./_components";
 
-// Dashboard stats query following Plan V3 Section 14
+// Dashboard stats query - using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
 async function getDashboardStats(orgId: string) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -26,7 +26,7 @@ async function getDashboardStats(orgId: string) {
     monthlyIncome,
     recentBoxes,
     
-    // Owner Dashboard Stats (Section 14)
+    // Owner Dashboard Stats
     pendingBoxes,
     pendingAmount,
     whtOutstanding,
@@ -40,21 +40,22 @@ async function getDashboardStats(orgId: string) {
     aging8to14,
     aging15plus,
     
-    // Accountant Dashboard Stats (Section 14)
-    submittedCount,
-    inReviewCount,
-    needMoreDocsCount,
-    readyToBookCount,
-    whtPendingCount,
+    // Accountant Dashboard Stats (using new status system)
+    draftCount,
+    pendingCount,
+    needDocsCount,
+    completedCount,
+    vatMissingCount,
+    whtMissingCount,
     overdueTasksCount,
   ] = await Promise.all([
-    // Monthly stats
+    // Monthly stats - include all non-draft boxes
     prisma.box.aggregate({
       where: {
         organizationId: orgId,
         boxType: "EXPENSE",
         boxDate: { gte: startOfMonth, lte: endOfMonth },
-        status: { notIn: ["CANCELLED"] },
+        status: { notIn: ["DRAFT"] },
       },
       _sum: { totalAmount: true },
     }),
@@ -63,7 +64,7 @@ async function getDashboardStats(orgId: string) {
         organizationId: orgId,
         boxType: "INCOME",
         boxDate: { gte: startOfMonth, lte: endOfMonth },
-        status: { notIn: ["CANCELLED"] },
+        status: { notIn: ["DRAFT"] },
       },
       _sum: { totalAmount: true },
     }),
@@ -76,18 +77,18 @@ async function getDashboardStats(orgId: string) {
       },
     }),
     
-    // Owner: Pending boxes (not booked/archived/locked/cancelled)
+    // Owner: Pending boxes (not completed)
     prisma.box.count({
       where: {
         organizationId: orgId,
-        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
       },
     }),
-    // Owner: Total pending amount
+    // Owner: Total pending amount (not completed)
     prisma.box.aggregate({
       where: {
         organizationId: orgId,
-        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
       },
       _sum: { totalAmount: true },
     }),
@@ -97,7 +98,6 @@ async function getDashboardStats(orgId: string) {
         organizationId: orgId,
         hasWht: true,
         whtDocStatus: { in: ["MISSING", "REQUEST_SENT"] },
-        status: { notIn: ["CANCELLED"] },
       },
       _sum: { whtAmount: true },
     }),
@@ -107,7 +107,6 @@ async function getDashboardStats(orgId: string) {
         organizationId: orgId,
         hasWht: true,
         whtOverdue: true,
-        status: { notIn: ["CANCELLED"] },
       },
     }),
     // Owner: Possible duplicates
@@ -115,7 +114,7 @@ async function getDashboardStats(orgId: string) {
       where: {
         organizationId: orgId,
         possibleDuplicate: true,
-        status: { notIn: ["CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
       },
     }),
     // Owner: Reimbursement pending
@@ -124,47 +123,63 @@ async function getDashboardStats(orgId: string) {
         organizationId: orgId,
         paymentMode: "EMPLOYEE_ADVANCE",
         reimbursementStatus: "PENDING",
-        status: { notIn: ["CANCELLED"] },
       },
       _sum: { totalAmount: true },
     }),
     
-    // Aging buckets
+    // Aging buckets (not completed)
     prisma.box.count({
       where: {
         organizationId: orgId,
-        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
         createdAt: { gte: threeDaysAgo },
       },
     }),
     prisma.box.count({
       where: {
         organizationId: orgId,
-        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
         createdAt: { lt: threeDaysAgo, gte: sevenDaysAgo },
       },
     }),
     prisma.box.count({
       where: {
         organizationId: orgId,
-        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
         createdAt: { lt: sevenDaysAgo, gte: fourteenDaysAgo },
       },
     }),
     prisma.box.count({
       where: {
         organizationId: orgId,
-        status: { notIn: ["BOOKED", "ARCHIVED", "LOCKED", "CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
         createdAt: { lt: fourteenDaysAgo },
       },
     }),
     
-    // Accountant stats
-    prisma.box.count({ where: { organizationId: orgId, status: "SUBMITTED" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "IN_REVIEW" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "NEED_MORE_DOCS" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "READY_TO_BOOK" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "WHT_PENDING" } }),
+    // Accountant stats - using new status system
+    prisma.box.count({ where: { organizationId: orgId, status: "DRAFT" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "PENDING" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "NEED_DOCS" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "COMPLETED" } }),
+    // VAT missing count
+    prisma.box.count({ 
+      where: { 
+        organizationId: orgId, 
+        hasVat: true,
+        vatDocStatus: "MISSING",
+        status: { notIn: ["COMPLETED"] },
+      } 
+    }),
+    // WHT missing count
+    prisma.box.count({ 
+      where: { 
+        organizationId: orgId, 
+        hasWht: true,
+        whtDocStatus: { in: ["MISSING", "REQUEST_SENT"] },
+        status: { notIn: ["COMPLETED"] },
+      } 
+    }),
     prisma.task.count({
       where: {
         organizationId: orgId,
@@ -195,13 +210,14 @@ async function getDashboardStats(orgId: string) {
       },
     },
     
-    // Accountant stats
+    // Accountant stats - new status system
     accountant: {
-      inbox: submittedCount,
-      inReview: inReviewCount,
-      needMoreDocs: needMoreDocsCount,
-      readyToBook: readyToBookCount,
-      whtPending: whtPendingCount,
+      draft: draftCount,
+      pending: pendingCount,
+      needDocs: needDocsCount,
+      completed: completedCount,
+      vatMissing: vatMissingCount,
+      whtMissing: whtMissingCount,
       overdueTasks: overdueTasksCount,
     },
   };

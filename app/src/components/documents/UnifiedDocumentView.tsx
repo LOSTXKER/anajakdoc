@@ -6,7 +6,28 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DocumentBoxCard } from "@/components/documents/DocumentBoxCard";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { BulkActions } from "@/components/documents/BulkActions";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -20,25 +41,34 @@ import {
   Package,
   AlertCircle,
   Wallet,
+  MoreVertical,
+  Eye,
+  HelpCircle,
+  XCircle,
+  FileQuestion,
+  Send,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { reviewBox } from "@/server/actions/box";
-import { isAccountingRole } from "@/lib/document-config";
+import { isAccountingRole, canReviewBox, getBoxTypeConfig, getBoxStatusConfig } from "@/lib/document-config";
+import { formatDate, formatMoney } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 import type { MemberRole, SerializedBoxListItem } from "@/types";
 
-type TabValue = "mine" | "pending" | "incomplete" | "ready" | "done" | "reimburse" | "all";
+type TabValue = "mine" | "pending" | "tracking" | "done" | "reimburse" | "all";
 
 interface UnifiedDocumentViewProps {
   boxes: SerializedBoxListItem[];
   counts: {
     myBoxes: number;
-    pendingReview: number;
-    needInfo: number;
-    approved: number;
-    exported: number;
+    draft: number;
+    pending: number;
+    needDocs: number;
+    completed: number;
     total: number;
-    incomplete: number;
-    complete: number;
+    vatMissing: number;
+    whtMissing: number;
     reimbursePending?: number;
   };
   userRole: MemberRole;
@@ -51,31 +81,48 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
   const isAccounting = isAccountingRole(userRole);
   
   // Memoize filtered box lists to prevent recalculation on every render
+  // Using simplified 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
   const filteredBoxes = useMemo(() => ({
     myBoxes: boxes.filter(b => b.createdById === userId),
-    pendingBoxes: boxes.filter(b => ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"].includes(b.status)),
-    incompleteBoxes: boxes.filter(b => b.docStatus === "INCOMPLETE"),
-    readyBoxes: boxes.filter(b => ["READY_TO_BOOK", "WHT_PENDING"].includes(b.status)),
-    doneBoxes: boxes.filter(b => ["BOOKED", "ARCHIVED", "LOCKED"].includes(b.status)),
-    // Reimbursement: Employee paid, pending reimbursement (Section 19)
+    // รอตรวจ: PENDING และ NEED_DOCS
+    pendingBoxes: boxes.filter(b => b.status === "PENDING" || b.status === "NEED_DOCS"),
+    // เสร็จ: COMPLETED
+    doneBoxes: boxes.filter(b => b.status === "COMPLETED"),
+    // ติดตาม: boxes that need VAT/WHT documents
+    trackingBoxes: boxes.filter(b => 
+      (b.hasVat && b.vatDocStatus === "MISSING") ||
+      (b.hasWht && ["MISSING", "REQUEST_SENT"].includes(b.whtDocStatus))
+    ),
+    // รอคืนเงิน: Employee paid, pending reimbursement
     reimburseBoxes: boxes.filter(b => 
       b.paymentMode === "EMPLOYEE_ADVANCE" && b.reimbursementStatus === "PENDING"
     ),
   }), [boxes, userId]);
 
-  const { myBoxes, pendingBoxes, incompleteBoxes, readyBoxes, doneBoxes, reimburseBoxes } = filteredBoxes;
+  const { myBoxes, pendingBoxes, doneBoxes, trackingBoxes, reimburseBoxes } = filteredBoxes;
+  
+  // Tracking filter state
+  const [trackingFilter, setTrackingFilter] = useState<"all" | "vat_missing" | "wht_missing" | "wht_sent">("all");
+  
+  // Filter tracking boxes based on dropdown
+  const filteredTrackingBoxes = useMemo(() => {
+    if (trackingFilter === "all") return trackingBoxes;
+    if (trackingFilter === "vat_missing") return trackingBoxes.filter(b => b.hasVat && b.vatDocStatus === "MISSING");
+    if (trackingFilter === "wht_missing") return trackingBoxes.filter(b => b.hasWht && b.whtDocStatus === "MISSING");
+    if (trackingFilter === "wht_sent") return trackingBoxes.filter(b => b.hasWht && b.whtDocStatus === "REQUEST_SENT");
+    return trackingBoxes;
+  }, [trackingBoxes, trackingFilter]);
   
   const getBoxesForTab = useCallback((tab: TabValue) => {
     switch (tab) {
       case "mine": return myBoxes;
       case "pending": return pendingBoxes;
-      case "incomplete": return incompleteBoxes;
-      case "ready": return readyBoxes;
+      case "tracking": return filteredTrackingBoxes;
       case "done": return doneBoxes;
       case "reimburse": return reimburseBoxes;
       default: return boxes;
     }
-  }, [myBoxes, pendingBoxes, incompleteBoxes, readyBoxes, doneBoxes, reimburseBoxes, boxes]);
+  }, [myBoxes, pendingBoxes, filteredTrackingBoxes, doneBoxes, reimburseBoxes, boxes]);
   
   // Default tab based on role
   const defaultTab: TabValue = isAccounting ? "pending" : "mine";
@@ -139,7 +186,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
       
       for (const id of selectedIds) {
         const box = boxes.find(b => b.id === id);
-        if (box && ["SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"].includes(box.status)) {
+        if (box && ["PENDING", "NEED_DOCS"].includes(box.status)) {
           const result = await reviewBox(id, "approve");
           if (result.success) successCount++;
         }
@@ -153,6 +200,179 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
 
   const showActions = isAccounting && (activeTab === "pending" || activeTab === "all");
   const showCheckbox = isAccounting && activeTab === "pending";
+
+  // Render table row for a box
+  const renderTableRow = (box: SerializedBoxListItem, showRowCheckbox: boolean, showRowActions: boolean) => {
+    const boxTypeConfig = getBoxTypeConfig(box.boxType);
+    const boxStatusConfig = getBoxStatusConfig(box.status);
+    const canReview = canReviewBox(box.status);
+    const BoxTypeIcon = boxTypeConfig.icon;
+
+    return (
+      <TableRow key={box.id} className="group">
+        {/* Checkbox */}
+        {showRowCheckbox && (
+          <TableCell className="w-[40px]">
+            <Checkbox
+              checked={selectedIds.has(box.id)}
+              onCheckedChange={(checked) => handleSelect(box.id, checked === true)}
+            />
+          </TableCell>
+        )}
+        
+        {/* Box Number */}
+        <TableCell>
+          <Link href={`/documents/${box.id}`} className="hover:underline">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className={cn("text-xs gap-1", boxTypeConfig.badgeClass)}>
+                <BoxTypeIcon className="w-3 h-3" />
+              </Badge>
+              <span className="font-medium">{box.boxNumber}</span>
+            </div>
+          </Link>
+        </TableCell>
+        
+        {/* Date */}
+        <TableCell className="text-muted-foreground">
+          {formatDate(box.boxDate, "short")}
+        </TableCell>
+        
+        {/* Title */}
+        <TableCell className="max-w-[200px]">
+          <Link href={`/documents/${box.id}`} className="hover:underline">
+            <p className="truncate">{box.title || box.description || "-"}</p>
+          </Link>
+        </TableCell>
+        
+        {/* Contact */}
+        <TableCell className="text-muted-foreground">
+          {box.contact?.name || "-"}
+        </TableCell>
+        
+        {/* Category */}
+        <TableCell>
+          {box.category?.name && (
+            <Badge variant="outline" className="text-xs">
+              {box.category.name}
+            </Badge>
+          )}
+        </TableCell>
+        
+        {/* Amount */}
+        <TableCell className="text-right">
+          <span className={cn("font-semibold", boxTypeConfig.amountColor)}>
+            {box.boxType === "INCOME" ? "+" : "-"}฿{formatMoney(box.totalAmount)}
+          </span>
+        </TableCell>
+        
+        {/* Status */}
+        <TableCell>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
+              {boxStatusConfig.label}
+            </Badge>
+            {/* VAT Document Status Icon */}
+            {box.hasVat && box.vatDocStatus === "MISSING" && (
+              <span title="ยังไม่ได้รับใบกำกับภาษี">
+                <FileQuestion className="w-3.5 h-3.5 text-amber-500" />
+              </span>
+            )}
+            {/* WHT Document Status Icons */}
+            {box.hasWht && box.whtDocStatus === "MISSING" && (
+              <span title="ยังไม่ได้รับใบหัก ณ ที่จ่าย">
+                <FileQuestion className="w-3.5 h-3.5 text-orange-500" />
+              </span>
+            )}
+            {box.hasWht && box.whtDocStatus === "REQUEST_SENT" && (
+              <span title="ส่งคำขอใบหัก ณ ที่จ่ายแล้ว">
+                <Send className="w-3.5 h-3.5 text-blue-500" />
+              </span>
+            )}
+            {/* Reimbursement Icon */}
+            {box.paymentMode === "EMPLOYEE_ADVANCE" && box.reimbursementStatus === "PENDING" && (
+              <span title="รอเบิกคืนเงิน">
+                <Wallet className="w-3.5 h-3.5 text-orange-500" />
+              </span>
+            )}
+          </div>
+        </TableCell>
+        
+        {/* Actions */}
+        <TableCell className="w-[50px]">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/documents/${box.id}`}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  ดูรายละเอียด
+                </Link>
+              </DropdownMenuItem>
+              {showRowActions && canReview && (
+                <>
+                  <DropdownMenuItem onClick={() => handleAction(box.id, "approve")}>
+                    <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
+                    อนุมัติ
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAction(box.id, "need_info")}>
+                    <HelpCircle className="mr-2 h-4 w-4 text-amber-600" />
+                    ขอข้อมูลเพิ่ม
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAction(box.id, "reject")}>
+                    <XCircle className="mr-2 h-4 w-4 text-red-600" />
+                    ปฏิเสธ
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  // Render table with data
+  const renderTable = (data: SerializedBoxListItem[], showTableCheckbox: boolean, showTableActions: boolean) => {
+    if (data.length === 0) return null;
+    
+    return (
+      <div className="rounded-xl border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {showTableCheckbox && (
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
+              )}
+              <TableHead>เลขที่</TableHead>
+              <TableHead>วันที่</TableHead>
+              <TableHead>รายการ</TableHead>
+              <TableHead>คู่ค้า</TableHead>
+              <TableHead>หมวดหมู่</TableHead>
+              <TableHead className="text-right">จำนวนเงิน</TableHead>
+              <TableHead>สถานะ</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.map(box => renderTableRow(box, showTableCheckbox, showTableActions))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -178,22 +398,13 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 )}
               </TabsTrigger>
             )}
-            <TabsTrigger value="incomplete" className="gap-2 data-[state=active]:bg-card">
-              <AlertCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">รอเอกสาร</span>
-              {incompleteBoxes.length > 0 && (
-                <span className="text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
-                  {incompleteBoxes.length}
-                </span>
-              )}
-            </TabsTrigger>
             {isAccounting && (
-              <TabsTrigger value="ready" className="gap-2 data-[state=active]:bg-card">
-                <FileCheck className="h-4 w-4" />
-                <span className="hidden sm:inline">พร้อม</span>
-                {readyBoxes.length > 0 && (
-                  <span className="text-xs bg-violet-500 text-white px-1.5 py-0.5 rounded-full">
-                    {readyBoxes.length}
+              <TabsTrigger value="tracking" className="gap-2 data-[state=active]:bg-card">
+                <Search className="h-4 w-4" />
+                <span className="hidden sm:inline">ติดตาม</span>
+                {trackingBoxes.length > 0 && (
+                  <span className="text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                    {trackingBoxes.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -241,13 +452,19 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
               </>
             )}
 
-            {activeTab === "ready" && readyBoxes.length > 0 && (
-              <Button size="sm" variant="outline" asChild>
-                <Link href="/export">
-                  <Download className="mr-1 h-4 w-4" />
-                  ไป Export
-                </Link>
-              </Button>
+            {/* Tracking Filter Dropdown */}
+            {activeTab === "tracking" && (
+              <Select value={trackingFilter} onValueChange={(v) => setTrackingFilter(v as typeof trackingFilter)}>
+                <SelectTrigger className="w-[160px] h-9">
+                  <SelectValue placeholder="กรองตาม..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทั้งหมด</SelectItem>
+                  <SelectItem value="vat_missing">ขาดใบ VAT</SelectItem>
+                  <SelectItem value="wht_missing">ขาดใบ WHT</SelectItem>
+                  <SelectItem value="wht_sent">ส่งคำขอ WHT แล้ว</SelectItem>
+                </SelectContent>
+              </Select>
             )}
 
             {activeTab === "mine" && (
@@ -261,31 +478,11 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           </div>
         </div>
 
-        {/* Select All Header */}
-        {showCheckbox && currentBoxes.length > 0 && (
-          <div className="flex items-center gap-3 py-3 px-1 border-b border-border">
-            <Checkbox
-              checked={allSelected}
-              onCheckedChange={handleSelectAll}
-            />
-            <span className="text-sm text-muted-foreground">
-              {allSelected ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
-            </span>
-          </div>
-        )}
-
-        {/* Box List */}
-        <div className="mt-4 space-y-3">
+        {/* Box Table */}
+        <div className="mt-4">
           <TabsContent value="mine" className="m-0">
             {myBoxes.length > 0 ? (
-              myBoxes.map(box => (
-                <DocumentBoxCard
-                  key={box.id}
-                  box={box}
-                  showCheckbox={false}
-                  showActions={false}
-                />
-              ))
+              renderTable(myBoxes, false, false)
             ) : (
               <EmptyState
                 icon={Package}
@@ -305,17 +502,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
 
           <TabsContent value="pending" className="m-0">
             {pendingBoxes.length > 0 ? (
-              pendingBoxes.map(box => (
-                <DocumentBoxCard
-                  key={box.id}
-                  box={box}
-                  selected={selectedIds.has(box.id)}
-                  onSelect={handleSelect}
-                  onAction={handleAction}
-                  showCheckbox={showCheckbox}
-                  showActions={showActions}
-                />
-              ))
+              renderTable(pendingBoxes, showCheckbox, showActions)
             ) : (
               <EmptyState
                 icon={Inbox}
@@ -325,54 +512,21 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
             )}
           </TabsContent>
 
-          <TabsContent value="incomplete" className="m-0">
-            {incompleteBoxes.length > 0 ? (
-              incompleteBoxes.map(box => (
-                <DocumentBoxCard
-                  key={box.id}
-                  box={box}
-                  showCheckbox={false}
-                  showActions={false}
-                />
-              ))
+          <TabsContent value="tracking" className="m-0">
+            {filteredTrackingBoxes.length > 0 ? (
+              renderTable(filteredTrackingBoxes, false, false)
             ) : (
               <EmptyState
-                icon={AlertCircle}
-                title="ไม่มีกล่องรอเอกสาร"
-                description="กล่องที่เอกสารยังไม่ครบจะแสดงที่นี่"
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="ready" className="m-0">
-            {readyBoxes.length > 0 ? (
-              readyBoxes.map(box => (
-                <DocumentBoxCard
-                  key={box.id}
-                  box={box}
-                  showCheckbox={false}
-                  showActions={false}
-                />
-              ))
-            ) : (
-              <EmptyState
-                icon={FileCheck}
-                title="ไม่มีกล่องพร้อม Export"
-                description="กล่องที่อนุมัติแล้วจะแสดงที่นี่"
+                icon={Search}
+                title="ไม่มีเอกสารที่ต้องติดตาม"
+                description="กล่องที่ขาดใบ VAT หรือใบหัก ณ ที่จ่ายจะแสดงที่นี่"
               />
             )}
           </TabsContent>
 
           <TabsContent value="done" className="m-0">
             {doneBoxes.length > 0 ? (
-              doneBoxes.map(box => (
-                <DocumentBoxCard
-                  key={box.id}
-                  box={box}
-                  showCheckbox={false}
-                  showActions={false}
-                />
-              ))
+              renderTable(doneBoxes, false, false)
             ) : (
               <EmptyState
                 icon={CheckCircle}
@@ -384,17 +538,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
 
           <TabsContent value="reimburse" className="m-0">
             {reimburseBoxes.length > 0 ? (
-              reimburseBoxes.map(box => (
-                <DocumentBoxCard
-                  key={box.id}
-                  box={box}
-                  selected={selectedIds.has(box.id)}
-                  onSelect={handleSelect}
-                  showCheckbox={isAccounting}
-                  showActions={false}
-                  showReimburseBadge
-                />
-              ))
+              renderTable(reimburseBoxes, isAccounting, false)
             ) : (
               <EmptyState
                 icon={Wallet}
@@ -406,17 +550,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
 
           <TabsContent value="all" className="m-0">
             {boxes.length > 0 ? (
-              boxes.map(box => (
-                <DocumentBoxCard
-                  key={box.id}
-                  box={box}
-                  selected={selectedIds.has(box.id)}
-                  onSelect={handleSelect}
-                  onAction={handleAction}
-                  showCheckbox={showCheckbox && showActions}
-                  showActions={showActions}
-                />
-              ))
+              renderTable(boxes, showCheckbox && showActions, showActions)
             ) : (
               <EmptyState
                 icon={Package}

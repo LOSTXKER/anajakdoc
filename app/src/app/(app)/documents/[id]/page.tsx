@@ -11,34 +11,6 @@ interface DocumentPageProps {
   params: Promise<{ id: string }>;
 }
 
-async function getBoxTasks(boxId: string) {
-  const tasks = await prisma.task.findMany({
-    where: { boxId },
-    include: {
-      assignee: {
-        select: { id: true, name: true, email: true, avatarUrl: true },
-      },
-    },
-    orderBy: [
-      { status: "asc" },
-      { dueDate: "asc" },
-      { createdAt: "desc" },
-    ],
-  });
-
-  return tasks.map(task => ({
-    id: task.id,
-    taskType: task.taskType,
-    status: task.status,
-    title: task.title,
-    description: task.description,
-    dueDate: task.dueDate?.toISOString() ?? null,
-    escalationLevel: task.escalationLevel,
-    assignee: task.assignee,
-    createdAt: task.createdAt.toISOString(),
-  }));
-}
-
 async function getContacts(orgId: string) {
   const contacts = await prisma.contact.findMany({
     where: { 
@@ -65,16 +37,48 @@ async function getContacts(orgId: string) {
   }));
 }
 
+async function getBoxPayers(boxId: string) {
+  const payers = await prisma.boxPayer.findMany({
+    where: { boxId },
+    include: {
+      member: {
+        select: {
+          id: true,
+          visibleName: true,
+          bankName: true,
+          bankAccount: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return payers.map(p => ({
+    id: p.id,
+    payerType: p.payerType,
+    amount: p.amount.toNumber(),
+    reimbursementStatus: p.reimbursementStatus,
+    reimbursedAt: p.reimbursedAt?.toISOString() || null,
+    member: p.member,
+  }));
+}
+
 export default async function DocumentPage({ params }: DocumentPageProps) {
   const session = await requireOrganization();
   const { id } = await params;
   
-  const [box, tasks, contacts, commentsResult, activitiesResult] = await Promise.all([
+  const [box, contacts, commentsResult, activitiesResult, payers] = await Promise.all([
     getBox(id),
-    getBoxTasks(id),
     getContacts(session.currentOrganization.id),
     getBoxComments(id),
     getBoxAuditLogs(id),
+    getBoxPayers(id),
   ]);
 
   if (!box) {
@@ -87,8 +91,10 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const activities = activitiesResult.success ? activitiesResult.data : [];
 
   // Determine permissions
+  // canEdit: allow editing box details and advancing status (using new 4-status system)
+  const editableStatuses = ["DRAFT", "PENDING", "NEED_DOCS"];
   const canEdit = ["OWNER", "ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
-    ["DRAFT", "NEED_MORE_DOCS", "SUBMITTED"].includes(box.status);
+    editableStatuses.includes(box.status);
   const canSend = ["OWNER", "ADMIN", "STAFF"].includes(userRole) && box.status === "DRAFT";
   const canDelete = box.status === "DRAFT" && (
     ["OWNER", "ADMIN"].includes(userRole) || 
@@ -99,10 +105,10 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   return (
     <BoxDetailWrapper 
       box={serializedBox}
-      tasks={tasks}
       contacts={contacts}
       comments={comments}
       activities={activities}
+      payers={payers}
       currentUserId={session.id}
       isAdmin={isAdmin}
       canEdit={canEdit}

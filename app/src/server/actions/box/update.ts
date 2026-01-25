@@ -16,3 +16,4 @@ export { updateVatStatus } from "./update-vat-status";
 export { updateWhtStatus } from "./update-wht-status";
 export { markDuplicate } from "./update-duplicate";
 export { updateReimbursementStatus } from "./update-reimbursement";
+export { updateBoxStatus } from "./update-status";

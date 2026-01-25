@@ -41,17 +41,18 @@ const TEST_CATEGORIES = [
   { code: "SVC", name: "รายได้จากบริการ", type: "INCOME" },
 ];
 
+// Using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
 const BOX_TEMPLATES = [
-  { title: "ค่าเช่าออฟฟิศ ม.ค.", status: BoxStatus.BOOKED, amount: 35000, hasVat: true, hasWht: true, whtRate: 5 },
-  { title: "ค่าน้ำมันรถ", status: BoxStatus.READY_TO_BOOK, amount: 2500, hasVat: true, hasWht: false },
-  { title: "ค่าอินเทอร์เน็ต", status: BoxStatus.IN_REVIEW, amount: 1200, hasVat: true, hasWht: false },
-  { title: "ค่าจ้างออกแบบ", status: BoxStatus.NEED_MORE_DOCS, amount: 15000, hasVat: true, hasWht: true, whtRate: 3 },
-  { title: "ค่าที่ปรึกษา", status: BoxStatus.SUBMITTED, amount: 50000, hasVat: true, hasWht: true, whtRate: 3 },
-  { title: "ค่าโฆษณา Facebook", status: BoxStatus.IN_REVIEW, amount: 8500, hasVat: false, hasWht: false },
-  { title: "ค่าอุปกรณ์คอมพิวเตอร์", status: BoxStatus.BOOKED, amount: 25000, hasVat: true, hasWht: false },
-  { title: "ค่าบริการ AWS", status: BoxStatus.READY_TO_BOOK, amount: 3200, hasVat: false, hasWht: false },
-  { title: "ค่าทำความสะอาด", status: BoxStatus.SUBMITTED, amount: 4500, hasVat: true, hasWht: true, whtRate: 1 },
-  { title: "ค่าซ่อมแอร์", status: BoxStatus.IN_REVIEW, amount: 6800, hasVat: true, hasWht: true, whtRate: 3 },
+  { title: "ค่าเช่าออฟฟิศ ม.ค.", status: BoxStatus.COMPLETED, amount: 35000, hasVat: true, hasWht: true, whtRate: 5 },
+  { title: "ค่าน้ำมันรถ", status: BoxStatus.PENDING, amount: 2500, hasVat: true, hasWht: false },
+  { title: "ค่าอินเทอร์เน็ต", status: BoxStatus.PENDING, amount: 1200, hasVat: true, hasWht: false },
+  { title: "ค่าจ้างออกแบบ", status: BoxStatus.NEED_DOCS, amount: 15000, hasVat: true, hasWht: true, whtRate: 3 },
+  { title: "ค่าที่ปรึกษา", status: BoxStatus.PENDING, amount: 50000, hasVat: true, hasWht: true, whtRate: 3 },
+  { title: "ค่าโฆษณา Facebook", status: BoxStatus.PENDING, amount: 8500, hasVat: false, hasWht: false },
+  { title: "ค่าอุปกรณ์คอมพิวเตอร์", status: BoxStatus.COMPLETED, amount: 25000, hasVat: true, hasWht: false },
+  { title: "ค่าบริการ AWS", status: BoxStatus.PENDING, amount: 3200, hasVat: false, hasWht: false },
+  { title: "ค่าทำความสะอาด", status: BoxStatus.PENDING, amount: 4500, hasVat: true, hasWht: true, whtRate: 1 },
+  { title: "ค่าซ่อมแอร์", status: BoxStatus.PENDING, amount: 6800, hasVat: true, hasWht: true, whtRate: 3 },
 ];
 
 async function createSupabaseUser(prisma: PrismaClient, email: string, name: string): Promise<string | null> {

@@ -161,9 +161,20 @@ export type SerializedPayment = Omit<
   createdAt: string;
 };
 
+// Serialized contact for client (dates and decimals converted)
+export type SerializedContact = Omit<
+  Contact,
+  "defaultWhtRate" | "createdAt" | "updatedAt" | "lastUsedAt"
+> & {
+  defaultWhtRate: number | null;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+};
+
 export type SerializedWhtTracking = Omit<
   WhtTrackingWithContact,
-  "amount" | "rate" | "issuedDate" | "sentDate" | "receivedDate" | "dueDate" | "createdAt" | "updatedAt"
+  "amount" | "rate" | "issuedDate" | "sentDate" | "receivedDate" | "dueDate" | "createdAt" | "updatedAt" | "contact"
 > & {
   amount: number;
   rate: number | null;
@@ -173,6 +184,7 @@ export type SerializedWhtTracking = Omit<
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+  contact: SerializedContact | null;
   box?: {
     id: string;
     boxNumber: string;
@@ -202,7 +214,7 @@ export type SerializedBox = Omit<
   | "boxDate" | "dueDate" | "whtDueDate"
   | "vatVerifiedAt" | "submittedAt" | "reviewedAt" | "bookedAt" 
   | "exportedAt" | "archivedAt" | "lockedAt" | "createdAt" | "updatedAt" 
-  | "documents" | "payments" | "whtTrackings" | "tasks"
+  | "documents" | "payments" | "whtTrackings" | "tasks" | "contact"
 > & {
   totalAmount: number;
   vatAmount: number;
@@ -224,6 +236,7 @@ export type SerializedBox = Omit<
   lockedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  contact: SerializedContact | null;
   documents: SerializedDocument[];
   payments: SerializedPayment[];
   whtTrackings: SerializedWhtTracking[];
@@ -280,7 +293,7 @@ export type BoxListItem = {
 // Serialized box list item for client
 export type SerializedBoxListItem = Omit<
   BoxListItem,
-  "boxDate" | "dueDate" | "whtDueDate" | "exportedAt" | "createdAt" | "updatedAt" | "documents"
+  "boxDate" | "dueDate" | "whtDueDate" | "exportedAt" | "createdAt" | "updatedAt" | "documents" | "contact"
 > & {
   boxDate: string;
   dueDate: string | null;
@@ -289,6 +302,7 @@ export type SerializedBoxListItem = Omit<
   createdAt: string;
   updatedAt: string;
   documents: SerializedDocument[];
+  contact: SerializedContact | null;
 };
 
 // ==========================================
@@ -529,28 +543,7 @@ export type OrganizationRole = MemberRole;
 // ==========================================
 // Status transition types
 // ==========================================
-export type StatusTransition = {
-  from: BoxStatus;
-  to: BoxStatus;
-  allowedRoles: MemberRole[];
-  label: string;
-};
-
-// Valid status transitions (Section 5.3)
-export const STATUS_TRANSITIONS: StatusTransition[] = [
-  { from: "DRAFT", to: "SUBMITTED", allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"], label: "ส่งตรวจ" },
-  { from: "SUBMITTED", to: "IN_REVIEW", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "เริ่มตรวจ" },
-  { from: "IN_REVIEW", to: "NEED_MORE_DOCS", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ขอเอกสารเพิ่ม" },
-  { from: "NEED_MORE_DOCS", to: "SUBMITTED", allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"], label: "ส่งใหม่" },
-  { from: "IN_REVIEW", to: "READY_TO_BOOK", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "พร้อมลงบัญชี" },
-  { from: "IN_REVIEW", to: "WHT_PENDING", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ลงบัญชีได้ (รอ WHT)" },
-  { from: "READY_TO_BOOK", to: "BOOKED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ลงบัญชี" },
-  { from: "WHT_PENDING", to: "BOOKED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ลงบัญชี" },
-  { from: "BOOKED", to: "ARCHIVED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "เก็บเข้าคลัง" },
-  { from: "ARCHIVED", to: "LOCKED", allowedRoles: ["ADMIN", "OWNER"], label: "ล็อคงวด" },
-  // Cancel can happen from most states
-  { from: "DRAFT", to: "CANCELLED", allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
-  { from: "SUBMITTED", to: "CANCELLED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
-  { from: "IN_REVIEW", to: "CANCELLED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
-  { from: "NEED_MORE_DOCS", to: "CANCELLED", allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"], label: "ยกเลิก" },
-];
+// Note: Status transitions are now defined in @/lib/config/status-transitions.ts
+// Using simplified 4-status system: DRAFT → PENDING → COMPLETED
+//                                         ↓ ↑
+//                                    NEED_DOCS

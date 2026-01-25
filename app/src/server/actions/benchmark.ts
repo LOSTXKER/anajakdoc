@@ -93,11 +93,11 @@ export async function getOrganizationMetrics(): Promise<ApiResponse<Organization
     duplicateBoxes,
     whtBoxes,
   ] = await Promise.all([
-    // All non-cancelled boxes
+    // All non-draft boxes
     prisma.box.findMany({
       where: {
         organizationId: orgId,
-        status: { not: "CANCELLED" },
+        status: { not: "DRAFT" },
       },
       select: {
         id: true,
@@ -109,11 +109,11 @@ export async function getOrganizationMetrics(): Promise<ApiResponse<Organization
         updatedAt: true,
       },
     }),
-    // Booked boxes (for processing time calculation)
+    // Completed boxes (for processing time calculation)
     prisma.box.findMany({
       where: {
         organizationId: orgId,
-        status: { in: ["BOOKED", "ARCHIVED", "LOCKED"] },
+        status: "COMPLETED",
       },
       select: {
         createdAt: true,
@@ -140,7 +140,6 @@ export async function getOrganizationMetrics(): Promise<ApiResponse<Organization
       where: {
         organizationId: orgId,
         hasWht: true,
-        status: { not: "CANCELLED" },
       },
       select: {
         whtDocStatus: true,

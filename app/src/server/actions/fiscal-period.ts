@@ -151,31 +151,20 @@ export async function updatePeriodStatus(
     },
   });
 
-  // If closing period, lock all boxes in that period (Section 12.1)
+  // If closing period, mark all boxes as COMPLETED (new 4-status system)
   if (status === "CLOSED") {
     await prisma.box.updateMany({
       where: {
         fiscalPeriodId: periodId,
-        status: { not: "LOCKED" },
+        status: { not: "COMPLETED" },
       },
       data: {
-        status: "LOCKED",
+        status: "COMPLETED",
       },
     });
   }
   
-  // If reopening, unlock boxes back to BOOKED status
-  if (status === "OPEN" && period.status === "CLOSED") {
-    await prisma.box.updateMany({
-      where: {
-        fiscalPeriodId: periodId,
-        status: "LOCKED",
-      },
-      data: {
-        status: "BOOKED",
-      },
-    });
-  }
+  // If reopening, boxes stay COMPLETED (can be manually reverted if needed)
 
   revalidatePath("/settings/fiscal-periods");
   revalidatePath("/documents");

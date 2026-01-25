@@ -1,66 +1,72 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, 
   Loader2,
   Trash2,
   Send,
-  Settings2,
-  Calendar,
-  Building2,
   FileText,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getBoxStatusConfig } from "@/lib/document-config";
+import {
+  getPrimaryAdvance,
+  getPrimaryRevert,
+} from "@/lib/config/status-transitions";
 
-import { DocumentList } from "./DocumentList";
-import { DocStatusCard } from "./DocStatusCard";
-import { BoxSettings } from "./BoxSettings";
-import { TaskList } from "@/components/tasks";
+import { ProcessTimeline } from "./ProcessTimeline";
+import { DocumentChecklist } from "./DocumentChecklist";
+import { StatusRevertDialog } from "./StatusRevertDialog";
+import { AmountSummary } from "./AmountSummary";
+import { BoxInfoCard } from "./BoxInfoCard";
+import { PayerInfoCard } from "./PayerInfoCard";
 import { ShareDialog } from "@/components/documents/ShareDialog";
 import { CommentList } from "@/components/documents/comments";
 import { ActivityTimeline } from "@/components/documents/ActivityTimeline";
 import type { CommentData } from "@/server/actions/comment";
 import type { AuditLogEntry } from "@/server/actions/audit";
 
-import { updateBox } from "@/server/actions/box/update";
-import { addFileToBox, deleteBoxFile } from "@/server/actions/box/files";
+import { addFileToBox, deleteBoxFile, updateFileDocType } from "@/server/actions/box/files";
+import { updateBoxStatus } from "@/server/actions/box/update-status";
+import { updateVatDocStatus, updateWhtDocStatus } from "@/server/actions/box/update-doc-status";
 import { extractDocumentData } from "@/server/actions/ai-classify";
 
-import type { SerializedBox, DocType, TaskType, TaskStatus } from "@/types";
+import type { SerializedBox, DocType, BoxStatus } from "@/types";
 
-interface TaskItem {
+interface PayerInfo {
   id: string;
-  taskType: TaskType;
-  status: TaskStatus;
-  title: string;
-  description: string | null;
-  dueDate: Date | string | null;
-  escalationLevel: number;
-  assignee: {
+  payerType: "COMPANY" | "PETTY_CASH" | "MEMBER";
+  amount: number;
+  reimbursementStatus: "NONE" | "PENDING" | "REIMBURSED";
+  reimbursedAt: string | null;
+  member: {
     id: string;
-    name: string | null;
-    email: string;
-    avatarUrl: string | null;
+    visibleName: string | null;
+    bankName: string | null;
+    bankAccount: string | null;
+    user: {
+      name: string | null;
+      email: string;
+    };
   } | null;
-  createdAt: Date | string;
 }
 
 interface BoxDetailProps {
   box: SerializedBox;
-  tasks?: TaskItem[];
   contacts?: { id: string; name: string }[];
+  categories?: { id: string; name: string }[];
+  costCenters?: { id: string; name: string; code: string }[];
   comments?: CommentData[];
   activities?: AuditLogEntry[];
+  payers?: PayerInfo[];
   currentUserId?: string;
   isAdmin?: boolean;
   canEdit?: boolean;
@@ -68,15 +74,16 @@ interface BoxDetailProps {
   canDelete?: boolean;
   onSendToAccounting?: () => Promise<void>;
   onDelete?: () => Promise<void>;
-  onRefresh?: () => void;
 }
 
 export function BoxDetail({
   box,
-  tasks = [],
   contacts = [],
+  categories = [],
+  costCenters = [],
   comments = [],
   activities = [],
+  payers = [],
   currentUserId = "",
   isAdmin = false,
   canEdit = false,
@@ -84,9 +91,10 @@ export function BoxDetail({
   canDelete = false,
   onSendToAccounting,
   onDelete,
-  onRefresh,
 }: BoxDetailProps) {
   const [isPending, startTransition] = useTransition();
+  const [isStatusLoading, setIsStatusLoading] = useState(false);
+  const [revertDialogOpen, setRevertDialogOpen] = useState(false);
   
   // Get all files from documents
   const allFiles = box.documents?.flatMap(doc => 
@@ -95,23 +103,13 @@ export function BoxDetail({
       docType: doc.docType,
     })) || []
   ) || [];
-
-  // Document status checks
-  const uploadedDocTypes = new Set<DocType>(
-    box.documents?.map(doc => doc.docType) || []
-  );
   
   const statusConfig = getBoxStatusConfig(box.status);
   const hasWht = box.hasWht || false;
-  const hasVat = box.hasVat !== false; // default true
   
-  // VAT document status
-  const hasTaxInvoice = uploadedDocTypes.has("TAX_INVOICE") || uploadedDocTypes.has("TAX_INVOICE_ABB");
-  const hasCashReceipt = uploadedDocTypes.has("CASH_RECEIPT") || uploadedDocTypes.has("RECEIPT");
-  
-  // WHT document status  
-  const hasWhtDoc = uploadedDocTypes.has("WHT_SENT") || uploadedDocTypes.has("WHT_RECEIVED");
-  const whtSent = box.whtSent || false;
+  // Get available status transitions
+  const primaryAdvance = getPrimaryAdvance(box.status);
+  const primaryRevert = getPrimaryRevert(box.status);
 
   // Handle file upload with AI classification
   const handleUploadFiles = async (files: File[]) => {
@@ -167,6 +165,15 @@ export function BoxDetail({
     toast.success("ลบไฟล์สำเร็จ");
   };
 
+  const handleChangeDocType = async (fileId: string, newDocType: DocType) => {
+    const result = await updateFileDocType(box.id, fileId, newDocType);
+    if (!result.success) {
+      toast.error(result.error || "เปลี่ยนประเภทไม่สำเร็จ");
+      return;
+    }
+    toast.success(result.message || "เปลี่ยนประเภทเอกสารสำเร็จ");
+  };
+
   const handleAction = (action: "send" | "delete") => {
     startTransition(async () => {
       try {
@@ -183,20 +190,52 @@ export function BoxDetail({
     });
   };
 
-  // Format date
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("th-TH", {
-      day: "numeric",
-      month: "short", 
-      year: "numeric",
-    });
+  // Handle status advance
+  const handleAdvance = async () => {
+    if (!primaryAdvance) return;
+    setIsStatusLoading(true);
+    try {
+      const result = await updateBoxStatus({
+        boxId: box.id,
+        newStatus: primaryAdvance.to,
+      });
+      if (result.success) {
+        toast.success(result.message || "เปลี่ยนสถานะสำเร็จ");
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    } finally {
+      setIsStatusLoading(false);
+    }
+  };
+
+  // Handle status revert (with reason)
+  const handleRevertConfirm = async (reason: string) => {
+    if (!primaryRevert) return;
+    setIsStatusLoading(true);
+    try {
+      const result = await updateBoxStatus({
+        boxId: box.id,
+        newStatus: primaryRevert.to,
+        reason,
+      });
+      if (result.success) {
+        toast.success(result.message || "เปลี่ยนสถานะสำเร็จ");
+        setRevertDialogOpen(false);
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+        throw new Error(result.error);
+      }
+    } finally {
+      setIsStatusLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Back + Title */}
             <div className="flex items-center gap-3 min-w-0">
@@ -221,24 +260,40 @@ export function BoxDetail({
 
             {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
+              {/* Status Change Buttons */}
+              {canEdit && primaryRevert && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRevertDialogOpen(true)}
+                  disabled={isStatusLoading}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">{primaryRevert.label}</span>
+                </Button>
+              )}
+              
+              {canEdit && primaryAdvance && (
+                <Button
+                  size="sm"
+                  onClick={handleAdvance}
+                  disabled={isStatusLoading}
+                >
+                  {isStatusLoading ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : null}
+                  <span className="hidden sm:inline">{primaryAdvance.label}</span>
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              )}
+
+              {/* Separator */}
+              {canEdit && (primaryAdvance || primaryRevert) && (
+                <div className="w-px h-6 bg-border mx-1" />
+              )}
+
               {/* Share Button */}
               <ShareDialog boxId={box.id} boxNumber={box.boxNumber} />
-
-              {canEdit && (
-                <BoxSettings
-                  boxId={box.id}
-                  title={box.title}
-                  expenseType={box.expenseType}
-                  hasWht={hasWht}
-                  whtRate={box.whtRate}
-                  totalAmount={box.totalAmount}
-                  contactId={box.contactId}
-                  contacts={contacts}
-                  canEdit={canEdit}
-                  paymentMode={box.paymentMode}
-                  reimbursementStatus={box.reimbursementStatus}
-                />
-              )}
               
               {canDelete && onDelete && (
                 <Button 
@@ -268,123 +323,133 @@ export function BoxDetail({
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-        
-        {/* Box Info Card */}
-        <div className="rounded-2xl border bg-card p-5">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Contact */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">ผู้ติดต่อ</p>
-                <p className="font-medium text-foreground truncate">
-                  {box.contact?.name || "ไม่ระบุ"}
-                </p>
-              </div>
-            </div>
+      {/* Content - 2 Column Layout */}
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Process Timeline - Full Width */}
+        <ProcessTimeline box={box} />
 
-            {/* Date */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">วันที่</p>
-                <p className="font-medium text-foreground">{formatDate(box.boxDate)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Description/Notes */}
-          {(box.description || box.notes) && (
-            <div className="mt-4 pt-4 border-t flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">รายละเอียด</p>
-                <p className="text-sm text-foreground">
-                  {box.description || box.notes}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* VAT/WHT Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* VAT Status */}
-          {hasVat && box.expenseType === "STANDARD" && (
-            <DocStatusCard
-              type="VAT"
-              status={hasTaxInvoice ? "received" : "missing"}
-              label="ใบกำกับภาษี"
-              description={hasTaxInvoice ? "ได้รับเอกสารแล้ว" : "รอเอกสาร"}
-            />
-          )}
+        {/* 2 Column Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* WHT Status */}
-          {hasWht && (
-            <DocStatusCard
-              type="WHT"
-              status={whtSent ? "sent" : hasWhtDoc ? "received" : "missing"}
-              label="หนังสือหัก ณ ที่จ่าย"
-              description={
-                whtSent ? "ส่งให้คู่ค้าแล้ว" :
-                hasWhtDoc ? "ออกเอกสารแล้ว รอส่ง" : 
-                "รอออกเอกสาร"
-              }
-              amount={box.whtAmount}
-              rate={box.whtRate}
+          {/* Left Column - Main Content (2/3 width) */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Document Checklist - shows requirements + uploaded files */}
+            <DocumentChecklist
+              box={box}
+              files={allFiles}
+              canEdit={canEdit}
+              onUploadFiles={handleUploadFiles}
+              onDeleteFile={canEdit ? handleDeleteFile : undefined}
+              onChangeDocType={canEdit ? handleChangeDocType : undefined}
+              onUpdateVatStatus={canEdit ? async (status) => {
+                const result = await updateVatDocStatus(box.id, status);
+                if (result.success) {
+                  toast.success("อัปเดตสถานะใบกำกับภาษีแล้ว");
+                } else {
+                  toast.error(result.error || "เกิดข้อผิดพลาด");
+                }
+              } : undefined}
+              onUpdateWhtStatus={canEdit ? async (status) => {
+                const result = await updateWhtDocStatus(box.id, status);
+                if (result.success) {
+                  toast.success(
+                    status === "REQUEST_SENT" 
+                      ? "ส่งคำขอใบหัก ณ ที่จ่ายแล้ว" 
+                      : "อัปเดตสถานะใบหัก ณ ที่จ่ายแล้ว"
+                  );
+                } else {
+                  toast.error(result.error || "เกิดข้อผิดพลาด");
+                }
+              } : undefined}
             />
-          )}
-        </div>
 
-        {/* Documents List */}
-        <DocumentList
-          files={allFiles}
-          canEdit={canEdit}
-          onUploadFiles={handleUploadFiles}
-          onDeleteFile={canEdit ? handleDeleteFile : undefined}
-        />
-
-        {/* Task List */}
-        <TaskList
-          boxId={box.id}
-          tasks={tasks}
-          onRefresh={onRefresh}
-        />
-
-        {/* Comments Section */}
-        <div className="rounded-2xl border bg-card p-5">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            ความคิดเห็น
-          </h3>
-          <CommentList
-            boxId={box.id}
-            comments={comments}
-            currentUserId={currentUserId}
-            isAdmin={isAdmin}
-          />
-        </div>
-
-        {/* Activity Timeline */}
-        {activities.length > 0 && (
-          <div className="rounded-2xl border bg-card p-5">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <History className="h-4 w-4" />
-              ประวัติกิจกรรม
-            </h3>
-            <ActivityTimeline activities={activities} />
+            {/* Comments Section - Below Documents */}
+            <div className="rounded-2xl border bg-card p-5">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                ความคิดเห็น
+              </h3>
+              <CommentList
+                boxId={box.id}
+                comments={comments}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+              />
+            </div>
           </div>
-        )}
 
+          {/* Right Column - Sidebar (1/3 width) */}
+          <div className="space-y-4">
+            {/* Amount Summary Card */}
+            <AmountSummary
+              boxId={box.id}
+              boxType={box.boxType}
+              totalAmount={box.totalAmount}
+              vatAmount={box.vatAmount}
+              whtAmount={box.whtAmount}
+              hasVat={box.hasVat}
+              vatRate={box.vatRate}
+              hasWht={hasWht}
+              whtRate={box.whtRate}
+              expenseType={box.expenseType}
+              canEdit={canEdit}
+            />
+
+            {/* Box Info Card - Inline Editable */}
+            <BoxInfoCard
+              boxId={box.id}
+              title={box.title}
+              boxDate={box.boxDate}
+              description={box.description}
+              notes={box.notes}
+              contact={box.contact}
+              category={box.category}
+              costCenter={box.costCenter}
+              contacts={contacts}
+              categories={categories}
+              costCenters={costCenters}
+              canEdit={canEdit}
+            />
+
+            {/* Payer Info Card - Who Paid */}
+            {payers.length > 0 && (
+              <PayerInfoCard
+                payers={payers}
+                canEdit={canEdit}
+              />
+            )}
+
+            {/* Activity Timeline - Height Limited */}
+            {activities.length > 0 && (
+              <div className="rounded-2xl border bg-card p-5">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  ประวัติกิจกรรม
+                  <span className="text-xs text-muted-foreground font-normal">
+                    ({activities.length} รายการ)
+                  </span>
+                </h3>
+                <div className="max-h-80 overflow-y-auto pr-1 scrollbar-thin">
+                  <ActivityTimeline activities={activities} />
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
+
+      {/* Status Revert Dialog */}
+      {primaryRevert && (
+        <StatusRevertDialog
+          open={revertDialogOpen}
+          onOpenChange={setRevertDialogOpen}
+          currentStatus={box.status}
+          targetStatus={primaryRevert.to}
+          onConfirm={handleRevertConfirm}
+          isLoading={isStatusLoading}
+        />
+      )}
     </div>
   );
 }

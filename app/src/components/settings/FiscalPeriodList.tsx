@@ -2,9 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -33,12 +40,12 @@ import {
   Calendar,
   Lock,
   Unlock,
-  MoreHorizontal,
+  MoreVertical,
   Trash2,
   AlertTriangle,
-  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   createFiscalPeriod,
   updatePeriodStatus,
@@ -52,14 +59,19 @@ interface FiscalPeriodListProps {
 }
 
 const statusConfig: Record<PeriodStatus, { label: string; color: string; icon: typeof Lock }> = {
-  OPEN: { label: "เปิด", color: "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400", icon: Unlock },
-  CLOSING: { label: "กำลังปิด", color: "bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400", icon: AlertTriangle },
+  OPEN: { label: "เปิด", color: "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800", icon: Unlock },
+  CLOSING: { label: "กำลังปิด", color: "bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800", icon: AlertTriangle },
   CLOSED: { label: "ปิดแล้ว", color: "bg-muted text-muted-foreground", icon: Lock },
 };
 
 const months = [
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
   "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+];
+
+const shortMonths = [
+  "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+  "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
 ];
 
 export function FiscalPeriodList({ periods }: FiscalPeriodListProps) {
@@ -120,7 +132,7 @@ export function FiscalPeriodList({ periods }: FiscalPeriodListProps) {
       <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />
               สร้างงวดใหม่
             </Button>
@@ -184,124 +196,128 @@ export function FiscalPeriodList({ periods }: FiscalPeriodListProps) {
       </div>
 
       {periods.length === 0 ? (
-        <Card>
-          <CardContent className="py-6">
-            <EmptyState
-              icon={Calendar}
-              title="ยังไม่มีงวดบัญชี"
-              description="สร้างงวดบัญชีเพื่อจัดการเอกสารตามรอบเดือน"
-            />
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-card p-6">
+          <EmptyState
+            icon={Calendar}
+            title="ยังไม่มีงวดบัญชี"
+            description="สร้างงวดบัญชีเพื่อจัดการเอกสารตามรอบเดือน"
+          />
+        </div>
       ) : (
         Object.entries(periodsByYear)
           .sort(([a], [b]) => parseInt(b) - parseInt(a))
           .map(([year, yearPeriods]) => (
-            <div key={year} className="space-y-4">
-              <h3 className="text-lg font-semibold">ปี {parseInt(year) + 543}</h3>
-              <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {yearPeriods
-                  .sort((a, b) => b.month - a.month)
-                  .map((period) => {
-                    const status = statusConfig[period.status];
-                    const StatusIcon = status.icon;
+            <div key={year} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">ปี พ.ศ. {parseInt(year) + 543}</h3>
+                <span className="text-sm text-muted-foreground">({yearPeriods.length} งวด)</span>
+              </div>
+              
+              <div className="rounded-xl border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>เดือน</TableHead>
+                      <TableHead>ช่วงเวลา</TableHead>
+                      <TableHead>สถานะ</TableHead>
+                      <TableHead className="text-center">เอกสาร</TableHead>
+                      <TableHead className="text-right">ยอดรวม</TableHead>
+                      <TableHead className="w-[60px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {yearPeriods
+                      .sort((a, b) => b.month - a.month)
+                      .map((period) => {
+                        const status = statusConfig[period.status];
+                        const StatusIcon = status.icon;
 
-                    return (
-                      <Card key={period.id} className="relative">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <CardTitle className="text-base">
-                                {months[period.month - 1]}
-                              </CardTitle>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {period.status === "OPEN" && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusChange(period.id, "CLOSING")}
+                        return (
+                          <TableRow key={period.id} className="group">
+                            <TableCell>
+                              <span className="font-medium">{months[period.month - 1]}</span>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {new Date(period.startDate).getDate()} {shortMonths[period.month - 1]} - {new Date(period.endDate).getDate()} {shortMonths[period.month - 1]}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={cn("text-xs gap-1", status.color)}>
+                                <StatusIcon className="h-3 w-3" />
+                                {status.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="text-xs">
+                                {period.documentCount}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              ฿{period.totalAmount.toLocaleString("th-TH", {
+                                minimumFractionDigits: 0,
+                              })}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                                   >
-                                    <AlertTriangle className="mr-2 h-4 w-4" />
-                                    เริ่มปิดงวด
-                                  </DropdownMenuItem>
-                                )}
-                                {period.status === "CLOSING" && (
-                                  <>
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {period.status === "OPEN" && (
                                     <DropdownMenuItem
-                                      onClick={() => handleStatusChange(period.id, "CLOSED")}
+                                      onClick={() => handleStatusChange(period.id, "CLOSING")}
                                     >
-                                      <Lock className="mr-2 h-4 w-4" />
-                                      ปิดงวด
+                                      <AlertTriangle className="mr-2 h-4 w-4" />
+                                      เริ่มปิดงวด
                                     </DropdownMenuItem>
+                                  )}
+                                  {period.status === "CLOSING" && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => handleStatusChange(period.id, "CLOSED")}
+                                      >
+                                        <Lock className="mr-2 h-4 w-4" />
+                                        ปิดงวด
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleStatusChange(period.id, "OPEN")}
+                                      >
+                                        <Unlock className="mr-2 h-4 w-4" />
+                                        ยกเลิกการปิด
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {period.status === "CLOSED" && (
                                     <DropdownMenuItem
                                       onClick={() => handleStatusChange(period.id, "OPEN")}
                                     >
                                       <Unlock className="mr-2 h-4 w-4" />
-                                      ยกเลิกการปิด
+                                      เปิดงวดอีกครั้ง
                                     </DropdownMenuItem>
-                                  </>
-                                )}
-                                {period.status === "CLOSED" && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusChange(period.id, "OPEN")}
-                                  >
-                                    <Unlock className="mr-2 h-4 w-4" />
-                                    เปิดงวดอีกครั้ง
-                                  </DropdownMenuItem>
-                                )}
-                                {period.documentCount === 0 && (
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() => handleDelete(period.id)}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    ลบงวด
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                          <CardDescription>
-                            {new Date(period.startDate).toLocaleDateString("th-TH")} -{" "}
-                            {new Date(period.endDate).toLocaleDateString("th-TH")}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            <Badge className={status.color}>
-                              <StatusIcon className="mr-1 h-3 w-3" />
-                              {status.label}
-                            </Badge>
-
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div className="flex items-center gap-1 text-muted-foreground">
-                                <FileText className="h-3 w-3" />
-                                <span>{period.documentCount} เอกสาร</span>
-                              </div>
-                              <div className="text-right font-medium">
-                                ฿{period.totalAmount.toLocaleString("th-TH", {
-                                  minimumFractionDigits: 0,
-                                })}
-                              </div>
-                            </div>
-
-                            {period.closedAt && (
-                              <p className="text-xs text-muted-foreground">
-                                ปิดเมื่อ:{" "}
-                                {new Date(period.closedAt).toLocaleDateString("th-TH")}
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                                  )}
+                                  {period.documentCount === 0 && (
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onClick={() => handleDelete(period.id)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      ลบงวด
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           ))

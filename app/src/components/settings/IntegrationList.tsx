@@ -1,13 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -32,9 +39,7 @@ import {
   Hash,
   Webhook,
   Mail,
-  Settings2,
   CheckCircle,
-  XCircle,
   Bell,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -56,13 +61,12 @@ const INTEGRATION_TYPES: { value: IntegrationType; label: string; icon: React.Re
   { value: "EMAIL", label: "Email", icon: <Mail className="h-5 w-5 text-blue-500" />, description: "ส่งอีเมลแจ้งเตือน" },
 ];
 
+// Using existing NotificationType values from Prisma schema
 const EVENT_TYPES: { value: NotificationType; label: string; category: string }[] = [
-  // Box Status
-  { value: "BOX_SUBMITTED", label: "กล่องใหม่รอตรวจ", category: "สถานะกล่อง" },
-  { value: "BOX_IN_REVIEW", label: "กำลังตรวจสอบ", category: "สถานะกล่อง" },
-  { value: "BOX_NEED_MORE_DOCS", label: "ขอเอกสารเพิ่ม", category: "สถานะกล่อง" },
-  { value: "BOX_READY_TO_BOOK", label: "พร้อมลงบัญชี", category: "สถานะกล่อง" },
-  { value: "BOX_BOOKED", label: "ลงบัญชีแล้ว", category: "สถานะกล่อง" },
+  // Box Status (maps to new simplified status flow)
+  { value: "BOX_SUBMITTED", label: "กล่องรอตรวจ", category: "สถานะกล่อง" },
+  { value: "BOX_NEED_MORE_DOCS", label: "ขาดเอกสาร", category: "สถานะกล่อง" },
+  { value: "BOX_BOOKED", label: "เสร็จสิ้น", category: "สถานะกล่อง" },
   // Documents
   { value: "DOCUMENT_ADDED", label: "มีเอกสารใหม่", category: "เอกสาร" },
   { value: "COMMENT_ADDED", label: "มี Comment ใหม่", category: "เอกสาร" },
@@ -316,7 +320,7 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
     <div className="space-y-6">
       {/* Add Button */}
       <div className="flex justify-end">
-        <Button onClick={() => {
+        <Button size="sm" onClick={() => {
           setFormData({ type: "LINE_NOTIFY", name: "", config: {}, events: [] });
           setShowDialog(true);
         }}>
@@ -325,99 +329,108 @@ export function IntegrationList({ initialIntegrations }: IntegrationListProps) {
         </Button>
       </div>
 
-      {/* Integration List */}
+      {/* Integration Table */}
       {integrations.length === 0 ? (
-        <Card>
-          <CardContent className="py-6">
-            <EmptyState
-              icon={Bell}
-              title="ยังไม่มี Integration"
-              description="เพิ่ม LINE, Slack หรือ Webhook เพื่อรับการแจ้งเตือนอัตโนมัติ"
-              action={
-                <Button onClick={() => setShowDialog(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  เพิ่ม Integration แรก
-                </Button>
-              }
-            />
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-card p-6">
+          <EmptyState
+            icon={Bell}
+            title="ยังไม่มี Integration"
+            description="เพิ่ม LINE, Slack หรือ Webhook เพื่อรับการแจ้งเตือนอัตโนมัติ"
+            action={
+              <Button onClick={() => setShowDialog(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                เพิ่ม Integration แรก
+              </Button>
+            }
+          />
+        </div>
       ) : (
-        <div className="grid gap-4">
-          {integrations.map((integration) => {
-            const typeInfo = getTypeInfo(integration.type);
-            return (
-              <Card key={integration.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+        <div className="rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">ประเภท</TableHead>
+                <TableHead>ชื่อ</TableHead>
+                <TableHead>เหตุการณ์</TableHead>
+                <TableHead>ส่งล่าสุด</TableHead>
+                <TableHead className="text-center">สถานะ</TableHead>
+                <TableHead className="w-[120px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {integrations.map((integration) => {
+                const typeInfo = getTypeInfo(integration.type);
+                return (
+                  <TableRow key={integration.id} className="group">
+                    <TableCell>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
                         {typeInfo?.icon}
                       </div>
+                    </TableCell>
+                    <TableCell>
                       <div>
-                        <CardTitle className="text-base flex items-center gap-2">
-                          {integration.name}
-                          <Badge variant={integration.isActive ? "default" : "secondary"} className="text-xs">
-                            {integration.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription>{typeInfo?.label}</CardDescription>
+                        <p className="font-medium">{integration.name}</p>
+                        <p className="text-xs text-muted-foreground">{typeInfo?.label}</p>
                       </div>
-                    </div>
-                    <Switch
-                      checked={integration.isActive}
-                      onCheckedChange={(checked) => handleToggle(integration.id, checked)}
-                      disabled={loading === integration.id}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-wrap gap-1">
-                      {integration.events.slice(0, 3).map((event) => (
-                        <Badge key={event} variant="outline" className="text-xs">
-                          {EVENT_TYPES.find(e => e.value === event)?.label || event}
-                        </Badge>
-                      ))}
-                      {integration.events.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{integration.events.length - 3} อื่นๆ
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {integration.lastTriggeredAt && (
-                        <span className="text-xs text-muted-foreground">
-                          ส่งล่าสุด: {new Date(integration.lastTriggeredAt).toLocaleDateString("th-TH")}
-                        </span>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTest(integration.id)}
-                        disabled={loading === `test-${integration.id}` || !integration.isActive}
-                      >
-                        {loading === `test-${integration.id}` ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <PlayCircle className="h-4 w-4" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {integration.events.slice(0, 2).map((event) => (
+                          <Badge key={event} variant="outline" className="text-xs">
+                            {EVENT_TYPES.find(e => e.value === event)?.label || event}
+                          </Badge>
+                        ))}
+                        {integration.events.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{integration.events.length - 2}
+                          </Badge>
                         )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950"
-                        onClick={() => handleDelete(integration.id)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {integration.lastTriggeredAt 
+                        ? new Date(integration.lastTriggeredAt).toLocaleDateString("th-TH")
+                        : "-"
+                      }
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={integration.isActive}
+                        onCheckedChange={(checked) => handleToggle(integration.id, checked)}
                         disabled={loading === integration.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => handleTest(integration.id)}
+                          disabled={loading === `test-${integration.id}` || !integration.isActive}
+                        >
+                          {loading === `test-${integration.id}` ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <PlayCircle className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-red-500 hover:text-red-600"
+                          onClick={() => handleDelete(integration.id)}
+                          disabled={loading === integration.id}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
 

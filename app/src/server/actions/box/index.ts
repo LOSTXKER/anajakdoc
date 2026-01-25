@@ -17,20 +17,20 @@ export {
   updateReimbursementStatus,
 } from "./update";
 
-// Review/Status operations
+// Review/Status operations (simplified 4-status system)
 export { 
   submitBox, 
   reviewBox,
   changeBoxStatus,
   getAvailableTransitions,
-  startReview,
   requestMoreDocs,
+  approveBox,
+  revertToEdit,
+  // Legacy aliases
+  startReview,
   markReadyToBook,
-  markWhtPending,
   bookBox,
   archiveBox,
-  lockBox,
-  cancelBox,
   batchChangeStatus,
 } from "./review";
 

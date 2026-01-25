@@ -189,14 +189,14 @@ async function processOrgReminders(organizationId: string) {
 export async function processWhtOverdue(): Promise<ApiResponse<{ updated: number }>> {
   const now = new Date();
   
-  // Find boxes with WHT that haven't received the certificate
+  // Find boxes with WHT that haven't received the certificate (exclude COMPLETED)
   const boxes = await prisma.box.findMany({
     where: {
       hasWht: true,
       whtDocStatus: { in: ["MISSING", "REQUEST_SENT"] },
       whtDueDate: { lt: now },
       whtOverdue: false,
-      status: { notIn: ["CANCELLED", "ARCHIVED", "LOCKED"] },
+      status: { notIn: ["COMPLETED"] },
     },
     include: {
       organization: { select: { id: true } },
@@ -348,7 +348,7 @@ export async function getOverdueSummary() {
       where: {
         organizationId: session.currentOrganization.id,
         whtOverdue: true,
-        status: { notIn: ["CANCELLED"] },
+        status: { notIn: ["COMPLETED"] },
       },
     }),
     prisma.task.count({

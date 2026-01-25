@@ -19,17 +19,13 @@ interface DocumentFiltersProps {
   savedFilters?: SavedFilterData[];
 }
 
+// New 4-status system
 const statusOptions = [
   { value: "all", label: "ทุกสถานะ" },
   { value: "DRAFT", label: "แบบร่าง" },
-  { value: "SUBMITTED", label: "ส่งแล้ว" },
-  { value: "IN_REVIEW", label: "กำลังตรวจ" },
-  { value: "NEED_MORE_DOCS", label: "ขอเอกสารเพิ่ม" },
-  { value: "READY_TO_BOOK", label: "พร้อมลงบัญชี" },
-  { value: "WHT_PENDING", label: "รอ WHT" },
-  { value: "BOOKED", label: "ลงบัญชีแล้ว" },
-  { value: "ARCHIVED", label: "เก็บแล้ว" },
-  { value: "CANCELLED", label: "ยกเลิก" },
+  { value: "PENDING", label: "รอตรวจ" },
+  { value: "NEED_DOCS", label: "ขาดเอกสาร" },
+  { value: "COMPLETED", label: "เสร็จสิ้น" },
 ];
 
 const typeOptions = [

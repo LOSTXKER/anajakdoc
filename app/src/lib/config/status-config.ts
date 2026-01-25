@@ -46,106 +46,47 @@ export interface StatusConfig {
   borderClass: string;
 }
 
+// Simplified to 4 statuses
 export const BOX_STATUS_CONFIG: Record<BoxStatus, StatusConfig> = {
   DRAFT: {
     label: "แบบร่าง",
     labelShort: "ร่าง",
-    description: "สร้างไว้ยังไม่ส่ง",
+    description: "กำลังสร้าง/แก้ไข",
     icon: FileText,
     className: "bg-slate-100 text-slate-700 border-slate-200",
     bgClass: "bg-slate-100",
     textClass: "text-slate-700",
     borderClass: "border-slate-200",
   },
-  SUBMITTED: {
-    label: "ส่งแล้ว",
-    labelShort: "ส่งแล้ว",
-    description: "ส่งเข้าคิวบัญชีแล้ว",
-    icon: Send,
-    className: "bg-sky-100 text-sky-700 border-sky-200",
-    bgClass: "bg-sky-100",
-    textClass: "text-sky-700",
-    borderClass: "border-sky-200",
-  },
-  IN_REVIEW: {
-    label: "กำลังตรวจ",
-    labelShort: "กำลังตรวจ",
-    description: "บัญชีกำลังตรวจ",
-    icon: Eye,
+  PENDING: {
+    label: "รอตรวจ",
+    labelShort: "รอตรวจ",
+    description: "ส่งบัญชีแล้ว รอตรวจสอบ",
+    icon: Clock,
     className: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
     bgClass: "bg-blue-100 dark:bg-blue-900",
     textClass: "text-blue-700",
     borderClass: "border-blue-200",
   },
-  NEED_MORE_DOCS: {
-    label: "ขอเอกสารเพิ่ม",
-    labelShort: "ขอเอกสาร",
-    description: "ขาดเอกสาร/ข้อมูล",
+  NEED_DOCS: {
+    label: "ขาดเอกสาร",
+    labelShort: "ขาดเอกสาร",
+    description: "บัญชีขอเอกสารเพิ่ม",
     icon: FileQuestion,
     className: "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     bgClass: "bg-amber-100 dark:bg-amber-900",
     textClass: "text-amber-700",
     borderClass: "border-amber-200",
   },
-  READY_TO_BOOK: {
-    label: "พร้อมลงบัญชี",
-    labelShort: "พร้อมลง",
-    description: "ครบเงื่อนไขพร้อมลงบัญชี",
+  COMPLETED: {
+    label: "เสร็จสิ้น",
+    labelShort: "เสร็จ",
+    description: "ลงบัญชีเรียบร้อย",
     icon: CheckCircle,
     className: "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
     bgClass: "bg-emerald-100 dark:bg-emerald-900",
     textClass: "text-emerald-700",
     borderClass: "border-emerald-200",
-  },
-  WHT_PENDING: {
-    label: "รอ WHT",
-    labelShort: "รอ WHT",
-    description: "ลงบัญชีได้ แต่ WHT ตามต่อ",
-    icon: Hourglass,
-    className: "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
-    bgClass: "bg-orange-100 dark:bg-orange-900",
-    textClass: "text-orange-700",
-    borderClass: "border-orange-200",
-  },
-  BOOKED: {
-    label: "ลงบัญชีแล้ว",
-    labelShort: "ลงแล้ว",
-    description: "ลงบัญชีแล้ว",
-    icon: BookOpen,
-    className: "bg-teal-100 text-teal-700 border-teal-200",
-    bgClass: "bg-teal-100",
-    textClass: "text-teal-700",
-    borderClass: "border-teal-200",
-  },
-  ARCHIVED: {
-    label: "เก็บแล้ว",
-    labelShort: "เก็บแล้ว",
-    description: "ปิดงาน/เก็บ",
-    icon: Archive,
-    className: "bg-muted text-foreground border",
-    bgClass: "bg-muted",
-    textClass: "text-foreground",
-    borderClass: "border",
-  },
-  LOCKED: {
-    label: "ล็อคแล้ว",
-    labelShort: "ล็อค",
-    description: "งวดปิดแล้ว ห้ามแก้",
-    icon: Lock,
-    className: "bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800",
-    bgClass: "bg-violet-100 dark:bg-violet-900",
-    textClass: "text-violet-700",
-    borderClass: "border-violet-200",
-  },
-  CANCELLED: {
-    label: "ยกเลิก",
-    labelShort: "ยกเลิก",
-    description: "ยกเลิกแล้ว",
-    icon: XCircle,
-    className: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
-    bgClass: "bg-red-100 dark:bg-red-900",
-    textClass: "text-red-700",
-    borderClass: "border-red-200",
   },
 };
 
@@ -460,12 +401,19 @@ export const REIMBURSEMENT_STATUS_CONFIG: Record<ReimbursementStatus, StatusConf
 
 // ==================== Helper Functions ====================
 
+/**
+ * Get configuration for a BoxStatus
+ * Uses simplified 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
+ */
 export function getBoxStatusConfig(status: BoxStatus): StatusConfig {
-  return BOX_STATUS_CONFIG[status];
+  return BOX_STATUS_CONFIG[status] || BOX_STATUS_CONFIG.DRAFT;
 }
 
+/**
+ * Get Thai label for a BoxStatus
+ */
 export function getBoxStatusLabel(status: BoxStatus): string {
-  return BOX_STATUS_CONFIG[status].label;
+  return BOX_STATUS_CONFIG[status]?.label || "ไม่ทราบ";
 }
 
 export function getDocStatusConfig(status: DocStatus): StatusConfig {
@@ -502,31 +450,21 @@ export function isAdminRole(role: string): boolean {
   return ["ADMIN", "OWNER"].includes(role);
 }
 
-// Statuses that allow editing
+// Statuses that allow editing (simplified)
 export const EDITABLE_STATUSES: BoxStatus[] = [
   "DRAFT",
-  "NEED_MORE_DOCS",
-  "SUBMITTED",
+  "PENDING",
+  "NEED_DOCS",
 ];
 
-// Statuses that can be reviewed
+// Statuses that can be reviewed by accounting
 export const REVIEWABLE_STATUSES: BoxStatus[] = [
-  "SUBMITTED",
-  "IN_REVIEW",
-  "NEED_MORE_DOCS",
+  "PENDING",
 ];
 
-// Statuses that can be booked
-export const BOOKABLE_STATUSES: BoxStatus[] = [
-  "READY_TO_BOOK",
-  "WHT_PENDING",
-];
-
-// Statuses that are final (no further changes)
+// Final status (no further changes)
 export const FINAL_STATUSES: BoxStatus[] = [
-  "ARCHIVED",
-  "LOCKED",
-  "CANCELLED",
+  "COMPLETED",
 ];
 
 export function canEditBox(status: BoxStatus): boolean {
@@ -537,50 +475,26 @@ export function canReviewBox(status: BoxStatus): boolean {
   return REVIEWABLE_STATUSES.includes(status);
 }
 
-export function canBookBox(status: BoxStatus): boolean {
-  return BOOKABLE_STATUSES.includes(status);
-}
-
 export function isFinalStatus(status: BoxStatus): boolean {
   return FINAL_STATUSES.includes(status);
 }
 
 // ==================== Status Transition Helpers ====================
 
+// Simplified status transitions (4 statuses)
 export function getNextStatuses(currentStatus: BoxStatus, role: MemberRole): BoxStatus[] {
   const transitions: Record<BoxStatus, { to: BoxStatus; roles: MemberRole[] }[]> = {
     DRAFT: [
-      { to: "SUBMITTED", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
-      { to: "CANCELLED", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
+      { to: "PENDING", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
     ],
-    SUBMITTED: [
-      { to: "IN_REVIEW", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-      { to: "CANCELLED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
+    PENDING: [
+      { to: "COMPLETED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
+      { to: "NEED_DOCS", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
     ],
-    IN_REVIEW: [
-      { to: "NEED_MORE_DOCS", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-      { to: "READY_TO_BOOK", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-      { to: "WHT_PENDING", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-      { to: "CANCELLED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
+    NEED_DOCS: [
+      { to: "PENDING", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
     ],
-    NEED_MORE_DOCS: [
-      { to: "SUBMITTED", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
-      { to: "CANCELLED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-    ],
-    READY_TO_BOOK: [
-      { to: "BOOKED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-    ],
-    WHT_PENDING: [
-      { to: "BOOKED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-    ],
-    BOOKED: [
-      { to: "ARCHIVED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
-    ],
-    ARCHIVED: [
-      { to: "LOCKED", roles: ["ADMIN", "OWNER"] },
-    ],
-    LOCKED: [],
-    CANCELLED: [],
+    COMPLETED: [],
   };
 
   const possibleTransitions = transitions[currentStatus] || [];

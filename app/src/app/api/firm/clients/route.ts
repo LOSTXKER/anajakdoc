@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
           },
           boxes: {
             where: {
-              status: { in: ["DRAFT", "SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"] },
+              status: { in: ["DRAFT", "PENDING", "NEED_DOCS"] },
             },
             select: { id: true },
           },
@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
               },
               boxes: {
                 where: {
-                  status: { in: ["DRAFT", "SUBMITTED", "IN_REVIEW", "NEED_MORE_DOCS"] },
+                  status: { in: ["DRAFT", "PENDING", "NEED_DOCS"] },
                 },
                 select: { id: true },
               },

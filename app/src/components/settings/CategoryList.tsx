@@ -4,7 +4,16 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, FolderOpen, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { createCategory, updateCategory, deleteCategory } from "@/server/actions/settings";
 import type { Category } from ".prisma/client";
@@ -76,6 +85,56 @@ export function CategoryList({ categories }: CategoryListProps) {
     setEditingCategory(null);
     setDialogOpen(true);
   };
+
+  // Render category table
+  const renderCategoryTable = (categoryList: Category[]) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[100px]">รหัส</TableHead>
+          <TableHead>ชื่อหมวดหมู่</TableHead>
+          <TableHead>รหัส PEAK</TableHead>
+          <TableHead className="w-[100px]"></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {categoryList.map((category) => (
+          <TableRow key={category.id} className="group">
+            <TableCell>
+              <Badge variant="secondary" className="font-mono text-xs">
+                {category.code}
+              </Badge>
+            </TableCell>
+            <TableCell className="font-medium">{category.name}</TableCell>
+            <TableCell className="text-muted-foreground">
+              {category.peakAccountCode || "-"}
+            </TableCell>
+            <TableCell>
+              <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => openEditDialog(category)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-500 hover:text-red-600"
+                  onClick={() => handleDelete(category.id)}
+                  disabled={isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
 
   return (
     <div className="space-y-6">
@@ -160,10 +219,10 @@ export function CategoryList({ categories }: CategoryListProps) {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Expense Categories */}
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-950 flex items-center justify-center">
-              <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-950 flex items-center justify-center">
+              <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
             </div>
             <div>
               <h3 className="font-semibold text-foreground">หมวดรายจ่าย</h3>
@@ -172,46 +231,25 @@ export function CategoryList({ categories }: CategoryListProps) {
           </div>
 
           {expenseCategories.length > 0 ? (
-            <div className="space-y-2">
-              {expenseCategories.map((category) => (
-                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors">
-                  <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{category.code}</span>
-                  <span className="flex-1 text-foreground">{category.name}</span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEditDialog(category)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-600"
-                      onClick={() => handleDelete(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="rounded-xl border bg-card">
+              {renderCategoryTable(expenseCategories)}
             </div>
           ) : (
-            <EmptyState
-              icon={TrendingDown}
-              title="ยังไม่มีหมวดหมู่รายจ่าย"
-              className="py-8"
-            />
+            <div className="rounded-xl border bg-card p-4">
+              <EmptyState
+                icon={TrendingDown}
+                title="ยังไม่มีหมวดหมู่รายจ่าย"
+                className="py-6"
+              />
+            </div>
           )}
         </div>
 
         {/* Income Categories */}
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <h3 className="font-semibold text-foreground">หมวดรายรับ</h3>
@@ -220,38 +258,17 @@ export function CategoryList({ categories }: CategoryListProps) {
           </div>
 
           {incomeCategories.length > 0 ? (
-            <div className="space-y-2">
-              {incomeCategories.map((category) => (
-                <div key={category.id} className="group flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors">
-                  <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{category.code}</span>
-                  <span className="flex-1 text-foreground">{category.name}</span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEditDialog(category)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-600"
-                      onClick={() => handleDelete(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="rounded-xl border bg-card">
+              {renderCategoryTable(incomeCategories)}
             </div>
           ) : (
-            <EmptyState
-              icon={TrendingUp}
-              title="ยังไม่มีหมวดหมู่รายรับ"
-              className="py-8"
-            />
+            <div className="rounded-xl border bg-card p-4">
+              <EmptyState
+                icon={TrendingUp}
+                title="ยังไม่มีหมวดหมู่รายรับ"
+                className="py-6"
+              />
+            </div>
           )}
         </div>
       </div>

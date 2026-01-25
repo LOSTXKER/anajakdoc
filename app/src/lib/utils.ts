@@ -3,6 +3,7 @@ import { twMerge } from "tailwind-merge"
 import type { 
   BoxWithRelations, 
   SerializedBox, 
+  SerializedContact,
   DocumentWithFiles,
   SerializedDocument,
   SerializedPayment,
@@ -80,7 +81,7 @@ export function serializePayment(payment: any): SerializedPayment {
 // Serialize WHT Tracking for Client Components
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function serializeWhtTracking(wht: WhtTrackingWithContact & { box?: any }): SerializedWhtTracking {
-  const { box, ...rest } = wht;
+  const { box, contact, ...rest } = wht;
   
   return {
     ...rest,
@@ -92,6 +93,8 @@ export function serializeWhtTracking(wht: WhtTrackingWithContact & { box?: any }
     dueDate: wht.dueDate?.toISOString() || null,
     createdAt: wht.createdAt.toISOString(),
     updatedAt: wht.updatedAt.toISOString(),
+    // Serialize contact with Decimal/Date fields
+    contact: contact ? serializeContact(contact) : null,
     box: box ? {
       id: box.id,
       boxNumber: box.boxNumber,
@@ -106,6 +109,27 @@ export function serializeWhtTracking(wht: WhtTrackingWithContact & { box?: any }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function serializeWhtTrackings(whts: (WhtTrackingWithContact & { box?: any })[]): SerializedWhtTracking[] {
   return whts.map(serializeWhtTracking);
+}
+
+// Helper to serialize Date to string
+function dateToString(date: unknown): string | null {
+  if (!date) return null;
+  if (date instanceof Date) return date.toISOString();
+  if (typeof date === "string") return date;
+  return null;
+}
+
+// Serialize Contact for Client Components
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function serializeContact(contact: any): SerializedContact | null {
+  if (!contact) return null;
+  return {
+    ...contact,
+    defaultWhtRate: toNumberOrNull(contact.defaultWhtRate),
+    createdAt: dateToString(contact.createdAt) || "",
+    updatedAt: dateToString(contact.updatedAt) || "",
+    lastUsedAt: dateToString(contact.lastUsedAt),
+  };
 }
 
 // Serialize Box for Client Components
@@ -132,6 +156,8 @@ export function serializeBox(box: BoxWithRelations): SerializedBox {
     lockedAt: box.lockedAt?.toISOString() || null,
     createdAt: box.createdAt.toISOString(),
     updatedAt: box.updatedAt.toISOString(),
+    // Serialize contact with Decimal/Date fields
+    contact: serializeContact(box.contact),
     documents: box.documents ? serializeDocuments(box.documents) : [],
     payments: box.payments ? box.payments.map(serializePayment) : [],
     whtTrackings: box.whtTrackings ? serializeWhtTrackings(box.whtTrackings) : [],

@@ -321,3 +321,58 @@ export async function removeMember(orgId: string, memberId: string): Promise<Api
     message: "ลบสมาชิกเรียบร้อยแล้ว",
   };
 }
+
+export async function updateMemberBankInfo(memberId: string, formData: FormData): Promise<ApiResponse> {
+  const session = await requireAuth();
+  
+  const member = await prisma.organizationMember.findUnique({
+    where: { id: memberId },
+    include: { organization: true },
+  });
+
+  if (!member) {
+    return {
+      success: false,
+      error: "ไม่พบสมาชิก",
+    };
+  }
+
+  // Check if user has permission (OWNER, ADMIN, or self)
+  const isAdmin = await prisma.organizationMember.findFirst({
+    where: {
+      organizationId: member.organizationId,
+      userId: session.id,
+      role: { in: [MemberRole.OWNER, MemberRole.ADMIN] },
+      isActive: true,
+    },
+  });
+
+  const isSelf = member.userId === session.id;
+
+  if (!isAdmin && !isSelf) {
+    return {
+      success: false,
+      error: "คุณไม่มีสิทธิ์แก้ไขข้อมูลนี้",
+    };
+  }
+
+  const visibleName = formData.get("visibleName") as string | null;
+  const bankName = formData.get("bankName") as string | null;
+  const bankAccount = formData.get("bankAccount") as string | null;
+
+  await prisma.organizationMember.update({
+    where: { id: memberId },
+    data: {
+      visibleName: visibleName || null,
+      bankName: bankName || null,
+      bankAccount: bankAccount || null,
+    },
+  });
+
+  revalidatePath(`/settings/members`);
+  
+  return {
+    success: true,
+    message: "บันทึกข้อมูลธนาคารเรียบร้อย",
+  };
+}

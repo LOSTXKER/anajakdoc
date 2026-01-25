@@ -25,6 +25,7 @@ import {
   Building2,
   Calendar,
   Tags,
+  Wallet,
 } from "lucide-react";
 
 const navigationItems = [
@@ -40,6 +41,7 @@ const navigationItems = [
     group: "งานบัญชี",
     items: [
       { icon: Receipt, label: "ติดตาม WHT", href: "/wht-tracking" },
+      { icon: Wallet, label: "คืนเงินสมาชิก", href: "/reimbursements" },
       { icon: Download, label: "Export", href: "/export" },
       { icon: BarChart3, label: "รายงาน", href: "/reports" },
     ],

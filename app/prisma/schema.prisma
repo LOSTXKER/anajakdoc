@@ -1,7 +1,3 @@
-// Document Hub - Database Schema (V3)
-// ระบบจัดการเอกสารบัญชี - Case-based Accounting Workflow
-// Core Concept: 1 Box (Case) = 1 ธุรกรรม → หลาย Document → หลาย Files
-
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/client"
@@ -11,114 +7,85 @@ datasource db {
   provider = "postgresql"
 }
 
-// ============================================
-// ORGANIZATION & USERS
-// ============================================
-
 model Organization {
-  id           String   @id @default(cuid())
-  name         String
-  slug         String   @unique
-  taxId        String?  @map("tax_id")
-  address      String?
-  phone        String?
-  email        String?
-  logo         String?
-  settings     Json     @default("{}")
-  plan         Plan     @default(FREE)
-  billingEmail String?  @map("billing_email")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  // === Accounting Firm Mode (Section 22) ===
-  // SME เป็นเจ้าของ account เสมอ - firmId เป็น optional
-  firmId String?         @map("firm_id") // If managed by a firm
-  firm   AccountingFirm? @relation("FirmClients", fields: [firmId], references: [id])
-
-  // Relations
-  members           OrganizationMember[]
+  id                String                 @id @default(cuid())
+  name              String
+  slug              String                 @unique
+  taxId             String?                @map("tax_id")
+  address           String?
+  phone             String?
+  email             String?
+  logo              String?
+  settings          Json                   @default("{}")
+  plan              Plan                   @default(FREE)
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  firmId            String?                @map("firm_id")
+  billingEmail      String?                @map("billing_email")
+  approvalWorkflows ApprovalWorkflow[]
+  bookingEntries    BookingEntry[]
   boxes             Box[]
+  categories        Category[]
   contacts          Contact[]
   costCenters       CostCenter[]
-  categories        Category[]
-  fiscalPeriods     FiscalPeriod[]
+  documentTemplates DocumentTemplate[]
   exportHistories   ExportHistory[]
   exportProfiles    ExportProfile[]
-  savedFilters      SavedFilter[]
-  notifications     Notification[]
-  bookingEntries    BookingEntry[]
+  firmAssignments   FirmClientAssignment[]
+  firmRelations     FirmClientRelation[]
+  fiscalPeriods     FiscalPeriod[]
   integrations      Integration[]
-  shareLinks        ShareLink[]
-  firmAssignments   FirmClientAssignment[] // Client assignments from firm
-  firmRelations     FirmClientRelation[]   // Firm-Client invitation relations
-  approvalWorkflows ApprovalWorkflow[]
-  documentTemplates DocumentTemplate[]
   invitations       Invitation[]
+  notifications     Notification[]
+  members           OrganizationMember[]
+  firm              AccountingFirm?        @relation("FirmClients", fields: [firmId], references: [id])
+  savedFilters      SavedFilter[]
+  shareLinks        ShareLink[]
 
   @@index([firmId])
   @@map("organizations")
 }
 
-// ============================================
-// ACCOUNTING FIRM (Section 22)
-// 1 Firm can manage multiple organizations
-// ============================================
-
 model AccountingFirm {
-  id          String  @id @default(cuid())
-  name        String
-  slug        String  @unique
-  description String?
-  taxId       String? @map("tax_id")
-  address     String?
-  phone       String?
-  email       String?
-  logo        String?
-  settings    Json    @default("{}")
-
-  // Subscription
-  plan         FirmPlan @default(STARTER)
-  billingEmail String?  @map("billing_email")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  clients           Organization[]         @relation("FirmClients")
-  members           FirmMember[]
+  id                String                 @id @default(cuid())
+  name              String
+  slug              String                 @unique
+  taxId             String?                @map("tax_id")
+  address           String?
+  phone             String?
+  email             String?
+  logo              String?
+  settings          Json                   @default("{}")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  description       String?
+  billingEmail      String?                @map("billing_email")
+  plan              FirmPlan               @default(STARTER)
   clientAssignments FirmClientAssignment[]
-  clientRelations   FirmClientRelation[]   // Firm-Client invitation relations
+  clientRelations   FirmClientRelation[]
+  members           FirmMember[]
   invitations       Invitation[]
+  clients           Organization[]         @relation("FirmClients")
 
   @@map("accounting_firms")
 }
 
-enum FirmPlan {
-  STARTER    // ฿990/mo - 10 clients, 5 members
-  PRO        // ฿2,500/mo - 50 clients, 20 members, white-label
-  ENTERPRISE // Contact - unlimited, custom domain
-}
-
 model FirmMember {
-  id        String   @id @default(cuid())
-  firmId    String   @map("firm_id")
-  userId    String   @map("user_id")
-  role      FirmRole @default(STAFF)
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  firm AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Client assignments for this member
+  id                String                 @id @default(cuid())
+  firmId            String                 @map("firm_id")
+  userId            String                 @map("user_id")
+  role              FirmRole               @default(STAFF)
+  isActive          Boolean                @default(true) @map("is_active")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
   clientAssignments FirmClientAssignment[]
+  firm              AccountingFirm         @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([firmId, userId])
   @@map("firm_members")
 }
 
-// Client Assignment - กำหนดว่าพนักงานคนไหนดูแล client ไหน
 model FirmClientAssignment {
   id             String         @id @default(cuid())
   firmId         String         @map("firm_id")
@@ -127,10 +94,9 @@ model FirmClientAssignment {
   role           AssignmentRole @default(PRIMARY)
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
-
-  firm         AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  firmMember   FirmMember     @relation(fields: [firmMemberId], references: [id], onDelete: Cascade)
+  firm           AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  firmMember     FirmMember     @relation(fields: [firmMemberId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([firmId, organizationId, firmMemberId])
   @@index([firmId])
@@ -139,38 +105,22 @@ model FirmClientAssignment {
   @@map("firm_client_assignments")
 }
 
-enum AssignmentRole {
-  PRIMARY // รับผิดชอบหลัก
-  SUPPORT // ช่วยเสริม
-}
-
-// ============================================
-// FIRM-CLIENT RELATION (Invitation Model)
-// ธุรกิจเชิญสำนักบัญชีมาดูแล
-// ============================================
-
 model FirmClientRelation {
-  id             String         @id @default(cuid())
-  firmId         String         @map("firm_id")
-  organizationId String         @map("organization_id")
-  status         RelationStatus @default(PENDING)
-
-  // ใครเชิญ
-  invitedByUserId String      @map("invited_by_user_id")
-  invitedByType   InviterType @default(BUSINESS)
-  invitedAt       DateTime    @default(now()) @map("invited_at")
-
-  // ตอบรับ/ยกเลิก
-  respondedAt      DateTime? @map("responded_at")
-  terminatedAt     DateTime? @map("terminated_at")
-  terminatedReason String?   @map("terminated_reason")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  firm         AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invitedBy    User           @relation("FirmRelationInviter", fields: [invitedByUserId], references: [id])
+  id               String         @id @default(cuid())
+  firmId           String         @map("firm_id")
+  organizationId   String         @map("organization_id")
+  status           RelationStatus @default(PENDING)
+  invitedByUserId  String         @map("invited_by_user_id")
+  invitedByType    InviterType    @default(BUSINESS)
+  invitedAt        DateTime       @default(now()) @map("invited_at")
+  respondedAt      DateTime?      @map("responded_at")
+  terminatedAt     DateTime?      @map("terminated_at")
+  terminatedReason String?        @map("terminated_reason")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  firm             AccountingFirm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  invitedBy        User           @relation("FirmRelationInviter", fields: [invitedByUserId], references: [id])
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([firmId, organizationId])
   @@index([firmId])
@@ -179,15 +129,673 @@ model FirmClientRelation {
   @@map("firm_client_relations")
 }
 
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String?
+  avatarUrl           String?              @map("avatar_url")
+  supabaseId          String               @unique @map("supabase_id")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  activityLogs        ActivityLog[]
+  bookingEntries      BookingEntry[]       @relation("BookedBy")
+  approvals           BoxApproval[]
+  boxes               Box[]                @relation("CreatedBy")
+  vatVerifiedBoxes    Box[]                @relation("VatVerifiedBy")
+  comments            Comment[]
+  firmRelationInvites FirmClientRelation[] @relation("FirmRelationInviter")
+  firmMemberships     FirmMember[]
+  sentInvitations     Invitation[]
+  notifications       Notification[]
+  memberships         OrganizationMember[]
+  savedFilters        SavedFilter[]
+  shareLinks          ShareLink[]
+  assignedTasks       Task[]               @relation("TaskAssignee")
+
+  @@map("users")
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  userId         String       @map("user_id")
+  role           MemberRole   @default(STAFF)
+  isActive       Boolean      @default(true) @map("is_active")
+  invitedAt      DateTime     @default(now()) @map("invited_at")
+  joinedAt       DateTime?    @map("joined_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  bankAccount    String?      @map("bank_account")
+  bankName       String?      @map("bank_name")
+  visibleName    String?      @map("visible_name")
+  boxPayers      BoxPayer[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+model Invitation {
+  id             String           @id @default(cuid())
+  code           String           @unique @default(cuid())
+  email          String
+  organizationId String?          @map("organization_id")
+  firmId         String?          @map("firm_id")
+  role           String
+  invitedById    String           @map("invited_by_id")
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime         @map("expires_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  firm           AccountingFirm?  @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  invitedBy      User             @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([email])
+  @@index([organizationId])
+  @@index([firmId])
+  @@map("invitations")
+}
+
+model Contact {
+  id                 String             @id @default(cuid())
+  organizationId     String             @map("organization_id")
+  name               String
+  contactType        ContactType        @default(INDIVIDUAL) @map("contact_type")
+  contactRole        ContactRole        @default(VENDOR) @map("contact_role")
+  taxId              String?            @map("tax_id")
+  branchNo           String?            @map("branch_no")
+  address            String?
+  phone              String?
+  email              String?
+  whtApplicable      Boolean            @default(false) @map("wht_applicable")
+  defaultWhtRate     Decimal?           @map("default_wht_rate") @db.Decimal(5, 2)
+  isActive           Boolean            @default(true) @map("is_active")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  defaultVatRequired Boolean            @default(false) @map("default_vat_required")
+  slaRating          Int?               @map("sla_rating")
+  avgResponseDays    Float?             @map("avg_response_days")
+  lastUsedAt         DateTime?          @map("last_used_at")
+  boxes              Box[]
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentTemplates  DocumentTemplate[]
+  whtTrackings       WhtTracking[]
+
+  @@map("contacts")
+}
+
+model CostCenter {
+  id                String             @id @default(cuid())
+  organizationId    String             @map("organization_id")
+  code              String
+  name              String
+  description       String?
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  boxes             Box[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentTemplates DocumentTemplate[]
+
+  @@unique([organizationId, code])
+  @@map("cost_centers")
+}
+
+model Category {
+  id                String             @id @default(cuid())
+  organizationId    String             @map("organization_id")
+  code              String
+  name              String
+  categoryType      CategoryType       @default(EXPENSE) @map("category_type")
+  peakAccountCode   String?            @map("peak_account_code")
+  whtSuggestion     WhtSuggestion      @default(NONE) @map("wht_suggestion")
+  defaultWhtRate    Decimal?           @map("default_wht_rate") @db.Decimal(5, 2)
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  boxes             Box[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentTemplates DocumentTemplate[]
+
+  @@unique([organizationId, code])
+  @@map("categories")
+}
+
+model FiscalPeriod {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  name           String
+  year           Int
+  month          Int
+  startDate      DateTime     @map("start_date")
+  endDate        DateTime     @map("end_date")
+  status         PeriodStatus @default(OPEN)
+  closedAt       DateTime?    @map("closed_at")
+  closedById     String?      @map("closed_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  boxes          Box[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, year, month])
+  @@map("fiscal_periods")
+}
+
+model Box {
+  id                  String               @id @default(cuid())
+  organizationId      String               @map("organization_id")
+  boxNumber           String               @map("box_number")
+  title               String?
+  boxType             BoxType              @default(EXPENSE) @map("box_type")
+  expenseType         ExpenseType?         @map("expense_type")
+  boxDate             DateTime             @map("box_date")
+  dueDate             DateTime?            @map("due_date")
+  totalAmount         Decimal              @default(0) @map("total_amount") @db.Decimal(15, 2)
+  vatAmount           Decimal              @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  whtAmount           Decimal              @default(0) @map("wht_amount") @db.Decimal(15, 2)
+  paidAmount          Decimal              @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  vatRate             Decimal?             @map("vat_rate") @db.Decimal(5, 2)
+  isVatInclusive      Boolean              @default(true) @map("is_vat_inclusive")
+  hasWht              Boolean              @default(false) @map("has_wht")
+  whtRate             Decimal?             @map("wht_rate") @db.Decimal(5, 2)
+  status              BoxStatus            @default(DRAFT)
+  docStatus           DocStatus            @default(INCOMPLETE) @map("doc_status")
+  paymentStatus       PaymentStatus        @default(UNPAID) @map("payment_status")
+  hasVat              Boolean              @default(true) @map("has_vat")
+  vatDocStatus        VatDocStatus         @default(MISSING) @map("vat_doc_status")
+  vatVerifiedAt       DateTime?            @map("vat_verified_at")
+  vatVerifiedById     String?              @map("vat_verified_by_id")
+  whtDocStatus        WhtDocStatus         @default(MISSING) @map("wht_doc_status")
+  whtDueDate          DateTime?            @map("wht_due_date")
+  whtOverdue          Boolean              @default(false) @map("wht_overdue")
+  whtSent             Boolean              @default(false) @map("wht_sent")
+  possibleDuplicate   Boolean              @default(false) @map("possible_duplicate")
+  duplicateReason     String?              @map("duplicate_reason")
+  paymentMode         PaymentMode          @default(COMPANY_PAID) @map("payment_mode")
+  reimbursementStatus ReimbursementStatus? @map("reimbursement_status")
+  isLateDocs          Boolean              @default(false) @map("is_late_docs")
+  noReceiptReason     String?              @map("no_receipt_reason")
+  foreignCurrency     String?              @map("foreign_currency")
+  foreignAmount       Decimal?             @map("foreign_amount") @db.Decimal(15, 2)
+  exchangeRate        Decimal?             @map("exchange_rate") @db.Decimal(15, 6)
+  description         String?
+  notes               String?
+  externalRef         String?              @map("external_ref")
+  contactId           String?              @map("contact_id")
+  categoryId          String?              @map("category_id")
+  costCenterId        String?              @map("cost_center_id")
+  fiscalPeriodId      String?              @map("fiscal_period_id")
+  createdById         String               @map("created_by_id")
+  bookingEntryId      String?              @map("booking_entry_id")
+  linkedBoxId         String?              @map("linked_box_id")
+  submittedAt         DateTime?            @map("submitted_at")
+  reviewedAt          DateTime?            @map("reviewed_at")
+  bookedAt            DateTime?            @map("booked_at")
+  exportedAt          DateTime?            @map("exported_at")
+  archivedAt          DateTime?            @map("archived_at")
+  lockedAt            DateTime?            @map("locked_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  workflowId          String?              @map("workflow_id")
+  activityLogs        ActivityLog[]
+  approvals           BoxApproval[]
+  payers              BoxPayer[]
+  bookingEntry        BookingEntry?        @relation(fields: [bookingEntryId], references: [id])
+  category            Category?            @relation(fields: [categoryId], references: [id])
+  contact             Contact?             @relation(fields: [contactId], references: [id])
+  costCenter          CostCenter?          @relation(fields: [costCenterId], references: [id])
+  createdBy           User                 @relation("CreatedBy", fields: [createdById], references: [id])
+  fiscalPeriod        FiscalPeriod?        @relation(fields: [fiscalPeriodId], references: [id])
+  linkedBox           Box?                 @relation("LinkedBoxes", fields: [linkedBoxId], references: [id])
+  linkedFrom          Box[]                @relation("LinkedBoxes")
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vatVerifiedBy       User?                @relation("VatVerifiedBy", fields: [vatVerifiedById], references: [id])
+  workflow            ApprovalWorkflow?    @relation("BoxWorkflow", fields: [workflowId], references: [id])
+  comments            Comment[]
+  documents           Document[]
+  payments            Payment[]
+  shareLinks          ShareLink[]
+  tasks               Task[]
+  whtTrackings        WhtTracking[]
+
+  @@unique([organizationId, boxNumber])
+  @@index([organizationId, status])
+  @@index([organizationId, boxDate])
+  @@index([organizationId, boxType])
+  @@index([organizationId, docStatus])
+  @@index([organizationId, whtOverdue])
+  @@index([organizationId, possibleDuplicate])
+  @@index([contactId])
+  @@index([bookingEntryId])
+  @@index([workflowId])
+  @@map("boxes")
+}
+
+model BoxPayer {
+  id                  String              @id @default(cuid())
+  boxId               String              @map("box_id")
+  payerType           PayerType           @map("payer_type")
+  memberId            String?             @map("member_id")
+  amount              Decimal             @db.Decimal(15, 2)
+  reimbursementStatus ReimbursementStatus @default(PENDING) @map("reimbursement_status")
+  reimbursedAt        DateTime?           @map("reimbursed_at")
+  reimbursementNote   String?             @map("reimbursement_note")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  box                 Box                 @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  member              OrganizationMember? @relation(fields: [memberId], references: [id])
+
+  @@index([boxId])
+  @@index([memberId])
+  @@index([reimbursementStatus])
+  @@map("box_payers")
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  boxId           String     @map("box_id")
+  organizationId  String     @map("organization_id")
+  taskType        TaskType   @map("task_type")
+  status          TaskStatus @default(OPEN)
+  title           String
+  description     String?
+  dueDate         DateTime?  @map("due_date")
+  assigneeId      String?    @map("assignee_id")
+  reminderCount   Int        @default(0) @map("reminder_count")
+  lastReminderAt  DateTime?  @map("last_reminder_at")
+  escalatedAt     DateTime?  @map("escalated_at")
+  escalationLevel Int        @default(0) @map("escalation_level")
+  completedAt     DateTime?  @map("completed_at")
+  completedById   String?    @map("completed_by_id")
+  cancelledAt     DateTime?  @map("cancelled_at")
+  cancelReason    String?    @map("cancel_reason")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  assignee        User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  box             Box        @relation(fields: [boxId], references: [id], onDelete: Cascade)
+
+  @@index([boxId])
+  @@index([organizationId, status])
+  @@index([organizationId, dueDate])
+  @@index([assigneeId])
+  @@map("tasks")
+}
+
+model BookingEntry {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  entryNumber    String       @map("entry_number")
+  description    String?
+  totalAmount    Decimal      @default(0) @map("total_amount") @db.Decimal(15, 2)
+  bookedAt       DateTime     @map("booked_at")
+  bookedById     String       @map("booked_by_id")
+  exportedAt     DateTime?    @map("exported_at")
+  exportProfile  String?      @map("export_profile")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  bookedBy       User         @relation("BookedBy", fields: [bookedById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  boxes          Box[]
+
+  @@unique([organizationId, entryNumber])
+  @@index([organizationId, bookedAt])
+  @@map("booking_entries")
+}
+
+model Document {
+  id              String         @id @default(cuid())
+  boxId           String         @map("box_id")
+  docType         DocType        @map("doc_type")
+  docNumber       String?        @map("doc_number")
+  docDate         DateTime?      @map("doc_date")
+  amount          Decimal?       @db.Decimal(15, 2)
+  vatAmount       Decimal?       @map("vat_amount") @db.Decimal(15, 2)
+  foreignCurrency String?        @map("foreign_currency")
+  foreignAmount   Decimal?       @map("foreign_amount") @db.Decimal(15, 2)
+  notes           String?
+  aiExtracted     Json?          @map("ai_extracted")
+  aiConfidence    Float?         @map("ai_confidence")
+  isLateDocs      Boolean        @default(false) @map("is_late_docs")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  pageOrder       Int            @default(0) @map("page_order")
+  files           DocumentFile[]
+  box             Box            @relation(fields: [boxId], references: [id], onDelete: Cascade)
+
+  @@index([boxId])
+  @@index([docType])
+  @@map("documents")
+}
+
+model DocumentFile {
+  id         String   @id @default(cuid())
+  documentId String   @map("document_id")
+  fileName   String   @map("file_name")
+  fileUrl    String   @map("file_url")
+  fileSize   Int      @map("file_size")
+  mimeType   String   @map("mime_type")
+  checksum   String?
+  pageOrder  Int      @default(1) @map("page_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([checksum])
+  @@map("document_files")
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  boxId      String        @map("box_id")
+  amount     Decimal       @db.Decimal(15, 2)
+  paidDate   DateTime      @map("paid_date")
+  method     PaymentMethod
+  reference  String?
+  notes      String?
+  documentId String?       @map("document_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  box        Box           @relation(fields: [boxId], references: [id], onDelete: Cascade)
+
+  @@index([boxId])
+  @@map("payments")
+}
+
+model WhtTracking {
+  id           String         @id @default(cuid())
+  boxId        String         @map("box_id")
+  type         WhtType
+  amount       Decimal        @db.Decimal(15, 2)
+  rate         Decimal?       @db.Decimal(5, 2)
+  status       WhtStatus      @default(PENDING)
+  issuedDate   DateTime?      @map("issued_date")
+  sentDate     DateTime?      @map("sent_date")
+  sentMethod   WhtSentMethod? @map("sent_method")
+  receivedDate DateTime?      @map("received_date")
+  dueDate      DateTime?      @map("due_date")
+  isOverdue    Boolean        @default(false) @map("is_overdue")
+  documentId   String?        @map("document_id")
+  contactId    String?        @map("contact_id")
+  notes        String?
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  box          Box            @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  contact      Contact?       @relation(fields: [contactId], references: [id])
+
+  @@index([boxId])
+  @@index([status])
+  @@index([isOverdue])
+  @@map("wht_trackings")
+}
+
+model Comment {
+  id         String    @id @default(cuid())
+  boxId      String    @map("box_id")
+  userId     String    @map("user_id")
+  content    String
+  isInternal Boolean   @default(false) @map("is_internal")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  editedAt   DateTime? @map("edited_at")
+  mentions   String[]  @default([])
+  parentId   String?   @map("parent_id")
+  box        Box       @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[] @relation("CommentReplies")
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@index([boxId, createdAt])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  boxId     String?  @map("box_id")
+  userId    String   @map("user_id")
+  action    String
+  details   Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+  box       Box?     @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model ExportHistory {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  exportType     ExportType   @map("export_type")
+  exportProfile  String?      @map("export_profile")
+  fileName       String       @map("file_name")
+  fileUrl        String?      @map("file_url")
+  boxIds         String[]     @map("box_ids")
+  boxCount       Int          @map("box_count")
+  exportedById   String       @map("exported_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("export_histories")
+}
+
+model ExportProfile {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  name           String
+  description    String?
+  isDefault      Boolean      @default(false) @map("is_default")
+  isSystem       Boolean      @default(false) @map("is_system")
+  columns        Json         @default("[]")
+  dateFormat     String       @default("DD/MM/YYYY") @map("date_format")
+  numberFormat   String       @default("COMMA") @map("number_format")
+  includeVat     Boolean      @default(true) @map("include_vat")
+  includeWht     Boolean      @default(true) @map("include_wht")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@map("export_profiles")
+}
+
+model SavedFilter {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  userId         String       @map("user_id")
+  name           String
+  filters        Json
+  isDefault      Boolean      @default(false) @map("is_default")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, name])
+  @@map("saved_filters")
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  type           NotificationType
+  title          String
+  message        String
+  data           Json?
+  isRead         Boolean          @default(false) @map("is_read")
+  readAt         DateTime?        @map("read_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
+}
+
+model ShareLink {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  token          String       @unique
+  name           String?
+  scope          ShareScope   @default(BOX)
+  boxId          String?      @map("box_id")
+  boxIds         String[]     @map("box_ids")
+  periodMonth    Int?         @map("period_month")
+  periodYear     Int?         @map("period_year")
+  password       String?
+  expiresAt      DateTime?    @map("expires_at")
+  maxViews       Int?         @map("max_views")
+  viewCount      Int          @default(0) @map("view_count")
+  showAmounts    Boolean      @default(true) @map("show_amounts")
+  showContacts   Boolean      @default(true) @map("show_contacts")
+  allowDownload  Boolean      @default(true) @map("allow_download")
+  createdById    String       @map("created_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  lastAccessedAt DateTime?    @map("last_accessed_at")
+  box            Box?         @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("share_links")
+}
+
+model Integration {
+  id              String             @id @default(cuid())
+  organizationId  String             @map("organization_id")
+  type            IntegrationType
+  name            String
+  isActive        Boolean            @default(true) @map("is_active")
+  config          Json               @default("{}")
+  events          NotificationType[]
+  lastTriggeredAt DateTime?          @map("last_triggered_at")
+  triggerCount    Int                @default(0) @map("trigger_count")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, type])
+  @@map("integrations")
+}
+
+model WebhookLog {
+  id            String           @id @default(cuid())
+  integrationId String           @map("integration_id")
+  eventType     NotificationType @map("event_type")
+  payload       Json
+  status        String
+  responseCode  Int?             @map("response_code")
+  responseBody  String?          @map("response_body")
+  errorMessage  String?          @map("error_message")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  @@index([integrationId, createdAt])
+  @@map("webhook_logs")
+}
+
+model ApprovalWorkflow {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  name           String
+  description    String?
+  isDefault      Boolean        @default(false) @map("is_default")
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  steps          ApprovalStep[]
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  boxes          Box[]          @relation("BoxWorkflow")
+
+  @@index([organizationId, isActive])
+  @@map("approval_workflows")
+}
+
+model ApprovalStep {
+  id            String           @id @default(cuid())
+  workflowId    String           @map("workflow_id")
+  order         Int
+  name          String
+  approverType  ApproverType     @map("approver_type")
+  approverValue String?          @map("approver_value")
+  autoApprove   Boolean          @default(false) @map("auto_approve")
+  threshold     Decimal?
+  createdAt     DateTime         @default(now()) @map("created_at")
+  workflow      ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  approvals     BoxApproval[]
+
+  @@unique([workflowId, order])
+  @@map("approval_steps")
+}
+
+model BoxApproval {
+  id         String         @id @default(cuid())
+  boxId      String         @map("box_id")
+  stepId     String         @map("step_id")
+  status     ApprovalStatus @default(PENDING)
+  approvedBy String?        @map("approved_by")
+  comment    String?
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+  approver   User?          @relation(fields: [approvedBy], references: [id])
+  box        Box            @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  step       ApprovalStep   @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([boxId, stepId])
+  @@index([boxId, status])
+  @@map("box_approvals")
+}
+
+model DocumentTemplate {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  name           String
+  contactId      String?      @map("contact_id")
+  docType        DocType      @map("doc_type")
+  categoryId     String?      @map("category_id")
+  costCenterId   String?      @map("cost_center_id")
+  expenseType    ExpenseType? @map("expense_type")
+  expectedAmount Decimal?     @map("expected_amount") @db.Decimal(15, 2)
+  amountVariance Decimal      @default(0.1) @map("amount_variance") @db.Decimal(5, 2)
+  description    String?
+  isActive       Boolean      @default(true) @map("is_active")
+  usageCount     Int          @default(0) @map("usage_count")
+  lastUsedAt     DateTime?    @map("last_used_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  category       Category?    @relation(fields: [categoryId], references: [id])
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@index([contactId])
+  @@map("document_templates")
+}
+
+enum FirmPlan {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum AssignmentRole {
+  PRIMARY
+  SUPPORT
+}
+
 enum RelationStatus {
-  PENDING    // รอตอบรับ
-  ACTIVE     // กำลังดูแล
-  TERMINATED // ยกเลิกแล้ว
+  PENDING
+  ACTIVE
+  TERMINATED
 }
 
 enum InviterType {
-  BUSINESS // ธุรกิจเชิญสำนักบัญชี
-  FIRM     // สำนักบัญชีขอดูแล
+  BUSINESS
+  FIRM
 }
 
 enum FirmRole {
@@ -205,52 +813,6 @@ enum Plan {
   ENTERPRISE
 }
 
-model User {
-  id         String   @id @default(cuid())
-  email      String   @unique
-  name       String?
-  avatarUrl  String?  @map("avatar_url")
-  supabaseId String   @unique @map("supabase_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  memberships      OrganizationMember[]
-  firmMemberships  FirmMember[] // Accounting Firm memberships (Section 22)
-  boxes            Box[]                @relation("CreatedBy")
-  comments         Comment[]
-  activityLogs     ActivityLog[]
-  savedFilters     SavedFilter[]
-  notifications    Notification[]
-  assignedTasks    Task[]               @relation("TaskAssignee")
-  vatVerifiedBoxes Box[]                @relation("VatVerifiedBy")
-  bookingEntries   BookingEntry[]       @relation("BookedBy")
-  shareLinks       ShareLink[] // External share links
-  approvals        BoxApproval[] // Approval workflow
-  sentInvitations  Invitation[] // Invitations sent by this user
-  firmRelationInvites FirmClientRelation[] @relation("FirmRelationInviter") // Firm relation invites sent
-
-  @@map("users")
-}
-
-model OrganizationMember {
-  id             String     @id @default(cuid())
-  organizationId String     @map("organization_id")
-  userId         String     @map("user_id")
-  role           MemberRole @default(STAFF)
-  isActive       Boolean    @default(true) @map("is_active")
-  invitedAt      DateTime   @default(now()) @map("invited_at")
-  joinedAt       DateTime?  @map("joined_at")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, userId])
-  @@map("organization_members")
-}
-
 enum MemberRole {
   OWNER
   ADMIN
@@ -258,75 +820,11 @@ enum MemberRole {
   STAFF
 }
 
-// ============================================
-// INVITATIONS
-// ============================================
-
-model Invitation {
-  id             String           @id @default(cuid())
-  code           String           @unique @default(cuid())
-  email          String
-  organizationId String?          @map("organization_id")
-  firmId         String?          @map("firm_id")
-  role           String           // MemberRole or FirmRole as string
-  invitedById    String           @map("invited_by_id")
-  status         InvitationStatus @default(PENDING)
-  expiresAt      DateTime         @map("expires_at")
-  acceptedAt     DateTime?        @map("accepted_at")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  firm         AccountingFirm?  @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  invitedBy    User             @relation(fields: [invitedById], references: [id], onDelete: Cascade)
-
-  @@index([code])
-  @@index([email])
-  @@index([organizationId])
-  @@index([firmId])
-  @@map("invitations")
-}
-
 enum InvitationStatus {
   PENDING
   ACCEPTED
   EXPIRED
   CANCELLED
-}
-
-// ============================================
-// MASTER DATA
-// ============================================
-
-model Contact {
-  id             String      @id @default(cuid())
-  organizationId String      @map("organization_id")
-  name           String
-  contactType    ContactType @default(INDIVIDUAL) @map("contact_type")
-  contactRole    ContactRole @default(VENDOR) @map("contact_role")
-  taxId          String?     @map("tax_id")
-  branchNo       String?     @map("branch_no")
-  address        String?
-  phone          String?
-  email          String?
-  whtApplicable  Boolean     @default(false) @map("wht_applicable")
-  defaultWhtRate Decimal?    @map("default_wht_rate") @db.Decimal(5, 2)
-  isActive       Boolean     @default(true) @map("is_active")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
-
-  // === Vendor Memory (Section 9) ===
-  defaultVatRequired Boolean   @default(false) @map("default_vat_required")
-  slaRating          Int?      @map("sla_rating") // 1-5 จากประสบการณ์
-  avgResponseDays    Float?    @map("avg_response_days") // ค่าเฉลี่ยวันที่ส่งเอกสาร
-  lastUsedAt         DateTime? @map("last_used_at")
-
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  boxes             Box[]
-  whtTrackings      WhtTracking[]
-  documentTemplates DocumentTemplate[]
-
-  @@map("contacts")
 }
 
 enum ContactType {
@@ -340,45 +838,6 @@ enum ContactRole {
   BOTH
 }
 
-model CostCenter {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  code           String
-  name           String
-  description    String?
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  boxes             Box[]
-  documentTemplates DocumentTemplate[]
-
-  @@unique([organizationId, code])
-  @@map("cost_centers")
-}
-
-model Category {
-  id              String        @id @default(cuid())
-  organizationId  String        @map("organization_id")
-  code            String
-  name            String
-  categoryType    CategoryType  @default(EXPENSE) @map("category_type")
-  peakAccountCode String?       @map("peak_account_code")
-  whtSuggestion   WhtSuggestion @default(NONE) @map("wht_suggestion")
-  defaultWhtRate  Decimal?      @map("default_wht_rate") @db.Decimal(5, 2)
-  isActive        Boolean       @default(true) @map("is_active")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  boxes             Box[]
-  documentTemplates DocumentTemplate[]
-
-  @@unique([organizationId, code])
-  @@map("categories")
-}
-
 enum CategoryType {
   EXPENSE
   INCOME
@@ -390,283 +849,84 @@ enum WhtSuggestion {
   USUALLY
 }
 
-model FiscalPeriod {
-  id             String       @id @default(cuid())
-  organizationId String       @map("organization_id")
-  name           String
-  year           Int
-  month          Int
-  startDate      DateTime     @map("start_date")
-  endDate        DateTime     @map("end_date")
-  status         PeriodStatus @default(OPEN)
-  closedAt       DateTime?    @map("closed_at")
-  closedById     String?      @map("closed_by_id")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  boxes        Box[]
-
-  @@unique([organizationId, year, month])
-  @@map("fiscal_periods")
-}
-
 enum PeriodStatus {
   OPEN
   CLOSING
   CLOSED
 }
 
-// ============================================
-// BOX (กล่องเอกสาร / Case / Transaction)
-// 1 Box = 1 Case = 1 เหตุการณ์จ่ายเงินจริง
-// มีหลาย Document (เอกสารแต่ละประเภท)
-// ============================================
-
-model Box {
-  id             String @id @default(cuid())
-  organizationId String @map("organization_id")
-
-  // === Basic Info ===
-  boxNumber   String       @map("box_number") // BOX-YYYYMM-XXXX
-  title       String? // "ค่าบริการ IT ม.ค."
-  boxType     BoxType      @default(EXPENSE) @map("box_type")
-  expenseType ExpenseType? @map("expense_type")
-
-  // === Date ===
-  boxDate DateTime  @map("box_date") // วันที่ธุรกรรม
-  dueDate DateTime? @map("due_date")
-
-  // === Amount ===
-  totalAmount Decimal @default(0) @map("total_amount") @db.Decimal(15, 2)
-  vatAmount   Decimal @default(0) @map("vat_amount") @db.Decimal(15, 2)
-  whtAmount   Decimal @default(0) @map("wht_amount") @db.Decimal(15, 2)
-  paidAmount  Decimal @default(0) @map("paid_amount") @db.Decimal(15, 2)
-
-  // === VAT Info ===
-  vatRate        Decimal? @map("vat_rate") @db.Decimal(5, 2)
-  isVatInclusive Boolean  @default(true) @map("is_vat_inclusive")
-
-  // === WHT Info ===
-  hasWht  Boolean  @default(false) @map("has_wht")
-  whtRate Decimal? @map("wht_rate") @db.Decimal(5, 2)
-
-  // === Main Status (Section 5.1) ===
-  status        BoxStatus     @default(DRAFT)
-  docStatus     DocStatus     @default(INCOMPLETE) @map("doc_status")
-  paymentStatus PaymentStatus @default(UNPAID) @map("payment_status")
-
-  // === VAT Sub-status (Section 5.2) ===
-  hasVat          Boolean      @default(true) @map("has_vat") // คาดว่ามี VAT
-  vatDocStatus    VatDocStatus @default(MISSING) @map("vat_doc_status")
-  vatVerifiedAt   DateTime?    @map("vat_verified_at")
-  vatVerifiedById String?      @map("vat_verified_by_id")
-
-  // === WHT Sub-status (Section 5.2) ===
-  whtDocStatus WhtDocStatus @default(MISSING) @map("wht_doc_status")
-  whtDueDate   DateTime?    @map("wht_due_date")
-  whtOverdue   Boolean      @default(false) @map("wht_overdue")
-  whtSent      Boolean      @default(false) @map("wht_sent") // ส่ง WHT ให้คู่ค้าแล้ว
-
-  // === Duplicate Detection (Section 17) ===
-  possibleDuplicate Boolean @default(false) @map("possible_duplicate")
-  duplicateReason   String? @map("duplicate_reason")
-
-  // === Reimbursement Mode (Section 19) ===
-  paymentMode         PaymentMode          @default(COMPANY_PAID) @map("payment_mode")
-  reimbursementStatus ReimbursementStatus? @map("reimbursement_status")
-
-  // === Late Doc Flag (Section 12) ===
-  isLateDocs      Boolean @default(false) @map("is_late_docs")
-  noReceiptReason String? @map("no_receipt_reason") // ถ้าไม่มีเอกสาร
-
-  // === Foreign Currency ===
-  foreignCurrency String?  @map("foreign_currency") // USD, EUR
-  foreignAmount   Decimal? @map("foreign_amount") @db.Decimal(15, 2)
-  exchangeRate    Decimal? @map("exchange_rate") @db.Decimal(15, 6)
-
-  // === Notes ===
-  description String?
-  notes       String?
-  externalRef String? @map("external_ref")
-
-  // === Relations ===
-  contactId      String? @map("contact_id")
-  categoryId     String? @map("category_id")
-  costCenterId   String? @map("cost_center_id")
-  fiscalPeriodId String? @map("fiscal_period_id")
-  createdById    String  @map("created_by_id")
-  bookingEntryId String? @map("booking_entry_id")
-
-  // === Linked (for refund/adjustment) ===
-  linkedBoxId String? @map("linked_box_id")
-  linkedBox   Box?    @relation("LinkedBoxes", fields: [linkedBoxId], references: [id])
-  linkedFrom  Box[]   @relation("LinkedBoxes")
-
-  // === Timestamps ===
-  submittedAt DateTime? @map("submitted_at")
-  reviewedAt  DateTime? @map("reviewed_at")
-  bookedAt    DateTime? @map("booked_at")
-  exportedAt  DateTime? @map("exported_at")
-  archivedAt  DateTime? @map("archived_at")
-  lockedAt    DateTime? @map("locked_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  // Relations
-  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contact       Contact?      @relation(fields: [contactId], references: [id])
-  category      Category?     @relation(fields: [categoryId], references: [id])
-  costCenter    CostCenter?   @relation(fields: [costCenterId], references: [id])
-  fiscalPeriod  FiscalPeriod? @relation(fields: [fiscalPeriodId], references: [id])
-  createdBy     User          @relation("CreatedBy", fields: [createdById], references: [id])
-  vatVerifiedBy User?         @relation("VatVerifiedBy", fields: [vatVerifiedById], references: [id])
-  bookingEntry  BookingEntry? @relation(fields: [bookingEntryId], references: [id])
-
-  // Child entities
-  documents    Document[] // เอกสารในกล่อง
-  payments     Payment[] // การจ่ายเงิน
-  whtTrackings WhtTracking[] // WHT tracking
-  tasks        Task[] // Task tracking (Section 6)
-  comments     Comment[]
-  activityLogs ActivityLog[]
-  shareLinks   ShareLink[] // External share links
-
-  // Approval Workflow
-  workflowId String?           @map("workflow_id")
-  workflow   ApprovalWorkflow? @relation("BoxWorkflow", fields: [workflowId], references: [id])
-  approvals  BoxApproval[]
-
-  @@unique([organizationId, boxNumber])
-  @@index([organizationId, status])
-  @@index([organizationId, boxDate])
-  @@index([organizationId, boxType])
-  @@index([organizationId, docStatus])
-  @@index([organizationId, whtOverdue])
-  @@index([organizationId, possibleDuplicate])
-  @@index([contactId])
-  @@index([bookingEntryId])
-  @@index([workflowId])
-  @@map("boxes")
-}
-
 enum BoxType {
-  EXPENSE // รายจ่าย
-  INCOME // รายรับ
-  ADJUSTMENT // ปรับปรุง (refund, CN, DN)
+  EXPENSE
+  INCOME
+  ADJUSTMENT
 }
 
 enum ExpenseType {
-  STANDARD // มีใบกำกับภาษี (เครม VAT ได้)
-  NO_VAT // ไม่มีใบกำกับภาษี (บิลเงินสด/ร้านไม่จด)
-  PETTY_CASH // เงินสดย่อย
-  FOREIGN // จ่ายต่างประเทศ
+  STANDARD
+  NO_VAT
+  PETTY_CASH
+  FOREIGN
 }
 
-// Main Status (Section 5.1)
+// Simplified 4-status system
 enum BoxStatus {
-  DRAFT // สร้างไว้ยังไม่ส่ง
-  SUBMITTED // ส่งเข้าคิวบัญชีแล้ว
-  IN_REVIEW // บัญชีกำลังตรวจ
-  NEED_MORE_DOCS // ขาดเอกสาร/ข้อมูล
-  READY_TO_BOOK // ครบเงื่อนไขพร้อมลงบัญชี
-  WHT_PENDING // ลงบัญชีได้ แต่ WHT ตามต่อ (Bookable)
-  BOOKED // ลงบัญชีแล้ว
-  ARCHIVED // ปิดงาน/เก็บ
-  LOCKED // งวดปิดแล้ว ห้ามแก้
-  CANCELLED // ยกเลิก
+  DRAFT       // แบบร่าง - กำลังสร้าง/แก้ไข
+  PENDING     // รอตรวจ - ส่งบัญชีแล้ว รอตรวจสอบ
+  NEED_DOCS   // ขาดเอกสาร - บัญชีขอเอกสารเพิ่ม
+  COMPLETED   // เสร็จสิ้น - ลงบัญชีเรียบร้อย
 }
 
-// VAT Document Status (Section 5.2)
 enum VatDocStatus {
-  MISSING // ยังไม่ได้รับ
-  RECEIVED // ได้รับแล้ว
-  VERIFIED // ตรวจสอบแล้ว
-  NA // ไม่ต้องมี
+  MISSING
+  RECEIVED
+  VERIFIED
+  NA
 }
 
-// WHT Document Status (Section 5.2)
 enum WhtDocStatus {
-  MISSING // ยังไม่ได้รับ
-  REQUEST_SENT // ส่งคำขอแล้ว
-  RECEIVED // ได้รับแล้ว
-  VERIFIED // ตรวจสอบแล้ว
-  NA // ไม่ต้องมี
+  MISSING
+  REQUEST_SENT
+  RECEIVED
+  VERIFIED
+  NA
 }
 
 enum DocStatus {
-  INCOMPLETE // เอกสารไม่ครบ
-  COMPLETE // เอกสารครบ
-  NA // ไม่ต้องมีเอกสาร
+  INCOMPLETE
+  COMPLETE
+  NA
 }
 
 enum PaymentStatus {
-  UNPAID // ยังไม่จ่าย
-  PARTIAL // จ่ายบางส่วน
-  PAID // จ่ายครบ
-  OVERPAID // จ่ายเกิน
-  REFUNDED // ได้คืนแล้ว
+  UNPAID
+  PARTIAL
+  PAID
+  OVERPAID
+  REFUNDED
 }
 
-// Payment Mode (Section 19)
 enum PaymentMode {
-  COMPANY_PAID // บริษัทจ่าย
-  EMPLOYEE_ADVANCE // พนักงานสำรองจ่าย
+  COMPANY_PAID
+  EMPLOYEE_ADVANCE
 }
 
-// Reimbursement Status (Section 19)
 enum ReimbursementStatus {
-  NONE // ไม่ต้องคืน
-  PENDING // รอคืนเงิน
-  REIMBURSED // คืนเงินแล้ว
+  NONE
+  PENDING
+  REIMBURSED
 }
 
-// ============================================
-// TASK (ระบบทวงเอกสาร - Section 6)
-// ============================================
-
-model Task {
-  id             String @id @default(cuid())
-  boxId          String @map("box_id")
-  organizationId String @map("organization_id")
-
-  taskType    TaskType   @map("task_type")
-  status      TaskStatus @default(OPEN)
-  title       String
-  description String?
-
-  dueDate    DateTime? @map("due_date")
-  assigneeId String?   @map("assignee_id")
-
-  // === Reminder & Escalation (Section 7) ===
-  reminderCount   Int       @default(0) @map("reminder_count")
-  lastReminderAt  DateTime? @map("last_reminder_at")
-  escalatedAt     DateTime? @map("escalated_at")
-  escalationLevel Int       @default(0) @map("escalation_level") // 0=none, 1=amber, 2=red
-
-  completedAt   DateTime? @map("completed_at")
-  completedById String?   @map("completed_by_id")
-  cancelledAt   DateTime? @map("cancelled_at")
-  cancelReason  String?   @map("cancel_reason")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  box      Box   @relation(fields: [boxId], references: [id], onDelete: Cascade)
-  assignee User? @relation("TaskAssignee", fields: [assigneeId], references: [id])
-
-  @@index([boxId])
-  @@index([organizationId, status])
-  @@index([organizationId, dueDate])
-  @@index([assigneeId])
-  @@map("tasks")
+enum PayerType {
+  COMPANY
+  PETTY_CASH
+  MEMBER
 }
 
 enum TaskType {
-  VAT_INVOICE // ขอ/รับ/verify ใบกำกับภาษี
-  WHT_CERTIFICATE // ขอ/รับ/verify หนังสือรับรองหัก ณ ที่จ่าย
-  GENERAL_DOC // ขอใบเสร็จ/เอกสารอื่น
-  FOLLOW_UP // ติดตามทั่วไป
+  VAT_INVOICE
+  WHT_CERTIFICATE
+  GENERAL_DOC
+  FOLLOW_UP
 }
 
 enum TaskStatus {
@@ -676,242 +936,57 @@ enum TaskStatus {
   CANCELLED
 }
 
-// ============================================
-// BOOKING ENTRY (Section 8)
-// 1 Entry = 1 รายการที่ส่งออกไปลงบัญชี
-// 1 Entry สามารถ link ได้หลาย Box (Merge/Link)
-// ============================================
-
-model BookingEntry {
-  id             String @id @default(cuid())
-  organizationId String @map("organization_id")
-
-  entryNumber String  @map("entry_number") // ENTRY-YYYYMM-XXXX
-  description String?
-  totalAmount Decimal @default(0) @map("total_amount") @db.Decimal(15, 2)
-
-  bookedAt   DateTime @map("booked_at")
-  bookedById String   @map("booked_by_id")
-
-  exportedAt    DateTime? @map("exported_at")
-  exportProfile String?   @map("export_profile") // PEAK, FlowAccount, Express, Generic
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  bookedBy     User         @relation("BookedBy", fields: [bookedById], references: [id])
-  boxes        Box[]
-
-  @@unique([organizationId, entryNumber])
-  @@index([organizationId, bookedAt])
-  @@map("booking_entries")
-}
-
-// ============================================
-// DOCUMENT (เอกสารในกล่อง)
-// 1 Box → หลาย Document
-// แต่ละ Document = เอกสารประเภทหนึ่ง
-// ============================================
-
-model Document {
-  id    String @id @default(cuid())
-  boxId String @map("box_id")
-
-  // === Type ===
-  docType DocType @map("doc_type")
-
-  // === Details ===
-  docNumber String?   @map("doc_number") // เลขที่เอกสาร
-  docDate   DateTime? @map("doc_date")
-  amount    Decimal?  @db.Decimal(15, 2)
-  vatAmount Decimal?  @map("vat_amount") @db.Decimal(15, 2)
-
-  // === Foreign Currency ===
-  foreignCurrency String?  @map("foreign_currency")
-  foreignAmount   Decimal? @map("foreign_amount") @db.Decimal(15, 2)
-
-  // === Notes ===
-  notes String?
-
-  // === AI Extracted ===
-  aiExtracted  Json?  @map("ai_extracted") // ข้อมูลที่ AI อ่านได้
-  aiConfidence Float? @map("ai_confidence") // ความมั่นใจ 0-1
-
-  // === Late Doc Flag ===
-  isLateDocs Boolean @default(false) @map("is_late_docs")
-
-  // === Order (for drag & drop) ===
-  pageOrder Int @default(0) @map("page_order")
-
-  // === Timestamps ===
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  box   Box            @relation(fields: [boxId], references: [id], onDelete: Cascade)
-  files DocumentFile[]
-
-  @@index([boxId])
-  @@index([docType])
-  @@map("documents")
-}
-
-// ประเภทเอกสาร (25+ types)
 enum DocType {
-  // === หลักฐานจ่ายเงิน (Payment Evidence) ===
-  SLIP_TRANSFER // สลิปโอนเงิน
-  SLIP_CHEQUE // สำเนาเช็ค
-  BANK_STATEMENT // Statement ธนาคาร
-  CREDIT_CARD_STATEMENT // Statement บัตรเครดิต
-  ONLINE_RECEIPT // Paypal/Stripe
-  PETTY_CASH_VOUCHER // ใบสำคัญจ่ายเงินสด
-
-  // === หลักฐานรายจ่าย (Expense Evidence) ===
-  TAX_INVOICE // ใบกำกับภาษี
-  TAX_INVOICE_ABB // ใบกำกับภาษีอย่างย่อ
-  RECEIPT // ใบเสร็จรับเงิน
-  CASH_RECEIPT // บิลเงินสด
-  INVOICE // ใบแจ้งหนี้
-  FOREIGN_INVOICE // Invoice ต่างประเทศ
-  CUSTOMS_FORM // ใบขนสินค้า
-  DELIVERY_NOTE // ใบส่งของ
-
-  // === เอกสารปรับปรุง (Adjustment) ===
-  CREDIT_NOTE // ใบลดหนี้
-  DEBIT_NOTE // ใบเพิ่มหนี้
-  REFUND_RECEIPT // หลักฐานคืนเงิน
-
-  // === WHT ===
-  WHT_SENT // WHT ที่เราส่งให้
-  WHT_RECEIVED // WHT ที่ได้รับกลับ (signed)
-  WHT_INCOMING // WHT ที่เขาหักเรา
-
-  // === ภาษี/ราชการ ===
-  TAX_PAYMENT_SLIP // ใบนำส่งภาษี
-  TAX_RECEIPT_GOVT // ใบเสร็จจากสรรพากร
-  SSO_PAYMENT // ประกันสังคม
-  GOVT_RECEIPT // ใบเสร็จราชการอื่นๆ
-
-  // === อื่นๆ ===
-  CONTRACT // สัญญา
-  QUOTATION // ใบเสนอราคา
-  PURCHASE_ORDER // ใบสั่งซื้อ
-  CLAIM_FORM // ใบเบิกเงิน
-  OTHER // อื่นๆ
-}
-
-// ============================================
-// DOCUMENT FILE (ไฟล์ของเอกสาร)
-// 1 Document → หลายไฟล์ (หน้า-หลัง, หลายหน้า)
-// ============================================
-
-model DocumentFile {
-  id         String @id @default(cuid())
-  documentId String @map("document_id")
-
-  fileName  String  @map("file_name")
-  fileUrl   String  @map("file_url")
-  fileSize  Int     @map("file_size")
-  mimeType  String  @map("mime_type")
-  checksum  String? // MD5/SHA256 for duplicate detection
-  pageOrder Int     @default(1) @map("page_order")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@index([documentId])
-  @@index([checksum])
-  @@map("document_files")
-}
-
-// ============================================
-// PAYMENT (การจ่ายเงิน)
-// 1 Box → หลาย Payment (จ่ายหลายครั้งได้)
-// ============================================
-
-model Payment {
-  id    String @id @default(cuid())
-  boxId String @map("box_id")
-
-  amount    Decimal       @db.Decimal(15, 2)
-  paidDate  DateTime      @map("paid_date")
-  method    PaymentMethod
-  reference String? // เลขอ้างอิง
-  notes     String?
-
-  // Link to slip document (optional)
-  documentId String? @map("document_id")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  box Box @relation(fields: [boxId], references: [id], onDelete: Cascade)
-
-  @@index([boxId])
-  @@map("payments")
+  SLIP_TRANSFER
+  SLIP_CHEQUE
+  BANK_STATEMENT
+  CREDIT_CARD_STATEMENT
+  ONLINE_RECEIPT
+  PETTY_CASH_VOUCHER
+  TAX_INVOICE
+  TAX_INVOICE_ABB
+  RECEIPT
+  CASH_RECEIPT
+  INVOICE
+  FOREIGN_INVOICE
+  CUSTOMS_FORM
+  DELIVERY_NOTE
+  CREDIT_NOTE
+  DEBIT_NOTE
+  REFUND_RECEIPT
+  WHT_SENT
+  WHT_RECEIVED
+  WHT_INCOMING
+  TAX_PAYMENT_SLIP
+  TAX_RECEIPT_GOVT
+  SSO_PAYMENT
+  GOVT_RECEIPT
+  CONTRACT
+  QUOTATION
+  PURCHASE_ORDER
+  CLAIM_FORM
+  OTHER
 }
 
 enum PaymentMethod {
-  TRANSFER // โอน
-  CHEQUE // เช็ค
-  CASH // เงินสด
-  CREDIT_CARD // บัตรเครดิต
-  ONLINE // Online (Paypal, etc.)
-}
-
-// ============================================
-// WHT TRACKING (ติดตามหัก ณ ที่จ่าย)
-// ============================================
-
-model WhtTracking {
-  id    String @id @default(cuid())
-  boxId String @map("box_id")
-
-  type   WhtType // outgoing | incoming
-  amount Decimal  @db.Decimal(15, 2)
-  rate   Decimal? @db.Decimal(5, 2) // 1%, 2%, 3%, 5%
-
-  status       WhtStatus      @default(PENDING)
-  issuedDate   DateTime?      @map("issued_date")
-  sentDate     DateTime?      @map("sent_date")
-  sentMethod   WhtSentMethod? @map("sent_method")
-  receivedDate DateTime?      @map("received_date")
-
-  // Due date for tracking (Section 10)
-  dueDate   DateTime? @map("due_date")
-  isOverdue Boolean   @default(false) @map("is_overdue")
-
-  // Link to WHT document
-  documentId String? @map("document_id")
-
-  // Counterparty
-  contactId String? @map("contact_id")
-
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  box     Box      @relation(fields: [boxId], references: [id], onDelete: Cascade)
-  contact Contact? @relation(fields: [contactId], references: [id])
-
-  @@index([boxId])
-  @@index([status])
-  @@index([isOverdue])
-  @@map("wht_trackings")
+  TRANSFER
+  CHEQUE
+  CASH
+  CREDIT_CARD
+  ONLINE
 }
 
 enum WhtType {
-  OUTGOING // เราหักเขา (ส่ง WHT ให้ vendor)
-  INCOMING // เขาหักเรา (รับ WHT จากลูกค้า)
+  OUTGOING
+  INCOMING
 }
 
 enum WhtStatus {
-  PENDING // รอดำเนินการ
-  ISSUED // ออกแล้ว
-  SENT // ส่งแล้ว
-  CONFIRMED // ยืนยันแล้ว
-  RECEIVED // ได้รับแล้ว
+  PENDING
+  ISSUED
+  SENT
+  CONFIRMED
+  RECEIVED
 }
 
 enum WhtSentMethod {
@@ -919,103 +994,6 @@ enum WhtSentMethod {
   MAIL
   HAND_DELIVERY
   OTHER
-}
-
-// ============================================
-// COMMENTS & ACTIVITY
-// ============================================
-
-model Comment {
-  id         String   @id @default(cuid())
-  boxId      String   @map("box_id")
-  userId     String   @map("user_id")
-  content    String
-  isInternal Boolean  @default(false) @map("is_internal")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  // Enhanced: Reply threading
-  parentId   String?   @map("parent_id")
-  parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies    Comment[] @relation("CommentReplies")
-
-  // Enhanced: @mentions (user IDs)
-  mentions   String[]  @default([])
-
-  // Enhanced: Edit tracking
-  editedAt   DateTime? @map("edited_at")
-
-  box  Box  @relation(fields: [boxId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([boxId, createdAt])
-  @@index([parentId])
-  @@map("comments")
-}
-
-model ActivityLog {
-  id        String   @id @default(cuid())
-  boxId     String?  @map("box_id")
-  userId    String   @map("user_id")
-  action    String
-  details   Json?
-  ipAddress String?  @map("ip_address")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  box  Box? @relation(fields: [boxId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
-
-  @@map("activity_logs")
-}
-
-// ============================================
-// EXPORT
-// ============================================
-
-model ExportHistory {
-  id             String     @id @default(cuid())
-  organizationId String     @map("organization_id")
-  exportType     ExportType @map("export_type")
-  exportProfile  String?    @map("export_profile") // PEAK, FlowAccount, Express, Generic
-  fileName       String     @map("file_name")
-  fileUrl        String?    @map("file_url")
-  boxIds         String[]   @map("box_ids")
-  boxCount       Int        @map("box_count")
-  exportedById   String     @map("exported_by_id")
-  createdAt      DateTime   @default(now()) @map("created_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("export_histories")
-}
-
-// Custom Export Profiles (Section 11.1)
-model ExportProfile {
-  id             String @id @default(cuid())
-  organizationId String @map("organization_id")
-
-  name        String // "PEAK Import", "FlowAccount 2024"
-  description String?
-  isDefault   Boolean @default(false) @map("is_default")
-  isSystem    Boolean @default(false) @map("is_system") // Built-in profiles
-
-  // Column configuration (JSON array of column definitions)
-  // Format: [{ field: "boxNumber", header: "เลขที่เอกสาร", order: 1 }, ...]
-  columns Json @default("[]")
-
-  // Format settings
-  dateFormat   String  @default("DD/MM/YYYY") @map("date_format")
-  numberFormat String  @default("COMMA") @map("number_format") // COMMA, DOT, PLAIN
-  includeVat   Boolean @default(true) @map("include_vat")
-  includeWht   Boolean @default(true) @map("include_wht")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, name])
-  @@map("export_profiles")
 }
 
 enum ExportType {
@@ -1027,259 +1005,50 @@ enum ExportType {
   ZIP
 }
 
-// ============================================
-// SAVED FILTERS
-// ============================================
-
-model SavedFilter {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  userId         String   @map("user_id")
-  name           String
-  filters        Json
-  isDefault      Boolean  @default(false) @map("is_default")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, userId, name])
-  @@map("saved_filters")
-}
-
-// ============================================
-// NOTIFICATIONS
-// ============================================
-
-model Notification {
-  id             String           @id @default(cuid())
-  organizationId String           @map("organization_id")
-  userId         String           @map("user_id")
-  type           NotificationType
-  title          String
-  message        String
-  data           Json?
-  isRead         Boolean          @default(false) @map("is_read")
-  readAt         DateTime?        @map("read_at")
-  createdAt      DateTime         @default(now()) @map("created_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, isRead])
-  @@index([organizationId, createdAt])
-  @@map("notifications")
-}
-
 enum NotificationType {
-  // Box Status
-  BOX_SUBMITTED // กล่องใหม่รอตรวจ
-  BOX_IN_REVIEW // กล่องกำลังตรวจ
-  BOX_NEED_MORE_DOCS // ขอเอกสารเพิ่ม
-  BOX_READY_TO_BOOK // พร้อมลงบัญชี
-  BOX_BOOKED // ลงบัญชีแล้ว
-  BOX_ARCHIVED // ปิดงานแล้ว
-  BOX_CANCELLED // ยกเลิกแล้ว
-
-  // Documents
-  DOCUMENT_ADDED // มีเอกสารใหม่ในกล่อง
-
-  // Tasks & Reminders (Section 7)
-  TASK_ASSIGNED // ได้รับ task ใหม่
-  TASK_REMINDER // เตือน task
-  TASK_ESCALATED // Escalate task
-  TASK_COMPLETED // task เสร็จแล้ว
-
-  // Due Dates
-  DUE_DATE_REMINDER // ใกล้ครบกำหนด
-  DUE_DATE_OVERDUE // เกินกำหนด
-
-  // WHT
-  WHT_PENDING // WHT รอส่ง
-  WHT_OVERDUE // WHT เกินกำหนด
-  WHT_RECEIVED // ได้รับ WHT กลับ
-
-  // Others
-  COMMENT_ADDED // มี comment ใหม่
-  MEMBER_INVITED // ถูกเชิญเข้าองค์กร
-  PERIOD_CLOSING // งวดกำลังจะปิด
-  PERIOD_CLOSED // งวดปิดแล้ว
-}
-
-// ============================================
-// EXTERNAL SHARE (Section 15 - Auditor Mode)
-// ============================================
-
-model ShareLink {
-  id             String @id @default(cuid())
-  organizationId String @map("organization_id")
-
-  // Share configuration
-  token String     @unique // Random token for URL
-  name  String? // "สรรพากร ม.ค. 2026"
-  scope ShareScope @default(BOX)
-
-  // What is being shared
-  boxId       String?  @map("box_id") // For single box
-  boxIds      String[] @map("box_ids") // For multiple boxes
-  periodMonth Int?     @map("period_month") // For period scope
-  periodYear  Int?     @map("period_year")
-
-  // Access control
-  password  String? // Optional password protection
-  expiresAt DateTime? @map("expires_at")
-  maxViews  Int?      @map("max_views")
-  viewCount Int       @default(0) @map("view_count")
-
-  // Settings
-  showAmounts   Boolean @default(true) @map("show_amounts")
-  showContacts  Boolean @default(true) @map("show_contacts")
-  allowDownload Boolean @default(true) @map("allow_download")
-
-  // Metadata
-  createdById    String    @map("created_by_id")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  lastAccessedAt DateTime? @map("last_accessed_at")
-
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  box          Box?         @relation(fields: [boxId], references: [id], onDelete: Cascade)
-  createdBy    User         @relation(fields: [createdById], references: [id])
-
-  @@map("share_links")
+  BOX_SUBMITTED
+  BOX_IN_REVIEW
+  BOX_NEED_MORE_DOCS
+  BOX_READY_TO_BOOK
+  BOX_BOOKED
+  BOX_ARCHIVED
+  BOX_CANCELLED
+  DOCUMENT_ADDED
+  TASK_ASSIGNED
+  TASK_REMINDER
+  TASK_ESCALATED
+  TASK_COMPLETED
+  DUE_DATE_REMINDER
+  DUE_DATE_OVERDUE
+  WHT_PENDING
+  WHT_OVERDUE
+  WHT_RECEIVED
+  COMMENT_ADDED
+  MEMBER_INVITED
+  PERIOD_CLOSING
+  PERIOD_CLOSED
 }
 
 enum ShareScope {
-  BOX // Single box
-  MULTIPLE // Multiple selected boxes
-  PERIOD // All boxes in a month/period
-  ENTRY // Booking entry
-}
-
-// ============================================
-// INTEGRATIONS (Section 7 & Phase 3)
-// LINE OA / Webhooks
-// ============================================
-
-model Integration {
-  id             String @id @default(cuid())
-  organizationId String @map("organization_id")
-
-  type     IntegrationType
-  name     String // "LINE OA ทีมบัญชี", "Slack #accounting"
-  isActive Boolean         @default(true) @map("is_active")
-
-  // Configuration (encrypted in JSON)
-  config Json @default("{}")
-
-  // Event subscriptions (which events trigger this integration)
-  events NotificationType[]
-
-  // Stats
-  lastTriggeredAt DateTime? @map("last_triggered_at")
-  triggerCount    Int       @default(0) @map("trigger_count")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, type])
-  @@map("integrations")
+  BOX
+  MULTIPLE
+  PERIOD
+  ENTRY
 }
 
 enum IntegrationType {
-  LINE_OA // LINE Official Account
-  LINE_NOTIFY // LINE Notify (simpler)
-  SLACK // Slack webhook
-  DISCORD // Discord webhook
-  CUSTOM_WEBHOOK // Custom HTTP webhook
-  EMAIL // Email notifications (via SMTP/service)
-}
-
-// Webhook Logs for debugging
-model WebhookLog {
-  id            String @id @default(cuid())
-  integrationId String @map("integration_id")
-
-  eventType NotificationType @map("event_type")
-  payload   Json
-
-  status       String // success, failed, pending
-  responseCode Int?    @map("response_code")
-  responseBody String? @map("response_body")
-  errorMessage String? @map("error_message")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([integrationId, createdAt])
-  @@map("webhook_logs")
-}
-
-// ============================================
-// APPROVAL WORKFLOW
-// ============================================
-
-model ApprovalWorkflow {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  name           String
-  description    String?
-  isDefault      Boolean  @default(false) @map("is_default")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  steps        ApprovalStep[]
-  boxes        Box[]           @relation("BoxWorkflow")
-
-  @@index([organizationId, isActive])
-  @@map("approval_workflows")
-}
-
-model ApprovalStep {
-  id            String       @id @default(cuid())
-  workflowId    String       @map("workflow_id")
-  order         Int          // Step order (1, 2, 3...)
-  name          String       // e.g. "ผู้จัดการตรวจสอบ"
-  approverType  ApproverType @map("approver_type")
-  approverValue String?      @map("approver_value") // Role name or user ID
-  autoApprove   Boolean      @default(false) @map("auto_approve")
-  threshold     Decimal?     // Auto approve if amount < threshold
-  createdAt     DateTime     @default(now()) @map("created_at")
-
-  workflow  ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  approvals BoxApproval[]
-
-  @@unique([workflowId, order])
-  @@map("approval_steps")
-}
-
-model BoxApproval {
-  id         String         @id @default(cuid())
-  boxId      String         @map("box_id")
-  stepId     String         @map("step_id")
-  status     ApprovalStatus @default(PENDING)
-  approvedBy String?        @map("approved_by")
-  comment    String?
-  createdAt  DateTime       @default(now()) @map("created_at")
-  updatedAt  DateTime       @updatedAt @map("updated_at")
-
-  box      Box          @relation(fields: [boxId], references: [id], onDelete: Cascade)
-  step     ApprovalStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
-  approver User?        @relation(fields: [approvedBy], references: [id])
-
-  @@unique([boxId, stepId])
-  @@index([boxId, status])
-  @@map("box_approvals")
+  LINE_OA
+  LINE_NOTIFY
+  SLACK
+  DISCORD
+  CUSTOM_WEBHOOK
+  EMAIL
 }
 
 enum ApproverType {
-  ROLE // Anyone with this role can approve
-  USER // Specific user must approve
-  ANY  // Anyone in org can approve
+  ROLE
+  USER
+  ANY
 }
 
 enum ApprovalStatus {
@@ -1287,36 +1056,4 @@ enum ApprovalStatus {
   APPROVED
   REJECTED
   SKIPPED
-}
-
-// ============================================
-// DOCUMENT TEMPLATES
-// ============================================
-
-model DocumentTemplate {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  name           String   // e.g. "ค่าเช่า ABC"
-  contactId      String?  @map("contact_id")
-  docType        DocType  @map("doc_type")
-  categoryId     String?  @map("category_id")
-  costCenterId   String?  @map("cost_center_id")
-  expenseType    ExpenseType? @map("expense_type")
-  expectedAmount Decimal? @map("expected_amount") @db.Decimal(15, 2)
-  amountVariance Decimal  @default(0.1) @map("amount_variance") @db.Decimal(5, 2) // 10% variance
-  description    String?
-  isActive       Boolean  @default(true) @map("is_active")
-  usageCount     Int      @default(0) @map("usage_count")
-  lastUsedAt     DateTime? @map("last_used_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contact      Contact?     @relation(fields: [contactId], references: [id])
-  category     Category?    @relation(fields: [categoryId], references: [id])
-  costCenter   CostCenter?  @relation(fields: [costCenterId], references: [id])
-
-  @@index([organizationId, isActive])
-  @@index([contactId])
-  @@map("document_templates")
 }

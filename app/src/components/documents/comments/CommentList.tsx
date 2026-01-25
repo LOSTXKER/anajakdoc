@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
@@ -18,7 +17,6 @@ import {
   Edit,
   Trash2,
   Loader2,
-  Lock,
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -124,12 +122,6 @@ function CommentItem({
           </span>
           {comment.editedAt && (
             <span className="text-xs text-muted-foreground">(แก้ไขแล้ว)</span>
-          )}
-          {comment.isInternal && (
-            <Badge variant="outline" className="text-xs py-0">
-              <Lock className="h-3 w-3 mr-1" />
-              ภายใน
-            </Badge>
           )}
         </div>
 
@@ -249,7 +241,6 @@ export function CommentList({
   const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [isInternal, setIsInternal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -260,7 +251,7 @@ export function CommentList({
       const result = await createComment({
         boxId,
         content: newComment,
-        isInternal,
+        isInternal: false,
         parentId: replyingTo || undefined,
       });
 
@@ -374,18 +365,7 @@ export function CommentList({
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isInternal}
-              onChange={(e) => setIsInternal(e.target.checked)}
-              className="rounded"
-            />
-            <Lock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">ภายในเท่านั้น (ไม่แสดงต่อลูกค้า)</span>
-          </label>
-
+        <div className="flex justify-end">
           <Button onClick={handleSubmit} disabled={loading || !newComment.trim()}>
             {loading ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -8,12 +8,20 @@ import { toast } from "sonner";
 import { getTodayForInput } from "@/lib/formatters";
 import type { BoxType, ExpenseType } from "@/types";
 import type { ExtractedFile } from "@/components/documents/upload/FileAnalysisCard";
+import type { Payer } from "@/components/documents/upload/PayerSelector";
+
+export interface MemberOption {
+  id: string;
+  name: string;
+  visibleName?: string | null;
+}
 
 interface UseBoxUploadOptions {
   initialType: BoxType;
+  members?: MemberOption[];
 }
 
-export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
+export function useBoxUpload({ initialType, members = [] }: UseBoxUploadOptions) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   
@@ -23,6 +31,11 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
   const [isMultiPayment, setIsMultiPayment] = useState(false);
   const [hasWht, setHasWht] = useState(false);
   const [whtRate, setWhtRate] = useState("3"); // Default 3% for services
+  
+  // Payers state (who pays - supports multiple payers)
+  const [payers, setPayers] = useState<Payer[]>([
+    { id: "payer-1", payerType: "COMPANY", amount: 0 },
+  ]);
   
   // Contact state (Smart Guess - Section 9)
   const [contacts, setContacts] = useState<ContactWithDefaults[]>([]);
@@ -38,6 +51,14 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+  
+  // Update payer amount when total amount changes
+  useEffect(() => {
+    const totalAmount = parseFloat(amount) || 0;
+    if (payers.length === 1) {
+      setPayers(prev => [{ ...prev[0], amount: totalAmount }]);
+    }
+  }, [amount, payers.length]);
 
   // Load contacts on mount (Section 9 - Vendor Memory)
   useEffect(() => {
@@ -173,6 +194,9 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
           formData.append("contactId", selectedContactId);
         }
 
+        // Payers (who pays - supports multiple)
+        formData.append("payers", JSON.stringify(payers));
+
         // Add files (simple - no extracted data)
         files.forEach((f) => {
           formData.append(`files`, f.file);
@@ -204,6 +228,7 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
     setHasWht(false);
     setWhtRate("3");
     setSelectedContactId("");
+    setPayers([{ id: "payer-1", payerType: "COMPANY", amount: 0 }]);
   };
 
   return {
@@ -236,6 +261,11 @@ export function useBoxUpload({ initialType }: UseBoxUploadOptions) {
     contactsLoading,
     selectedContactId,
     handleContactSelect,
+    
+    // Payers state
+    payers,
+    setPayers,
+    members,
     
     // Actions
     handleFileSelect,

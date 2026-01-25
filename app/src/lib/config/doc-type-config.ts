@@ -290,52 +290,33 @@ export type DocTypeOption = {
   icon: LucideIcon;
 };
 
-// Common payment documents
-export const PAYMENT_DOC_TYPES: DocTypeOption[] = [
-  { type: "SLIP_TRANSFER", label: "สลิปโอนเงิน", icon: Receipt },
-  { type: "SLIP_CHEQUE", label: "สำเนาเช็ค", icon: CreditCard },
-  { type: "BANK_STATEMENT", label: "Statement ธนาคาร", icon: FileText },
-  { type: "CREDIT_CARD_STATEMENT", label: "Statement บัตรเครดิต", icon: CreditCard },
-  { type: "PETTY_CASH_VOUCHER", label: "ใบสำคัญจ่ายเงินสด", icon: Banknote },
-];
-
-// Common expense documents
-export const EXPENSE_DOC_TYPES: DocTypeOption[] = [
-  { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
-  { type: "TAX_INVOICE_ABB", label: "ใบกำกับภาษีอย่างย่อ", icon: FileCheck },
-  { type: "RECEIPT", label: "ใบเสร็จรับเงิน", icon: Receipt },
-  { type: "CASH_RECEIPT", label: "บิลเงินสด", icon: Receipt },
-  { type: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
-  { type: "FOREIGN_INVOICE", label: "Invoice ต่างประเทศ", icon: FileText },
-];
-
-// Income documents
-export const INCOME_DOC_TYPES: DocTypeOption[] = [
-  { type: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
-  { type: "RECEIPT", label: "ใบเสร็จรับเงิน", icon: Receipt },
-  { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
-  { type: "QUOTATION", label: "ใบเสนอราคา", icon: FileText },
-];
-
-// WHT documents
-export const WHT_DOC_TYPES: DocTypeOption[] = [
-  { type: "WHT_SENT", label: "หัก ณ ที่จ่าย (ออก)", icon: FileWarning },
-  { type: "WHT_RECEIVED", label: "หัก ณ ที่จ่าย (รับกลับ)", icon: FileWarning },
-  { type: "WHT_INCOMING", label: "หัก ณ ที่จ่าย (เขาหักเรา)", icon: FileWarning },
-];
+// ==================== Simplified Doc Types for Dropdown ====================
+// Simplified categories for user selection (maps to detailed types internally)
 
 export function getDocTypesForBoxType(boxType: BoxType): DocTypeOption[] {
   switch (boxType) {
     case "EXPENSE":
-      return [...PAYMENT_DOC_TYPES, ...EXPENSE_DOC_TYPES, ...WHT_DOC_TYPES, { type: "OTHER", label: "อื่นๆ", icon: File }];
+      return [
+        { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
+        { type: "RECEIPT", label: "ใบเสร็จ/บิล", icon: Receipt },
+        { type: "SLIP_TRANSFER", label: "หลักฐานจ่ายเงิน", icon: Receipt },
+        { type: "WHT_SENT", label: "หัก ณ ที่จ่าย", icon: FileWarning },
+        { type: "QUOTATION", label: "เอกสารประกอบ", icon: FileText },
+        { type: "OTHER", label: "อื่นๆ", icon: File },
+      ];
     case "INCOME":
-      return [...INCOME_DOC_TYPES, ...PAYMENT_DOC_TYPES, ...WHT_DOC_TYPES, { type: "OTHER", label: "อื่นๆ", icon: File }];
+      return [
+        { type: "INVOICE", label: "ใบแจ้งหนี้", icon: FileText },
+        { type: "TAX_INVOICE", label: "ใบกำกับภาษี", icon: FileCheck },
+        { type: "RECEIPT", label: "หลักฐานรับเงิน", icon: Receipt },
+        { type: "WHT_INCOMING", label: "หัก ณ ที่จ่าย", icon: FileWarning },
+        { type: "QUOTATION", label: "เอกสารประกอบ", icon: FileText },
+        { type: "OTHER", label: "อื่นๆ", icon: File },
+      ];
     case "ADJUSTMENT":
       return [
-        { type: "CREDIT_NOTE", label: "ใบลดหนี้", icon: FileText },
-        { type: "DEBIT_NOTE", label: "ใบเพิ่มหนี้", icon: FileText },
-        { type: "REFUND_RECEIPT", label: "หลักฐานคืนเงิน", icon: Receipt },
-        ...PAYMENT_DOC_TYPES,
+        { type: "CREDIT_NOTE", label: "ใบลดหนี้/เพิ่มหนี้", icon: FileText },
+        { type: "SLIP_TRANSFER", label: "หลักฐานคืนเงิน", icon: Receipt },
         { type: "OTHER", label: "อื่นๆ", icon: File },
       ];
     default:

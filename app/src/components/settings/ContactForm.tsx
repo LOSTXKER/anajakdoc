@@ -8,8 +8,13 @@ import { toast } from "sonner";
 import { createContact, updateContact } from "@/server/actions/settings";
 import type { Contact } from ".prisma/client";
 
+// Serialized contact from server (Decimal converted to number)
+type SerializedContact = Omit<Contact, 'defaultWhtRate'> & {
+  defaultWhtRate: number | null;
+};
+
 interface ContactFormProps {
-  contact?: Contact | null;
+  contact?: SerializedContact | Contact | null;
   defaultRole?: "VENDOR" | "CUSTOMER" | "BOTH";
   onSuccess?: (contact: { id: string; name: string }) => void;
   onCancel?: () => void;

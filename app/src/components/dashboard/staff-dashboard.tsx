@@ -74,14 +74,14 @@ export function StaffDashboard({ stats, recentBoxes }: StaffDashboardProps) {
               <p className="text-sm text-muted-foreground">Draft</p>
             </Link>
             <Link 
-              href="/documents?tab=mine&status=SUBMITTED,IN_REVIEW"
+              href="/documents?tab=mine&status=PENDING"
               className="rounded-lg border border-info/50 bg-info/5 p-4 text-center hover:border-info transition-colors"
             >
               <p className="text-2xl font-bold text-info">{stats.pending}</p>
               <p className="text-sm text-info">รอตรวจ</p>
             </Link>
             <Link 
-              href="/documents?tab=mine&status=BOOKED,ARCHIVED"
+              href="/documents?tab=mine&status=COMPLETED"
               className="rounded-lg border border-success/50 bg-success/5 p-4 text-center hover:border-success transition-colors"
             >
               <p className="text-2xl font-bold text-success">{stats.done}</p>
