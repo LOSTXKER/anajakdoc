@@ -12,6 +12,7 @@ import { Search, Package, Calendar, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { searchBoxes } from "@/server/actions/box";
 import { getBoxStatusConfig, getDocStatusConfig, getBoxTypeConfig } from "@/lib/document-config";
+import type { BoxStatus, DocStatus } from "@/types";
 
 interface SearchResult {
   id: string;
@@ -106,8 +107,8 @@ export default function SearchPage() {
               พบ {results.length} รายการ
             </p>
             {results.map((box) => {
-              const statusConfig = getBoxStatusConfig(box.status as any);
-              const docStatusConfig = getDocStatusConfig(box.docStatus as any);
+              const statusConfig = getBoxStatusConfig(box.status as BoxStatus);
+              const docStatusConfig = getDocStatusConfig(box.docStatus as DocStatus);
               return (
                 <Link key={box.id} href={`/documents/${box.id}`}>
                   <Card className="hover:border-primary transition-colors cursor-pointer">

@@ -11,6 +11,7 @@
 
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
+import { withErrorHandling } from "@/lib/error-handler";
 
 type ApiResponse<T> = { success: true; data: T } | { success: false; error: string };
 

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { revalidatePath } from "next/cache";
 import { createNotification } from "./notification";
+import { withErrorHandling } from "@/lib/error-handler";
 import type { ApiResponse, CreateTaskInput, UpdateTaskInput, TaskFilters, PaginatedResponse } from "@/types";
 import { TaskStatus, TaskType, NotificationType, BoxStatus } from "@prisma/client";
 
@@ -51,15 +52,15 @@ export async function createTask(input: CreateTaskInput): Promise<ApiResponse<{ 
     );
   }
 
-  // Log activity
-  await prisma.activityLog.create({
-    data: {
-      boxId: input.boxId,
-      userId: session.id,
-      action: "TASK_CREATED",
-      details: { taskId: task.id, taskType: input.taskType },
-    },
-  });
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        boxId: input.boxId,
+        userId: session.id,
+        action: "TASK_CREATED",
+        details: { taskId: task.id, taskType: input.taskType },
+      },
+    });
 
   revalidatePath(`/documents/${input.boxId}`);
   

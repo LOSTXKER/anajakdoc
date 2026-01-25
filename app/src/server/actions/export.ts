@@ -5,6 +5,7 @@ import { requireOrganization } from "@/server/auth";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import type { ApiResponse } from "@/types";
+import { ExportType } from "@prisma/client";
 
 // Export profiles (Section 11.1)
 export type ExportProfile = "GENERIC" | "PEAK" | "FLOWACCOUNT" | "EXPRESS";
@@ -223,17 +224,17 @@ export async function exportBoxesToExcel(
   const fileName = `export_${profile.toLowerCase()}_${timestamp}.xlsx`;
 
   // Save export history
-  const exportTypeMap: Record<ExportProfile, string> = {
-    GENERIC: "EXCEL_GENERIC",
-    PEAK: "EXCEL_PEAK",
-    FLOWACCOUNT: "EXCEL_FLOWACCOUNT",
-    EXPRESS: "EXCEL_EXPRESS",
+  const exportTypeMap: Record<ExportProfile, ExportType> = {
+    GENERIC: ExportType.EXCEL_GENERIC,
+    PEAK: ExportType.EXCEL_PEAK,
+    FLOWACCOUNT: ExportType.EXCEL_FLOWACCOUNT,
+    EXPRESS: ExportType.EXCEL_EXPRESS,
   };
   
   await prisma.exportHistory.create({
     data: {
       organizationId: session.currentOrganization.id,
-      exportType: exportTypeMap[profile] as any,
+      exportType: exportTypeMap[profile],
       exportProfile: profile,
       fileName,
       boxIds: boxIds,
@@ -296,6 +297,17 @@ export async function exportBoxesToZip(
   const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   zip.file("summary.xlsx", excelBuffer);
 
+  // Collect all files to fetch (to enable parallel fetching)
+  type FileToFetch = {
+    url: string;
+    fileName: string;
+    docType: string;
+    folderPath: string;
+    fileIndex: number;
+  };
+  
+  const filesToFetch: FileToFetch[] = [];
+
   // Add files for each box
   for (const box of boxes) {
     // Folder structure: YYYY/MM/BOX_NUMBER_vendor_amount/ (Section 11.2)
@@ -355,22 +367,45 @@ export async function exportBoxesToZip(
       zip.file(`${folderPath}/summary.json`, JSON.stringify(jsonSummary, null, 2));
     }
 
-    // Add document files with numbered prefix
+    // Collect document files for parallel fetching
     let fileIndex = 1;
     for (const doc of box.documents) {
       for (const file of doc.files) {
-        try {
-          const response = await fetch(file.fileUrl);
-          if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            const ext = file.fileName.split(".").pop() || "bin";
-            const numberedFileName = `${fileIndex.toString().padStart(2, "0")}_${doc.docType}.${ext}`;
-            zip.file(`${folderPath}/${numberedFileName}`, arrayBuffer);
-            fileIndex++;
-          }
-        } catch (error) {
-          console.error(`Error fetching file ${file.fileName}:`, error);
+        filesToFetch.push({
+          url: file.fileUrl,
+          fileName: file.fileName,
+          docType: doc.docType,
+          folderPath,
+          fileIndex: fileIndex++,
+        });
+      }
+    }
+  }
+
+  // Fetch all files in parallel (with batching to avoid overwhelming the server)
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < filesToFetch.length; i += BATCH_SIZE) {
+    const batch = filesToFetch.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (fileInfo) => {
+        const response = await fetch(fileInfo.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${fileInfo.fileName}: ${response.statusText}`);
         }
+        const arrayBuffer = await response.arrayBuffer();
+        return { ...fileInfo, arrayBuffer };
+      })
+    );
+
+    // Add successfully fetched files to ZIP
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        const { folderPath, fileIndex, docType, fileName, arrayBuffer } = result.value;
+        const ext = fileName.split(".").pop() || "bin";
+        const numberedFileName = `${fileIndex.toString().padStart(2, "0")}_${docType}.${ext}`;
+        zip.file(`${folderPath}/${numberedFileName}`, arrayBuffer);
+      } else {
+        console.error(`Error fetching file:`, result.reason);
       }
     }
   }

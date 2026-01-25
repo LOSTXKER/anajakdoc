@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth";
+import { sendDocumentRequestNotification } from "@/lib/external-notifications";
 import type { VatDocStatus, WhtDocStatus } from "@/types";
 
 // ==================== VAT Document Status ====================
@@ -184,8 +185,21 @@ export async function sendDocumentRequest(
       },
     });
 
-    // TODO: Integrate with notification system (Line, Email) to send request to contact
-    // For now, just update the status
+    // Send notification to contact via Email/LINE
+    if (box.contact) {
+      const notificationResult = await sendDocumentRequestNotification(
+        {
+          name: box.contact.name,
+          email: box.contact.email,
+          phone: box.contact.phone,
+        },
+        docType === "VAT" ? "ใบกำกับภาษี (VAT)" : "หนังสือรับรองหัก ณ ที่จ่าย (WHT)",
+        box.boxNumber,
+        docType === "WHT" ? box.whtDueDate : undefined
+      );
+
+      console.log(`[Document Request] Notification sent to ${box.contact.name}:`, notificationResult);
+    }
 
     revalidatePath(`/documents/${boxId}`);
     revalidatePath("/documents");
