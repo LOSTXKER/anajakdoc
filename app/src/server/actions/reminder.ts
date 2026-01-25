@@ -205,22 +205,27 @@ export async function processWhtOverdue(): Promise<ApiResponse<{ updated: number
 
   let updated = 0;
 
-  for (const box of boxes) {
-    await prisma.box.update({
-      where: { id: box.id },
+  // Batch update all boxes at once
+  if (boxes.length > 0) {
+    const boxIds = boxes.map(b => b.id);
+    
+    await prisma.box.updateMany({
+      where: { id: { in: boxIds } },
       data: { whtOverdue: true },
     });
 
-    // Create notification
-    await notifyAccountingTeam(
-      box.organizationId,
-      NotificationType.WHT_OVERDUE,
-      "WHT เกินกำหนด",
-      `กล่อง ${box.boxNumber} ยังไม่ได้รับหนังสือรับรองหัก ณ ที่จ่าย`,
-      { boxId: box.id }
-    );
+    // Send notifications (notifyAccountingTeam must be called per box)
+    for (const box of boxes) {
+      await notifyAccountingTeam(
+        box.organizationId,
+        NotificationType.WHT_OVERDUE,
+        "WHT เกินกำหนด",
+        `กล่อง ${box.boxNumber} ยังไม่ได้รับหนังสือรับรองหัก ณ ที่จ่าย`,
+        { boxId: box.id }
+      );
+    }
 
-    updated++;
+    updated = boxes.length;
   }
 
   return {
