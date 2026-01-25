@@ -106,28 +106,29 @@ function getStepsForBox(box: SerializedBox): ProcessStep[] {
       });
     }
     
-    // Step 5: WHT (if hasWht)
+    // Step 5: WHT (if hasWht) - ฝั่งซื้อ: เราเป็นคนหัก ต้องออกหนังสือ WHT ให้ผู้ขาย
     if (hasWht) {
       let whtStatus: StepStatus = "pending";
-      let whtDesc = "ออกและส่งหนังสือหัก ณ ที่จ่าย";
+      let whtDesc = "ออกหนังสือหัก ณ ที่จ่ายให้ผู้ขาย";
       
       if (whtReceived) {
+        // whtReceived ในฝั่งซื้อ = ออกและนำส่งเรียบร้อยแล้ว
         whtStatus = "completed";
-        whtDesc = "ได้รับหนังสือรับรองแล้ว";
+        whtDesc = "ออกหนังสือและนำส่งกรมสรรพากรแล้ว";
       } else if (whtSent) {
         whtStatus = "current";
-        whtDesc = "ส่งคำขอแล้ว รอรับ";
+        whtDesc = "ออกหนังสือแล้ว รอนำส่งกรมสรรพากร";
       } else if (isSubmitted) {
         whtStatus = "warning";
-        whtDesc = "ยังไม่ได้ส่งคำขอ";
+        whtDesc = "ยังไม่ได้ออกหนังสือหัก ณ ที่จ่าย";
       }
       
       steps.push({
         id: "wht",
-        label: "หัก ณ ที่จ่าย",
+        label: "ออก WHT",
         shortLabel: "WHT",
         description: whtDesc,
-        icon: AlertCircle,
+        icon: FileText,
         status: whtStatus,
       });
     }
@@ -207,15 +208,30 @@ function getStepsForBox(box: SerializedBox): ProcessStep[] {
       status: isPaid ? "completed" : isDraft ? "current" : "pending",
     });
     
-    // Step 5: WHT (if hasWht - receive WHT from customer)
+    // Step 5: WHT (if hasWht) - ฝั่งขาย: เราถูกหัก ต้องรอรับหนังสือ WHT จากลูกค้า
     if (hasWht) {
+      let whtStatus: StepStatus = "pending";
+      let whtDesc = "รอรับหนังสือหัก ณ ที่จ่ายจากลูกค้า";
+      
+      if (whtReceived) {
+        whtStatus = "completed";
+        whtDesc = "ได้รับหนังสือหัก ณ ที่จ่ายแล้ว";
+      } else if (whtSent) {
+        // whtSent ในฝั่งขาย = ขอหนังสือจากลูกค้าแล้ว
+        whtStatus = "current";
+        whtDesc = "ขอหนังสือจากลูกค้าแล้ว รอรับ";
+      } else if (isSubmitted) {
+        whtStatus = "warning";
+        whtDesc = "ยังไม่ได้รับหนังสือหัก ณ ที่จ่าย";
+      }
+      
       steps.push({
         id: "wht",
         label: "รับ WHT",
         shortLabel: "WHT",
-        description: whtReceived ? "ได้รับแล้ว" : "รอรับหนังสือหัก ณ ที่จ่าย",
-        icon: AlertCircle,
-        status: whtReceived ? "completed" : isSubmitted ? "warning" : "pending",
+        description: whtDesc,
+        icon: Receipt,
+        status: whtStatus,
       });
     }
     
