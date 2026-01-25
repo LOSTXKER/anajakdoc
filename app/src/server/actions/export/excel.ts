@@ -9,6 +9,7 @@ import { ExportType } from "@prisma/client";
 import type { ExportProfile } from "./types";
 import { PROFILE_COLUMNS } from "./types";
 import { transformBoxToRow } from "./transformers";
+import { hasAccountingPermission } from "@/lib/permissions-utils";
 
 /**
  * Export boxes to Excel with specified profile
@@ -19,7 +20,7 @@ export async function exportBoxesToExcel(
 ): Promise<ApiResponse<{ fileName: string; data: string }>> {
   const session = await requireOrganization();
 
-  if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+  if (!hasAccountingPermission(session.currentOrganization.role)) {
     return { success: false, error: "คุณไม่มีสิทธิ์ Export" };
   }
 

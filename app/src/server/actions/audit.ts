@@ -14,6 +14,7 @@ import { requireOrganization } from "@/server/auth";
 import * as XLSX from "xlsx";
 import crypto from "crypto";
 import type { ApiResponse } from "@/types";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 
 // ============================================
 // AUDIT LOG TYPES
@@ -57,7 +58,7 @@ export async function getBoxAuditLogs(boxId: string): Promise<ApiResponse<AuditL
   });
 
   if (!box) {
-    return { success: false, error: "ไม่พบกล่องเอกสาร" };
+    return { success: false, error: ERROR_MESSAGES.BOX_NOT_FOUND };
   }
 
   const logs = await prisma.activityLog.findMany({
@@ -199,7 +200,7 @@ export async function exportAuditLogs(options: {
     });
 
     if (!box) {
-      return { success: false, error: "ไม่พบกล่องเอกสาร" };
+      return { success: false, error: ERROR_MESSAGES.BOX_NOT_FOUND };
     }
 
     where.boxId = options.boxId;
@@ -342,7 +343,7 @@ export async function exportEvidencePackage(boxId: string): Promise<ApiResponse<
   });
 
   if (!box) {
-    return { success: false, error: "ไม่พบกล่องเอกสาร" };
+    return { success: false, error: ERROR_MESSAGES.BOX_NOT_FOUND };
   }
 
   // Get audit logs

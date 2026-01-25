@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import type { ApiResponse } from "@/types";
 import { transformBoxToRow } from "./transformers";
+import { hasAccountingPermission } from "@/lib/permissions-utils";
 
 /**
  * Export boxes to ZIP bundle with files (Section 11.2)
@@ -20,7 +21,7 @@ export async function exportBoxesToZip(
 ): Promise<ApiResponse<{ fileName: string; data: string }>> {
   const session = await requireOrganization();
 
-  if (!["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+  if (!hasAccountingPermission(session.currentOrganization.role)) {
     return { success: false, error: "คุณไม่มีสิทธิ์ Export" };
   }
 

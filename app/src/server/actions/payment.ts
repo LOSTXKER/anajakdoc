@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { calculatePaymentStatus } from "@/lib/helpers/payment";
 import type { ApiResponse, CreatePaymentInput } from "@/types";
 import { PaymentStatus } from "@prisma/client";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 
 // ==================== Create Payment ====================
 
@@ -21,7 +22,7 @@ export async function createPayment(input: CreatePaymentInput): Promise<ApiRespo
   });
 
   if (!box) {
-    return { success: false, error: "ไม่พบกล่องเอกสาร" };
+    return { success: false, error: ERROR_MESSAGES.BOX_NOT_FOUND };
   }
 
   // Create payment
@@ -276,7 +277,7 @@ export async function markBoxAsPaid(
   });
 
   if (!box) {
-    return { success: false, error: "ไม่พบกล่องเอกสาร" };
+    return { success: false, error: ERROR_MESSAGES.BOX_NOT_FOUND };
   }
 
   // Create a payment for the remaining amount
@@ -346,7 +347,7 @@ export async function markBoxAsReceived(
   });
 
   if (!box) {
-    return { success: false, error: "ไม่พบกล่องเอกสาร" };
+    return { success: false, error: ERROR_MESSAGES.BOX_NOT_FOUND };
   }
 
   const remainingAmount = box.totalAmount.toNumber() - box.paidAmount.toNumber();

@@ -3,6 +3,7 @@
 import type { Box, BoxStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { SessionUser, ApiResponse } from "@/types";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 
 /**
  * Get box with organization access check
@@ -15,7 +16,7 @@ export async function getBoxWithAccess(
   if (!session.currentOrganization) {
     return {
       success: false,
-      error: "ไม่พบข้อมูล Organization",
+      error: ERROR_MESSAGES.NO_ORGANIZATION,
     };
   }
 
@@ -96,7 +97,7 @@ export async function checkFiscalPeriodAccess(
   if (period?.status === "CLOSED" && !hasAdminPermission(role)) {
     return {
       success: false,
-      error: "งวดบัญชีปิดแล้ว ไม่สามารถแก้ไขได้",
+      error: ERROR_MESSAGES.FISCAL_PERIOD_CLOSED,
     };
   }
 
@@ -129,7 +130,7 @@ export function permissionDeniedError(message?: string): ApiResponse<never> {
 export function fiscalPeriodLockedError(): ApiResponse<never> {
   return {
     success: false,
-    error: "งวดบัญชีปิดแล้ว ไม่สามารถแก้ไขได้",
+    error: ERROR_MESSAGES.FISCAL_PERIOD_CLOSED,
   };
 }
 

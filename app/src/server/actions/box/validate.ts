@@ -3,6 +3,7 @@
 import type { Box } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { SessionUser } from "@/types";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 
 export type ValidateBoxResult =
   | { success: true; box: Box }
@@ -22,7 +23,7 @@ export async function validateBoxAccess(
   if (!session.currentOrganization) {
     return {
       success: false,
-      error: "ไม่พบข้อมูล Organization",
+      error: ERROR_MESSAGES.NO_ORGANIZATION,
     };
   }
 
@@ -37,7 +38,7 @@ export async function validateBoxAccess(
   if (!box) {
     return {
       success: false,
-      error: "ไม่พบกล่องเอกสาร",
+      error: ERROR_MESSAGES.BOX_NOT_FOUND,
     };
   }
 
@@ -72,7 +73,7 @@ export async function validateBoxAccess(
       if (!["ADMIN", "OWNER"].includes(role)) {
         return {
           success: false,
-          error: "งวดบัญชีปิดแล้ว ไม่สามารถแก้ไขได้",
+          error: ERROR_MESSAGES.FISCAL_PERIOD_CLOSED,
         };
       }
     }
