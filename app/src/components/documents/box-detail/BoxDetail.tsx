@@ -23,6 +23,7 @@ import {
 } from "@/lib/config/status-transitions";
 
 import { ProcessTimeline } from "./ProcessTimeline";
+import { ProcessBar } from "./ProcessBar";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { StatusRevertDialog } from "./StatusRevertDialog";
 import { AmountSummary } from "./AmountSummary";
@@ -325,8 +326,8 @@ export function BoxDetail({
 
       {/* Content - 2 Column Layout */}
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* Process Timeline - Full Width */}
-        <ProcessTimeline box={box} />
+        {/* Process Bar - Shows steps with VAT/WHT tracking */}
+        <ProcessBar box={box} />
 
         {/* 2 Column Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
