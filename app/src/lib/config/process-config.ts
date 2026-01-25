@@ -327,63 +327,114 @@ const STEP_ADJUSTMENT_DOC: ProcessStep = {
   isCurrent: (ctx) => ctx.boxStatus === "DRAFT" && ctx.uploadedDocTypes.size === 0,
 };
 
-// ==================== Process Configurations ====================
-// All box types use 4 statuses but with different step labels
+// ==================== Dynamic Steps based on VAT/WHT ====================
 
-const EXPENSE_PHASES: ProcessStep[] = [
-  EXPENSE_PHASE_CREATE,
-  EXPENSE_PHASE_PREPARE,
-  EXPENSE_PHASE_SUBMIT,
-  EXPENSE_PHASE_REVIEW,
-  EXPENSE_PHASE_COMPLETE,
-];
+// VAT Step for Expense (ได้รับใบกำกับภาษี)
+const STEP_VAT_RECEIVED: ProcessStep = {
+  id: "vatReceived",
+  label: "ใบกำกับภาษี",
+  description: "ได้รับใบกำกับภาษีแล้ว",
+  icon: FileCheck,
+  isComplete: (ctx) => 
+    hasUploadedDoc(ctx.uploadedDocTypes, "TAX_INVOICE", "TAX_INVOICE_ABB") ||
+    isChecklistItemComplete(ctx.checklistItems, "hasTaxInvoice"),
+  isCurrent: (ctx) => 
+    ctx.boxStatus !== "DRAFT" && 
+    ctx.hasVat && 
+    !hasUploadedDoc(ctx.uploadedDocTypes, "TAX_INVOICE", "TAX_INVOICE_ABB"),
+  skipIf: (ctx) => !ctx.hasVat,
+};
 
-const INCOME_PHASES: ProcessStep[] = [
-  INCOME_PHASE_CREATE,
-  INCOME_PHASE_INVOICE,
-  INCOME_PHASE_RECEIVE,
-  INCOME_PHASE_REVIEW,
-  INCOME_PHASE_COMPLETE,
-];
+// WHT Step for Expense (ออก WHT และส่งให้คู่ค้า)
+const STEP_WHT_SENT: ProcessStep = {
+  id: "whtSent",
+  label: "ส่ง WHT",
+  description: "ออกและส่งหนังสือหัก ณ ที่จ่าย",
+  icon: Send,
+  isComplete: (ctx) => ctx.whtSent || hasUploadedDoc(ctx.uploadedDocTypes, "WHT_SENT"),
+  isCurrent: (ctx) => 
+    ctx.boxStatus !== "DRAFT" && 
+    ctx.hasWht && 
+    !ctx.whtSent && 
+    !hasUploadedDoc(ctx.uploadedDocTypes, "WHT_SENT"),
+  skipIf: (ctx) => !ctx.hasWht,
+};
 
-// Expense types all use same phases
-const EXPENSE_STANDARD_STEPS = EXPENSE_PHASES;
-const EXPENSE_NO_VAT_STEPS = EXPENSE_PHASES;
-const EXPENSE_PETTY_CASH_STEPS = EXPENSE_PHASES;
-const EXPENSE_FOREIGN_STEPS = EXPENSE_PHASES;
-const INCOME_STEPS = INCOME_PHASES;
-const ADJUSTMENT_STEPS = EXPENSE_PHASES; // Adjustments use expense flow
+// WHT Received Step for Income (ได้รับ WHT จากลูกค้า)
+const STEP_WHT_RECEIVED: ProcessStep = {
+  id: "whtReceived",
+  label: "รับ WHT",
+  description: "ได้รับหนังสือหัก ณ ที่จ่าย",
+  icon: FileWarning,
+  isComplete: (ctx) => 
+    hasUploadedDoc(ctx.uploadedDocTypes, "WHT_INCOMING", "WHT_RECEIVED") ||
+    isChecklistItemComplete(ctx.checklistItems, "whtReceived"),
+  isCurrent: (ctx) => 
+    ctx.boxStatus !== "DRAFT" && 
+    ctx.hasWht && 
+    !hasUploadedDoc(ctx.uploadedDocTypes, "WHT_INCOMING", "WHT_RECEIVED"),
+  skipIf: (ctx) => !ctx.hasWht,
+};
 
 // ==================== Main Function ====================
 
 /**
- * Get process steps for a box based on its type and expense type
+ * Get process steps for a box based on its type, expense type, and VAT/WHT flags
+ * This creates a dynamic flow that includes VAT/WHT steps when applicable
  */
 export function getProcessSteps(
   boxType: BoxType,
-  expenseType: ExpenseType | null
+  expenseType: ExpenseType | null,
+  hasVat?: boolean,
+  hasWht?: boolean
 ): ProcessStep[] {
   if (boxType === "INCOME") {
-    return INCOME_STEPS;
+    // INCOME flow: สร้าง → ออกใบแจ้งหนี้ → รับเงิน → [รับ WHT] → ตรวจสอบ → เสร็จ
+    const steps: ProcessStep[] = [
+      INCOME_PHASE_CREATE,
+      INCOME_PHASE_INVOICE,
+      INCOME_PHASE_RECEIVE,
+    ];
+    
+    // Add WHT step if applicable
+    if (hasWht) {
+      steps.push(STEP_WHT_RECEIVED);
+    }
+    
+    steps.push(INCOME_PHASE_REVIEW, INCOME_PHASE_COMPLETE);
+    return steps;
   }
   
   if (boxType === "ADJUSTMENT") {
-    return ADJUSTMENT_STEPS;
+    // Adjustments use simple expense flow
+    return [
+      EXPENSE_PHASE_CREATE,
+      EXPENSE_PHASE_PREPARE,
+      EXPENSE_PHASE_SUBMIT,
+      EXPENSE_PHASE_REVIEW,
+      EXPENSE_PHASE_COMPLETE,
+    ];
   }
   
-  // EXPENSE - check expense type
-  switch (expenseType) {
-    case "STANDARD":
-      return EXPENSE_STANDARD_STEPS;
-    case "NO_VAT":
-      return EXPENSE_NO_VAT_STEPS;
-    case "PETTY_CASH":
-      return EXPENSE_PETTY_CASH_STEPS;
-    case "FOREIGN":
-      return EXPENSE_FOREIGN_STEPS;
-    default:
-      return EXPENSE_STANDARD_STEPS; // Default to STANDARD
+  // EXPENSE flow: สร้าง → เตรียมเอกสาร → ส่งบัญชี → [VAT] → [WHT] → ตรวจสอบ → เสร็จ
+  const steps: ProcessStep[] = [
+    EXPENSE_PHASE_CREATE,
+    EXPENSE_PHASE_PREPARE,
+    EXPENSE_PHASE_SUBMIT,
+  ];
+  
+  // Add VAT step if applicable
+  if (hasVat) {
+    steps.push(STEP_VAT_RECEIVED);
   }
+  
+  // Add WHT step if applicable  
+  if (hasWht) {
+    steps.push(STEP_WHT_SENT);
+  }
+  
+  steps.push(EXPENSE_PHASE_REVIEW, EXPENSE_PHASE_COMPLETE);
+  return steps;
 }
 
 /**
