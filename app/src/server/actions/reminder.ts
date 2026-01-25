@@ -333,7 +333,13 @@ export async function escalateTask(taskId: string): Promise<ApiResponse> {
 
 // ==================== Get Overdue Summary ====================
 
-export async function getOverdueSummary() {
+export async function getOverdueSummary(): Promise<{
+  overdueTasks: number;
+  overdueWht: number;
+  escalatedLevel1: number;
+  escalatedLevel2: number;
+  totalCritical: number;
+}> {
   const session = await requireOrganization();
   
   const [overdueTasks, overdueWht, escalatedLevel1, escalatedLevel2] = await Promise.all([

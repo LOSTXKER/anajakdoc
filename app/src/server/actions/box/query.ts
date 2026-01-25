@@ -3,7 +3,43 @@
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import type { BoxFilters, PaginatedResponse, BoxWithRelations, BoxListItem, ApiResponse } from "@/types";
-import { DocStatus } from "@prisma/client";
+import { DocStatus, Prisma } from "@prisma/client";
+
+// Prisma validator for BoxWithRelations type
+const boxWithRelationsInclude = Prisma.validator<Prisma.BoxInclude>()({
+  documents: {
+    include: {
+      files: { orderBy: { pageOrder: "asc" as const } },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
+  payments: {
+    orderBy: { paidDate: "desc" as const },
+  },
+  whtTrackings: {
+    include: {
+      contact: true,
+    },
+  },
+  contact: true,
+  costCenter: true,
+  category: true,
+  createdBy: {
+    select: { id: true, name: true, email: true, avatarUrl: true },
+  },
+  linkedBox: true,
+  comments: {
+    include: {
+      user: {
+        select: { id: true, name: true, avatarUrl: true },
+      },
+    },
+    orderBy: { createdAt: "desc" as const },
+  },
+  _count: {
+    select: { documents: true, payments: true, comments: true },
+  },
+});
 
 // ==================== Get Boxes ====================
 
@@ -111,7 +147,7 @@ export async function getBoxes(
   ]);
 
   return {
-    items: items as unknown as BoxWithRelations[],
+    items: items as BoxWithRelations[],
     total,
     page,
     pageSize,
@@ -165,7 +201,7 @@ export async function getBox(boxId: string): Promise<BoxWithRelations | null> {
     },
   });
 
-  return box as unknown as BoxWithRelations | null;
+  return box as BoxWithRelations | null;
 }
 
 // ==================== Search Boxes ====================

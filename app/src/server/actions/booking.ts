@@ -275,7 +275,20 @@ export async function unlinkBoxFromEntry(boxId: string): Promise<ApiResponse> {
 
 // ==================== Get Booking Entry ====================
 
-export async function getBookingEntry(entryId: string) {
+export async function getBookingEntry(entryId: string): Promise<{
+  id: string;
+  entryNumber: string;
+  bookedAt: Date;
+  bookedBy: { id: string; name: string | null; email: string };
+  boxes: Array<{
+    id: string;
+    boxNumber: string;
+    totalAmount: { toNumber: () => number };
+    contact: { name: string } | null;
+    category: { name: string } | null;
+    documents: Array<{ files: Array<{ fileUrl: string }> }>;
+  }>;
+} | null> {
   const session = await requireOrganization();
   
   return prisma.bookingEntry.findFirst({

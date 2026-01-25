@@ -109,3 +109,48 @@ export function canEditBox(role: string, boxStatus: string): boolean {
 export function canApproveBox(role: string): boolean {
   return ["ADMIN", "OWNER", "ACCOUNTING"].includes(role);
 }
+
+/**
+ * Check if fiscal period is locked
+ * Returns error response if locked, null if OK
+ */
+export async function checkFiscalPeriodLock(
+  box: Box,
+  session: SessionUser
+): Promise<{ success: false; error: string } | null> {
+  if (!box.fiscalPeriodId) return null;
+  
+  if (!session.currentOrganization) {
+    return { success: false, error: "ไม่พบข้อมูล Organization" };
+  }
+  
+  const period = await prisma.fiscalPeriod.findUnique({
+    where: { id: box.fiscalPeriodId },
+    select: { status: true },
+  });
+  
+  if (period?.status === "CLOSED" && 
+      !["ADMIN", "OWNER"].includes(session.currentOrganization.role)) {
+    return { success: false, error: "งวดบัญชีปิดแล้ว ไม่สามารถแก้ไขได้" };
+  }
+  return null;
+}
+
+/**
+ * Check if box is in editable status
+ * Returns error response if not editable, null if OK
+ */
+export function checkEditableStatus(
+  box: Box,
+  session: SessionUser
+): { success: false; error: string } | null {
+  if (!session.currentOrganization) {
+    return { success: false, error: "ไม่พบข้อมูล Organization" };
+  }
+
+  const editableStatuses = ["DRAFT", "PENDING", "NEED_DOCS"];
+  if (!editableStatuses.includes(box.status)) {
+    return { success: false, error: "ไม่สามารถแก้ไขกล่องในสถานะนี้" };
+  }
+  return null;
+}

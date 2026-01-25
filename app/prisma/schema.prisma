@@ -372,6 +372,11 @@ model Box {
   @@index([contactId])
   @@index([bookingEntryId])
   @@index([workflowId])
+  @@index([organizationId, createdAt])
+  @@index([status, docStatus])
+  @@index([categoryId])
+  @@index([fiscalPeriodId])
+  @@index([hasWht, whtDocStatus])
   @@map("boxes")
 }
 
@@ -384,6 +389,7 @@ model BoxPayer {
   reimbursementStatus ReimbursementStatus @default(PENDING) @map("reimbursement_status")
   reimbursedAt        DateTime?           @map("reimbursed_at")
   reimbursementNote   String?             @map("reimbursement_note")
+  paidDate            DateTime?           @map("paid_date")
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
   box                 Box                 @relation(fields: [boxId], references: [id], onDelete: Cascade)
@@ -392,6 +398,7 @@ model BoxPayer {
   @@index([boxId])
   @@index([memberId])
   @@index([reimbursementStatus])
+  @@index([memberId, reimbursementStatus])
   @@map("box_payers")
 }
 
@@ -468,6 +475,7 @@ model Document {
 
   @@index([boxId])
   @@index([docType])
+  @@index([boxId, docType])
   @@map("documents")
 }
 

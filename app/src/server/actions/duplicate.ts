@@ -321,7 +321,14 @@ export async function clearDuplicateFlag(boxId: string): Promise<ApiResponse> {
 
 // ==================== Get Potential Duplicates ====================
 
-export async function getPotentialDuplicates() {
+export async function getPotentialDuplicates(): Promise<Array<{
+  id: string;
+  boxNumber: string;
+  boxDate: Date;
+  totalAmount: { toNumber: () => number };
+  possibleDuplicate: boolean;
+  contact: { name: string } | null;
+}>> {
   const session = await requireOrganization();
   
   return prisma.box.findMany({

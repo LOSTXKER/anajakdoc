@@ -81,3 +81,30 @@ export function revalidateWhtPaths(): void {
 export function revalidateAllPaths(): void {
   revalidatePath("/", "layout");
 }
+
+// ==================== Helper: Revalidation Wrapper ====================
+
+/**
+ * Wrap a function with automatic revalidation
+ * Useful for reducing boilerplate in server actions
+ */
+export async function withRevalidation<T>(
+  paths: string[],
+  fn: () => Promise<T>
+): Promise<T> {
+  const result = await fn();
+  paths.forEach(path => revalidatePath(path));
+  return result;
+}
+
+/**
+ * Wrap a function with automatic revalidation for box paths
+ */
+export async function withBoxRevalidation<T>(
+  boxId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const result = await fn();
+  revalidateBoxPaths(boxId);
+  return result;
+}
