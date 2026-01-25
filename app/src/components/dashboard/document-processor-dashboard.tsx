@@ -27,7 +27,7 @@ interface DocumentProcessorDashboardProps {
 export function DocumentProcessorDashboard({ stats }: DocumentProcessorDashboardProps) {
   const statusCards = [
     {
-      href: "/documents?status=SUBMITTED",
+      href: "/documents?status=PENDING",
       icon: Send,
       label: "รอตรวจ",
       count: stats.inbox,
@@ -37,7 +37,7 @@ export function DocumentProcessorDashboard({ stats }: DocumentProcessorDashboard
       highlight: true,
     },
     {
-      href: "/documents?status=IN_REVIEW",
+      href: "/documents?status=PENDING",
       icon: Eye,
       label: "กำลังตรวจ",
       count: stats.inReview,
@@ -57,7 +57,7 @@ export function DocumentProcessorDashboard({ stats }: DocumentProcessorDashboard
       highlight: stats.needMoreDocs > 0,
     },
     {
-      href: "/documents?status=READY_TO_BOOK",
+      href: "/documents?status=PENDING",
       icon: CheckCircle2,
       label: "พร้อมส่งบัญชี",
       count: stats.readyToBook,
@@ -144,7 +144,7 @@ export function DocumentProcessorDashboard({ stats }: DocumentProcessorDashboard
             )}
             {stats.readyToBook > 0 && (
               <Link 
-                href="/documents?status=READY_TO_BOOK"
+                href="/documents?status=PENDING"
                 className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
               >
                 <span>ส่งเข้าบัญชี</span>

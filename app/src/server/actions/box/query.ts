@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
-import type { BoxFilters, PaginatedResponse, BoxWithRelations, ApiResponse } from "@/types";
+import type { BoxFilters, PaginatedResponse, BoxWithRelations, BoxListItem, ApiResponse } from "@/types";
 import { DocStatus } from "@prisma/client";
 
 // ==================== Get Boxes ====================
@@ -170,7 +170,19 @@ export async function getBox(boxId: string): Promise<BoxWithRelations | null> {
 
 // ==================== Search Boxes ====================
 
-export async function searchBoxes(query: string) {
+type SearchBoxResult = {
+  id: string;
+  boxNumber: string;
+  title: string | null;
+  boxDate: Date;
+  totalAmount: { toNumber: () => number };
+  status: string;
+  docStatus: string;
+  category: { name: string } | null;
+  createdBy: { name: string | null; email: string };
+};
+
+export async function searchBoxes(query: string): Promise<SearchBoxResult[]> {
   const session = await requireOrganization();
   
   if (!query.trim()) {
@@ -207,7 +219,7 @@ export async function searchBoxes(query: string) {
         select: { name: true },
       },
       createdBy: {
-        select: { name: true },
+        select: { name: true, email: true },
       },
     },
     orderBy: { createdAt: "desc" },

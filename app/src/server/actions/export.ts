@@ -71,8 +71,36 @@ const PROFILE_COLUMNS: Record<ExportProfile, Record<string, string>> = {
   },
 };
 
+// Type for box with export includes (simplified for export operations)
+type BoxForExport = {
+  boxNumber: string;
+  boxDate: Date;
+  boxType: string;
+  expenseType: string | null;
+  title: string | null;
+  description: string | null;
+  externalRef: string | null;
+  notes: string | null;
+  status: string;
+  docStatus: string;
+  totalAmount: { toNumber: () => number };
+  vatAmount: { toNumber: () => number };
+  whtAmount: { toNumber: () => number };
+  paidAmount: { toNumber: () => number };
+  hasVat: boolean;
+  hasWht: boolean;
+  vatDocStatus: string;
+  whtDocStatus: string;
+  paymentMode: string;
+  contact: { name: string; taxId: string | null } | null;
+  category: { name: string; peakAccountCode: string | null } | null;
+  costCenter: { code: string; name: string } | null;
+  createdBy: { name: string | null; email: string } | null;
+  documents?: Array<{ docType: string; files: Array<{ fileUrl?: string; storageUrl?: string }> }>;
+};
+
 // Transform box data to export row
-function transformBoxToRow(box: any, profile: ExportProfile) {
+function transformBoxToRow(box: BoxForExport, profile: ExportProfile) {
   const columns = PROFILE_COLUMNS[profile];
   const row: Record<string, unknown> = {};
   
@@ -117,15 +145,9 @@ function transformBoxToRow(box: any, profile: ExportProfile) {
     status: () => {
       const map: Record<string, string> = {
         DRAFT: "ร่าง",
-        SUBMITTED: "ส่งแล้ว",
-        IN_REVIEW: "กำลังตรวจ",
-        NEED_MORE_DOCS: "ขอเอกสาร",
-        READY_TO_BOOK: "พร้อมลง",
-        WHT_PENDING: "รอ WHT",
-        BOOKED: "ลงแล้ว",
-        ARCHIVED: "เก็บแล้ว",
-        LOCKED: "ล็อค",
-        CANCELLED: "ยกเลิก",
+        PENDING: "รอตรวจ",
+        NEED_DOCS: "ขาดเอกสาร",
+        COMPLETED: "เสร็จสิ้น",
       };
       return map[box.status] || box.status;
     },

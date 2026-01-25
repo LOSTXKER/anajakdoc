@@ -5,21 +5,40 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { prisma } from "@/lib/prisma";
 
 export default async function FirmSettingsPage() {
   // Only firm owners can access this page
   const session = await requireFirmOwner();
 
-  // TODO: Fetch firm settings from database
+  // Fetch firm settings from database
+  const firm = await prisma.accountingFirm.findUnique({
+    where: { id: session.firmMembership.firmId },
+    include: {
+      members: {
+        where: { isActive: true },
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!firm) {
+    return (
+      <div className="p-6">
+        <p className="text-muted-foreground">ไม่พบข้อมูลสำนักงาน</p>
+      </div>
+    );
+  }
+
   const firmSettings = {
-    name: session.firmMembership.firmName,
-    taxId: "0123456789012",
-    address: "123 ถ.สุขุมวิท กรุงเทพฯ 10110",
-    phone: "02-123-4567",
-    email: "contact@firm.com",
+    name: firm.name,
+    taxId: firm.taxId || "",
+    address: firm.address || "",
+    phone: firm.phone || "",
+    email: firm.email || "",
     plan: "STARTER",
-    membersUsed: 4,
-    membersLimit: 10,
+    membersUsed: firm.members.length,
+    membersLimit: 10, // Based on plan
   };
 
   return (

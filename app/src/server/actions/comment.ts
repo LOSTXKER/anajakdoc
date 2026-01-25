@@ -37,6 +37,24 @@ export interface CommentData {
   parentId: string | null;
 }
 
+// Prisma Comment with includes
+type CommentWithUser = {
+  id: string;
+  content: string;
+  isInternal: boolean;
+  createdAt: Date;
+  editedAt: Date | null;
+  parentId: string | null;
+  mentions: string[];
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    avatarUrl: string | null;
+  };
+  replies?: CommentWithUser[];
+}
+
 // ============================================
 // GET COMMENTS
 // ============================================
@@ -89,8 +107,7 @@ export async function getBoxComments(boxId: string): Promise<ApiResponse<Comment
     orderBy: { createdAt: "desc" },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formatComment = (comment: any): CommentData => ({
+  const formatComment = (comment: CommentWithUser): CommentData => ({
     id: comment.id,
     content: comment.content,
     isInternal: comment.isInternal,
@@ -295,8 +312,7 @@ export async function updateComment(
 
   revalidatePath(`/documents/${comment.boxId}`);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formatComment = (c: any): CommentData => ({
+  const formatComment = (c: CommentWithUser): CommentData => ({
     id: c.id,
     content: c.content,
     isInternal: c.isInternal,

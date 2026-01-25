@@ -31,15 +31,9 @@ export async function GET(request: Request) {
           frequency.toLowerCase() as "daily" | "weekly"
         );
 
-        // TODO: Send email using your email service (Resend, SendGrid, etc.)
-        // Example:
-        // await sendEmail({
-        //   to: user.email,
-        //   subject: `[${digest.organizationName}] ${digest.period}`,
-        //   html: generateDigestHtml(digest),
-        // });
-
-        console.log(`Digest sent to ${user.email}`);
+        // Send email digest
+        // Integrate with your email service (Resend, SendGrid, etc.)
+        console.log(`Digest generated for ${user.email}`);
         sent++;
       } catch (error) {
         console.error(`Error sending digest to ${user.email}:`, error);

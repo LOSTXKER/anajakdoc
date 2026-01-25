@@ -98,14 +98,14 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
     : 0;
 
   stages.push({
-    stage: "DRAFT_TO_SUBMITTED",
+    stage: "DRAFT_TO_PENDING",
     label: "สร้าง → ส่งตรวจ",
     avgDays: Math.round(avgDraftDays * 10) / 10,
     boxCount: draftToSubmitted.length,
     pendingCount: boxes.filter((b) => b.status === "DRAFT").length,
   });
 
-  // Stage 2: SUBMITTED → IN_REVIEW/READY_TO_BOOK
+  // Stage 2: PENDING → Review complete
   const submittedToReviewed = boxes.filter((b) => b.submittedAt && b.reviewedAt);
   const reviewDays = submittedToReviewed.map((b) =>
     Math.ceil((b.reviewedAt!.getTime() - b.submittedAt!.getTime()) / (1000 * 60 * 60 * 24))
@@ -115,14 +115,14 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
     : 0;
 
   stages.push({
-    stage: "SUBMITTED_TO_REVIEWED",
+    stage: "PENDING_TO_REVIEWED",
     label: "ส่งตรวจ → ตรวจเสร็จ",
     avgDays: Math.round(avgReviewDays * 10) / 10,
     boxCount: submittedToReviewed.length,
     pendingCount: boxes.filter((b) => ["PENDING", "NEED_DOCS"].includes(b.status)).length,
   });
 
-  // Stage 3: REVIEWED → BOOKED
+  // Stage 3: REVIEWED → COMPLETED
   const reviewedToBooked = boxes.filter((b) => b.reviewedAt && b.bookedAt);
   const bookDays = reviewedToBooked.map((b) =>
     Math.ceil((b.bookedAt!.getTime() - b.reviewedAt!.getTime()) / (1000 * 60 * 60 * 24))
@@ -132,8 +132,8 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
     : 0;
 
   stages.push({
-    stage: "REVIEWED_TO_BOOKED",
-    label: "ตรวจเสร็จ → ลงบัญชี",
+    stage: "REVIEWED_TO_COMPLETED",
+    label: "ตรวจเสร็จ → เสร็จสิ้น",
     avgDays: Math.round(avgBookDays * 10) / 10,
     boxCount: reviewedToBooked.length,
     pendingCount: boxes.filter((b) => b.status === "PENDING").length,
@@ -147,13 +147,13 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
   if (bottleneckStage && bottleneckStage.avgDays > 1) {
     let suggestion = "";
     switch (bottleneckStage.stage) {
-      case "DRAFT_TO_SUBMITTED":
+      case "DRAFT_TO_PENDING":
         suggestion = "พิจารณาเตือนผู้ใช้ให้ส่งเอกสารเร็วขึ้น หรือตั้งค่า auto-submit";
         break;
-      case "SUBMITTED_TO_REVIEWED":
+      case "PENDING_TO_REVIEWED":
         suggestion = "เพิ่มจำนวนผู้ตรวจสอบ หรือใช้ AI ช่วยจัดลำดับเอกสารด่วน";
         break;
-      case "REVIEWED_TO_BOOKED":
+      case "REVIEWED_TO_COMPLETED":
         suggestion = "ตรวจสอบว่ามีเอกสารค้างรอลงบัญชีหรือไม่ อาจต้องเร่งส่งออก";
         break;
     }

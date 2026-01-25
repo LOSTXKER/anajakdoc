@@ -36,7 +36,7 @@ export interface ReimbursementItem {
 
 // ==================== Get Reimbursements ====================
 
-export async function getReimbursements(status: "PENDING" | "REIMBURSED" | "all" = "all") {
+export async function getReimbursements(status: "PENDING" | "REIMBURSED" | "all" = "all"): Promise<ReimbursementItem[]> {
   const session = await requireOrganization();
 
   const whereClause: Record<string, unknown> = {
@@ -109,7 +109,11 @@ export async function getReimbursements(status: "PENDING" | "REIMBURSED" | "all"
 
 // ==================== Get Summary ====================
 
-export async function getReimbursementSummary() {
+export async function getReimbursementSummary(): Promise<{
+  pendingCount: number;
+  pendingAmount: number;
+  completedCount: number;
+}> {
   const session = await requireOrganization();
 
   const [pendingCount, pendingAmount, completedCount] = await Promise.all([

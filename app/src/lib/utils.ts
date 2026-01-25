@@ -8,11 +8,13 @@ import type {
   SerializedDocument,
   SerializedPayment,
   WhtTrackingWithContact,
+  WhtTrackingWithBox,
   SerializedWhtTracking,
   WhtStatus,
   WhtType,
   DocType
 } from "@/types"
+import type { Payment, Contact } from "@prisma/client"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -68,8 +70,7 @@ export function serializeDocuments(docs: DocumentWithFiles[]): SerializedDocumen
 }
 
 // Serialize Payment for Client Components
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function serializePayment(payment: any): SerializedPayment {
+export function serializePayment(payment: Payment): SerializedPayment {
   return {
     ...payment,
     amount: toNumber(payment.amount),
@@ -79,8 +80,7 @@ export function serializePayment(payment: any): SerializedPayment {
 }
 
 // Serialize WHT Tracking for Client Components
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function serializeWhtTracking(wht: WhtTrackingWithContact & { box?: any }): SerializedWhtTracking {
+export function serializeWhtTracking(wht: WhtTrackingWithBox): SerializedWhtTracking {
   const { box, contact, ...rest } = wht;
   
   return {
@@ -106,8 +106,7 @@ export function serializeWhtTracking(wht: WhtTrackingWithContact & { box?: any }
 }
 
 // Serialize multiple WHT Trackings
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function serializeWhtTrackings(whts: (WhtTrackingWithContact & { box?: any })[]): SerializedWhtTracking[] {
+export function serializeWhtTrackings(whts: WhtTrackingWithBox[]): SerializedWhtTracking[] {
   return whts.map(serializeWhtTracking);
 }
 
@@ -120,8 +119,9 @@ function dateToString(date: unknown): string | null {
 }
 
 // Serialize Contact for Client Components
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function serializeContact(contact: any): SerializedContact | null {
+export function serializeContact(contact: Contact): SerializedContact;
+export function serializeContact(contact: null): null;
+export function serializeContact(contact: Contact | null): SerializedContact | null {
   if (!contact) return null;
   return {
     ...contact,
@@ -157,10 +157,22 @@ export function serializeBox(box: BoxWithRelations): SerializedBox {
     createdAt: box.createdAt.toISOString(),
     updatedAt: box.updatedAt.toISOString(),
     // Serialize contact with Decimal/Date fields
-    contact: serializeContact(box.contact),
+    contact: box.contact ? serializeContact(box.contact) : null,
     documents: box.documents ? serializeDocuments(box.documents) : [],
     payments: box.payments ? box.payments.map(serializePayment) : [],
-    whtTrackings: box.whtTrackings ? serializeWhtTrackings(box.whtTrackings) : [],
+    whtTrackings: box.whtTrackings ? box.whtTrackings.map(wht => ({
+      ...wht,
+      amount: toNumber(wht.amount),
+      rate: toNumberOrNull(wht.rate),
+      issuedDate: wht.issuedDate?.toISOString() || null,
+      sentDate: wht.sentDate?.toISOString() || null,
+      receivedDate: wht.receivedDate?.toISOString() || null,
+      dueDate: wht.dueDate?.toISOString() || null,
+      createdAt: wht.createdAt.toISOString(),
+      updatedAt: wht.updatedAt.toISOString(),
+      contact: wht.contact ? serializeContact(wht.contact) : null,
+      box: null,
+    })) : [],
     tasks: box.tasks ? box.tasks.map(t => ({
       ...t,
       dueDate: t.dueDate?.toISOString() || null,

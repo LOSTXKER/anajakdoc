@@ -28,12 +28,11 @@ const ACTION_CONFIG: Record<string, {
   CREATED: { icon: Plus, label: "สร้างกล่อง", color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30" },
   UPDATED: { icon: Edit, label: "แก้ไขข้อมูล", color: "text-gray-600", bgColor: "bg-gray-100 dark:bg-gray-800" },
   STATUS_CHANGED: { icon: Edit, label: "เปลี่ยนสถานะ", color: "text-purple-600", bgColor: "bg-purple-100 dark:bg-purple-900/30" },
-  SUBMITTED: { icon: Send, label: "ส่งตรวจ", color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-900/30" },
+  PENDING: { icon: Send, label: "ส่งตรวจ", color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-900/30" },
   APPROVED: { icon: CheckCircle, label: "อนุมัติ", color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30" },
   REJECTED: { icon: XCircle, label: "ปฏิเสธ", color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30" },
-  NEED_MORE_DOCS: { icon: AlertCircle, label: "ขอเอกสารเพิ่ม", color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30" },
-  BOOKED: { icon: CheckCircle, label: "ลงบัญชี", color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-900/30" },
-  ARCHIVED: { icon: Archive, label: "เก็บถาวร", color: "text-gray-600", bgColor: "bg-gray-100 dark:bg-gray-800" },
+  NEED_DOCS: { icon: AlertCircle, label: "ขอเอกสารเพิ่ม", color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30" },
+  COMPLETED: { icon: CheckCircle, label: "เสร็จสิ้น", color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-900/30" },
   
   // File actions
   FILE_ADDED: { icon: FileUp, label: "เพิ่มไฟล์", color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30" },
@@ -57,7 +56,7 @@ const ACTION_CONFIG: Record<string, {
   BULK_REJECTED: { icon: XCircle, label: "ปฏิเสธหลายรายการ", color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30" },
   BULK_REQUESTED_DOCS: { icon: AlertCircle, label: "ขอเอกสารหลายรายการ", color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30" },
   BULK_MARKED_READY: { icon: CheckCircle, label: "พร้อมหลายรายการ", color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-900/30" },
-  BULK_BOOKED: { icon: CheckCircle, label: "ลงบัญชีหลายรายการ", color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-900/30" },
+  BULK_COMPLETED: { icon: CheckCircle, label: "เสร็จสิ้นหลายรายการ", color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-900/30" },
 };
 
 // Get action config with fallback

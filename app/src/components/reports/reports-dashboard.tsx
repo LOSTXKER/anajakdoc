@@ -72,11 +72,9 @@ const CHART_COLORS = ["#3b82f6", "#22c55e", "#eab308", "#ef4444", "#a855f7", "#e
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "ฉบับร่าง",
-  SUBMITTED: "รอตรวจ",
-  IN_REVIEW: "กำลังตรวจ",
-  NEED_MORE_DOCS: "ขอเอกสาร",
-  READY_TO_BOOK: "พร้อมลง",
-  WHT_PENDING: "รอ WHT",
+  PENDING: "รอตรวจ",
+  NEED_DOCS: "ขาดเอกสาร",
+  COMPLETED: "เสร็จสิ้น",
 };
 
 export function ReportsDashboard({ data, kpiData }: ReportsDashboardProps) {
@@ -223,7 +221,7 @@ export function ReportsDashboard({ data, kpiData }: ReportsDashboardProps) {
                   <span className="text-sm font-normal text-muted-foreground ml-1">วัน</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  จาก SUBMITTED ถึง BOOKED
+                  จาก PENDING ถึง COMPLETED
                 </p>
               </CardContent>
             </Card>

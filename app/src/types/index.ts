@@ -92,7 +92,7 @@ export type WhtTrackingWithBox = WhtTracking & {
     id: string;
     boxNumber: string;
     title: string | null;
-    totalAmount: number;
+    totalAmount: { toNumber: () => number } | number;
     boxDate: Date;
   } | null;
 };
@@ -527,10 +527,10 @@ export type OwnerDashboardStats = {
 };
 
 export type AccountantDashboardStats = {
-  inbox: number;           // SUBMITTED
-  needMoreDocs: number;    // NEED_MORE_DOCS
-  readyToBook: number;     // READY_TO_BOOK
-  whtPending: number;      // WHT_PENDING
+  inbox: number;           // PENDING
+  needMoreDocs: number;    // NEED_DOCS
+  readyToBook: number;     // Ready boxes (can be moved to COMPLETED)
+  whtPending: number;      // WHT tracking pending
   overdueWht: number;      // WHT overdue tasks
   overdueTasks: number;    // All overdue tasks
 };

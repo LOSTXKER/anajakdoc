@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { isFirmOwner, isFirmManager, getFirmRoleDisplayName, getFirmRoleBadgeColor } from "@/lib/firm-permissions";
+import { getFirmDashboard } from "@/server/actions/firm";
+import { prisma } from "@/lib/prisma";
 import type { FirmRole } from ".prisma/client";
 
 export default async function FirmDashboardPage() {
@@ -15,38 +17,77 @@ export default async function FirmDashboardPage() {
   const isOwner = isFirmOwner(session);
   const isManager = isFirmManager(session);
 
-  // TODO: Fetch real data from database
-  // For OWNER/MANAGER: Show all clients
-  // For ACCOUNTANT: Show only assigned clients
-  const stats = isManager ? {
-    totalClients: 12,
-    pendingDocs: 45,
-    nearDeadline: 8,
-    teamMembers: 6,
-  } : {
-    totalClients: 3, // Only assigned clients
-    pendingDocs: 15,
-    nearDeadline: 3,
-    teamMembers: undefined,
+  // Fetch real data from database
+  const dashboardResult = await getFirmDashboard();
+  
+  if (!dashboardResult.success || !dashboardResult.data) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            {"error" in dashboardResult ? dashboardResult.error : "ไม่สามารถโหลดข้อมูลได้"}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const { clients: allClients } = dashboardResult.data;
+
+  // For ACCOUNTANT: Filter only assigned clients
+  let clients = allClients;
+  if (!isManager) {
+    // Get firm member record
+    const firmMember = await prisma.firmMember.findFirst({
+      where: {
+        firmId: session.firmMembership.firmId,
+        userId: session.id,
+        isActive: true,
+      },
+    });
+
+    if (firmMember) {
+      // Get only assigned clients for accountant
+      const assignments = await prisma.firmClientAssignment.findMany({
+        where: {
+          firmMemberId: firmMember.id,
+        },
+        select: {
+          organizationId: true,
+        },
+      });
+      const assignedClientIds = new Set(assignments.map(a => a.organizationId));
+      clients = allClients.filter(c => assignedClientIds.has(c.id));
+    }
+  }
+
+  // Fetch team members count separately if needed
+  const teamMembersCount = isManager 
+    ? await prisma.firmMember.count({
+        where: {
+          firmId: session.firmMembership.firmId,
+          isActive: true,
+        },
+      })
+    : undefined;
+
+  const stats = {
+    totalClients: clients.length,
+    pendingDocs: clients.reduce((sum, c) => sum + c.pendingBoxes, 0),
+    nearDeadline: clients.filter(c => c.whtOverdueCount > 0).length,
+    teamMembers: teamMembersCount,
   };
 
-  // TODO: Fetch clients from database based on assignments
-  const clients = isManager ? [
-    { id: "1", name: "บริษัท ก จำกัด", pendingDocs: 3, status: "normal", assignee: "นักบัญชี A" },
-    { id: "2", name: "บริษัท ข จำกัด", pendingDocs: 7, status: "warning", assignee: "นักบัญชี A" },
-    { id: "3", name: "บริษัท ค จำกัด", pendingDocs: 12, status: "alert", assignee: "นักบัญชี B" },
-    { id: "4", name: "บริษัท ง จำกัด", pendingDocs: 5, status: "normal", assignee: "นักบัญชี B" },
-  ] : [
-    // Only assigned clients for accountant
-    { id: "1", name: "บริษัท ก จำกัด", pendingDocs: 3, status: "normal", assignee: "ฉัน (PRIMARY)" },
-    { id: "2", name: "บริษัท ข จำกัด", pendingDocs: 7, status: "warning", assignee: "ฉัน (SUPPORT)" },
-  ];
-
-  // TODO: Fetch deadlines from database
-  const deadlines = [
-    { id: "1", title: "เอกสาร VAT", clients: ["บริษัท ก", "บริษัท ข"], date: "25 ม.ค." },
-    { id: "2", title: "เอกสาร WHT", clients: ["บริษัท ค"], date: "31 ม.ค." },
-  ];
+  // Get upcoming deadlines (clients with WHT outstanding)
+  const deadlines = clients
+    .filter(c => c.whtOutstanding > 0)
+    .slice(0, 5)
+    .map(c => ({
+      id: c.id,
+      title: "เอกสาร WHT",
+      clients: [c.name],
+      whtCount: c.whtOutstanding,
+    }));
 
   return (
     <div className="p-6 space-y-6">
@@ -158,31 +199,35 @@ export default async function FirmDashboardPage() {
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {clients.map((client) => (
-            <Card key={client.id} className={client.status === "alert" ? "border-error" : ""}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{client.name}</CardTitle>
-                  {client.status === "alert" && (
-                    <AlertTriangle className="h-4 w-4 text-error" />
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {client.pendingDocs} เอกสารรอดำเนินการ
-                </p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  {isManager ? `ดูแลโดย: ${client.assignee}` : client.assignee}
-                </p>
-                <Button asChild size="sm" className="w-full">
-                  <Link href={`/switch-org/${client.id}`}>
-                    เข้าทำงาน
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {clients.map((client) => {
+            const hasAlert = client.whtOverdueCount > 0 || client.pendingBoxes > 10;
+            
+            return (
+              <Card key={client.id} className={hasAlert ? "border-error" : ""}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{client.name}</CardTitle>
+                    {hasAlert && (
+                      <AlertTriangle className="h-4 w-4 text-error" />
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    {client.pendingBoxes} เอกสารรอดำเนินการ
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Health Score: {client.healthScore}/100
+                  </p>
+                  <Button asChild size="sm" className="w-full">
+                    <Link href={`/switch-org/${client.slug}`}>
+                      เข้าทำงาน
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
@@ -193,19 +238,25 @@ export default async function FirmDashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {deadlines.map((deadline) => (
-              <div key={deadline.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div>
-                  <p className="font-medium">{deadline.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {deadline.clients.join(", ")}
-                  </p>
+            {deadlines.length > 0 ? (
+              deadlines.map((deadline) => (
+                <div key={deadline.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <p className="font-medium">{deadline.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {deadline.clients.join(", ")} - {deadline.whtCount} รายการ
+                    </p>
+                  </div>
+                  <Badge variant="destructive">
+                    รอดำเนินการ
+                  </Badge>
                 </div>
-                <span className="text-sm text-warning font-medium">
-                  ส่งภายใน {deadline.date}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                ไม่มีเอกสารใกล้ Deadline
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

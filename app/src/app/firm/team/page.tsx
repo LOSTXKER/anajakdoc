@@ -5,43 +5,63 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getFirmRoleDisplayName, getFirmRoleBadgeColor } from "@/lib/firm-permissions";
+import { prisma } from "@/lib/prisma";
 import type { FirmRole } from ".prisma/client";
 
 export default async function FirmTeamPage() {
   // Only firm managers and owners can access this page
   const session = await requireFirmManager();
 
-  // TODO: Fetch team members from database
-  const teamMembers = [
-    { 
-      id: "1", 
-      name: "สมชาย ใจดี", 
-      email: "somchai@example.com",
-      role: "OWNER", 
-      clients: "ทุก Clients (auto)" 
+  // Fetch team members from database
+  const members = await prisma.firmMember.findMany({
+    where: {
+      firmId: session.firmMembership.firmId,
+      isActive: true,
     },
-    { 
-      id: "2", 
-      name: "สมหญิง รักดี", 
-      email: "somying@example.com",
-      role: "ADMIN", 
-      clients: "ทุก Clients (auto)" 
+    include: {
+      user: {
+        select: {
+          name: true,
+          email: true,
+          avatarUrl: true,
+        },
+      },
+      clientAssignments: {
+        include: {
+          organization: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
     },
-    { 
-      id: "3", 
-      name: "นักบัญชี A", 
-      email: "accountant.a@example.com",
-      role: "ACCOUNTANT", 
-      clients: "บริษัท ก (PRIMARY), บริษัท ข (SUPPORT)" 
-    },
-    { 
-      id: "4", 
-      name: "นักบัญชี B", 
-      email: "accountant.b@example.com",
-      role: "ACCOUNTANT", 
-      clients: "บริษัท ค (PRIMARY), บริษัท ง (PRIMARY)" 
-    },
-  ];
+    orderBy: [
+      { role: "asc" },
+      { createdAt: "asc" },
+    ],
+  });
+
+  const teamMembers = members.map((member) => {
+    const assignments = member.clientAssignments.map((a) => 
+      `${a.organization.name} (${a.role})`
+    );
+    
+    const clientsText = ["OWNER", "MANAGER"].includes(member.role)
+      ? "ทุก Clients (auto)"
+      : assignments.length > 0
+        ? assignments.join(", ")
+        : "ยังไม่ได้ assign";
+
+    return {
+      id: member.id,
+      name: member.user.name || member.user.email,
+      email: member.user.email,
+      role: member.role,
+      clients: clientsText,
+      avatarUrl: member.user.avatarUrl,
+    };
+  });
 
   const getRoleBadge = (role: string) => {
     const firmRole = role as FirmRole;
@@ -88,7 +108,7 @@ export default async function FirmTeamPage() {
                   <div className="flex items-start gap-4">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-primary/10 text-primary">
-                        {getInitials(member.name)}
+                        {getInitials(member.name || member.email)}
                       </AvatarFallback>
                     </Avatar>
                     <div>

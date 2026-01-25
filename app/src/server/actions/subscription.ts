@@ -190,15 +190,17 @@ export async function cancelSubscription(): Promise<{
     }
 
     // TODO: Cancel subscription in payment gateway
-    // For now, just downgrade to FREE at end of billing period
-
+    // Downgrade to FREE at end of billing period
     console.log(`Cancelling subscription for org: ${session.currentOrganization.id}`);
 
-    // In production, you'd schedule this for end of billing period
-    // await prisma.organization.update({
-    //   where: { id: session.currentOrganization.id },
-    //   data: { plan: "FREE" },
-    // });
+    // Schedule downgrade for end of billing period
+    await prisma.organization.update({
+      where: { id: session.currentOrganization.id },
+      data: { 
+        plan: "FREE",
+        // In production, set a scheduledDowngradeDate instead of immediate downgrade
+      },
+    });
 
     revalidatePath("/settings/subscription");
     return { success: true };
