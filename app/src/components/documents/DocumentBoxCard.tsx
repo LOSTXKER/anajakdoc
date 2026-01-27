@@ -1,8 +1,8 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import Link from "next/link";
-import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle, AlertCircle, CheckCircle, Wallet, Receipt, FileText } from "lucide-react";
+import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle, AlertCircle, CheckCircle, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,6 @@ import {
 import { formatDate, formatMoney } from "@/lib/formatters";
 import { canReviewBox, getBoxTypeConfig, getBoxStatusConfig, getDocStatusConfig, getExpenseTypeLabel } from "@/lib/document-config";
 import { cn } from "@/lib/utils";
-import { getMissingBadges } from "@/lib/config/box-requirements";
 import type { SerializedBoxListItem } from "@/types";
 
 interface DocumentBoxCardProps {
@@ -46,20 +45,40 @@ export const DocumentBoxCard = memo(function DocumentBoxCard({
   const canReview = canReviewBox(box.status);
   const boxTypeConfig = getBoxTypeConfig(box.boxType);
   const boxStatusConfig = getBoxStatusConfig(box.status);
-  const docStatusConfig = getDocStatusConfig(box.docStatus);
   const BoxTypeIcon = boxTypeConfig.icon;
 
-  // Calculate missing requirements badges
-  const missingBadges = useMemo(() => getMissingBadges({
-    boxType: box.boxType,
-    status: box.status,
-    hasVat: box.hasVat,
-    hasWht: box.hasWht,
-    vatDocStatus: box.vatDocStatus,
-    whtDocStatus: box.whtDocStatus,
-    paymentStatus: box.paymentStatus,
-    documentsCount: box._count?.documents || 0,
-  }), [box]);
+  // Helper to get VAT badge info
+  const getVatBadgeInfo = () => {
+    if (!box.hasVat) return null;
+    switch (box.vatDocStatus) {
+      case "RECEIVED":
+      case "VERIFIED":
+        return { label: "ใบกำกับ ✓", className: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" };
+      case "MISSING":
+        return { label: "ใบกำกับ ขาด", className: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800" };
+      default:
+        return { label: "ใบกำกับ รอ", className: "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" };
+    }
+  };
+
+  // Helper to get WHT badge info
+  const getWhtBadgeInfo = () => {
+    if (!box.hasWht) return null;
+    switch (box.whtDocStatus) {
+      case "RECEIVED":
+      case "VERIFIED":
+        return { label: "หัก ณ ที่จ่าย ✓", className: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" };
+      case "REQUEST_SENT":
+        return { label: "หัก ณ ที่จ่าย รอ", className: "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" };
+      case "MISSING":
+        return { label: "หัก ณ ที่จ่าย ขาด", className: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800" };
+      default:
+        return { label: "หัก ณ ที่จ่าย รอ", className: "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" };
+    }
+  };
+
+  const vatBadge = getVatBadgeInfo();
+  const whtBadge = getWhtBadgeInfo();
 
   return (
     <div className={cn(
@@ -134,24 +153,19 @@ export const DocumentBoxCard = memo(function DocumentBoxCard({
               </Badge>
             )}
             
-            {/* Missing requirements badges */}
-            {missingBadges.map((badge) => (
-              <Badge 
-                key={badge.id}
-                variant="secondary" 
-                className={cn(
-                  "text-xs gap-1",
-                  badge.type === "warning" 
-                    ? "bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800"
-                    : "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                )}
-              >
-                {badge.id === "vat" && <Receipt className="w-3 h-3" />}
-                {badge.id === "wht" && <FileText className="w-3 h-3" />}
-                {badge.id === "payment" && <Wallet className="w-3 h-3" />}
-                {badge.label}
+            {/* VAT Badge */}
+            {vatBadge && (
+              <Badge variant="secondary" className={cn("text-xs", vatBadge.className)}>
+                {vatBadge.label}
               </Badge>
-            ))}
+            )}
+            
+            {/* WHT Badge */}
+            {whtBadge && (
+              <Badge variant="secondary" className={cn("text-xs", whtBadge.className)}>
+                {whtBadge.label}
+              </Badge>
+            )}
           </div>
           
           <p className="text-muted-foreground truncate mt-1">

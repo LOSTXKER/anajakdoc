@@ -54,7 +54,7 @@ import { isAccountingRole, canReviewBox, getBoxTypeConfig, getBoxStatusConfig } 
 import { formatDate, formatMoney } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { MemberRole, SerializedBoxListItem } from "@/types";
-import { StatusLegend, DocStatusIcons } from "./StatusLegend";
+import { StatusLegend, DocumentStatusBadges } from "./StatusLegend";
 
 type TabValue = "all" | "draft" | "preparing" | "submitted" | "need_docs" | "completed";
 
@@ -250,20 +250,25 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
             <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
               {boxStatusConfig.label}
             </Badge>
-            {/* VAT/WHT Status Icons with Tooltips */}
-            <DocStatusIcons 
-              hasVat={box.hasVat}
-              vatDocStatus={box.vatDocStatus}
-              hasWht={box.hasWht}
-              whtDocStatus={box.whtDocStatus}
-            />
-            {/* Reimbursement Icon */}
+            {/* Reimbursement Badge */}
             {box.paymentMode === "EMPLOYEE_ADVANCE" && box.reimbursementStatus === "PENDING" && (
-              <span title="รอเบิกคืนเงิน" className="cursor-help">
-                <Wallet className="w-4 h-4 text-orange-500" />
-              </span>
+              <Badge variant="secondary" className="text-xs bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
+                <Wallet className="w-3 h-3 mr-1" />
+                รอคืนเงิน
+              </Badge>
             )}
           </div>
+        </TableCell>
+        
+        {/* Documents - เอกสาร */}
+        <TableCell>
+          <DocumentStatusBadges
+            hasVat={box.hasVat}
+            vatDocStatus={box.vatDocStatus}
+            hasWht={box.hasWht}
+            whtDocStatus={box.whtDocStatus}
+            documentsCount={box._count?.documents || 0}
+          />
         </TableCell>
         
         {/* Actions */}
@@ -332,6 +337,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
               <TableHead>หมวดหมู่</TableHead>
               <TableHead className="text-right">จำนวนเงิน</TableHead>
               <TableHead>สถานะ</TableHead>
+              <TableHead>เอกสาร</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>

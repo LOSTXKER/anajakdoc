@@ -116,7 +116,7 @@ export function StatusLegend({ showVatWht = true }: StatusLegendProps) {
 }
 
 /**
- * VAT/WHT Status Icons with Tooltips
+ * VAT/WHT Status Icons with Tooltips (legacy - compact version)
  */
 interface DocStatusIconsProps {
   hasVat?: boolean;
@@ -189,5 +189,113 @@ export function DocStatusIcons({
         )}
       </div>
     </TooltipProvider>
+  );
+}
+
+/**
+ * Document Status Badges - Clear Thai text with color coding
+ * Shows VAT/WHT document status in readable format
+ */
+interface DocumentStatusBadgesProps {
+  hasVat?: boolean;
+  vatDocStatus?: string;
+  hasWht?: boolean;
+  whtDocStatus?: string;
+  documentsCount?: number;
+  className?: string;
+}
+
+export function DocumentStatusBadges({ 
+  hasVat, 
+  vatDocStatus, 
+  hasWht, 
+  whtDocStatus,
+  documentsCount = 0,
+  className = "" 
+}: DocumentStatusBadgesProps) {
+  // If no VAT/WHT required, show document count only
+  if (!hasVat && !hasWht) {
+    if (documentsCount > 0) {
+      return (
+        <span className="text-xs text-muted-foreground">
+          {documentsCount} ไฟล์
+        </span>
+      );
+    }
+    return <span className="text-xs text-muted-foreground">-</span>;
+  }
+
+  const getVatBadge = () => {
+    if (!hasVat) return null;
+    switch (vatDocStatus) {
+      case "RECEIVED":
+      case "VERIFIED":
+        return { 
+          label: "ใบกำกับ", 
+          status: "✓", 
+          className: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" 
+        };
+      case "MISSING":
+        return { 
+          label: "ใบกำกับ", 
+          status: "ขาด", 
+          className: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800" 
+        };
+      default:
+        return { 
+          label: "ใบกำกับ", 
+          status: "รอ", 
+          className: "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" 
+        };
+    }
+  };
+
+  const getWhtBadge = () => {
+    if (!hasWht) return null;
+    switch (whtDocStatus) {
+      case "RECEIVED":
+      case "VERIFIED":
+        return { 
+          label: "หัก ณ ที่จ่าย", 
+          status: "✓", 
+          className: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" 
+        };
+      case "REQUEST_SENT":
+        return { 
+          label: "หัก ณ ที่จ่าย", 
+          status: "รอ", 
+          className: "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" 
+        };
+      case "MISSING":
+        return { 
+          label: "หัก ณ ที่จ่าย", 
+          status: "ขาด", 
+          className: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800" 
+        };
+      default:
+        return { 
+          label: "หัก ณ ที่จ่าย", 
+          status: "รอ", 
+          className: "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" 
+        };
+    }
+  };
+
+  const vatBadge = getVatBadge();
+  const whtBadge = getWhtBadge();
+
+  return (
+    <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+      {vatBadge && (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${vatBadge.className}`}>
+          {vatBadge.label} {vatBadge.status}
+        </span>
+      )}
+      {whtBadge && (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${whtBadge.className}`}>
+          {whtBadge.label} {whtBadge.status}
+        </span>
+      )}
+    </div>
   );
 }
