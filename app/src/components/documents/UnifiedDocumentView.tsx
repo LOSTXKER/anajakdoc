@@ -54,7 +54,7 @@ import { isAccountingRole, canReviewBox, getBoxTypeConfig, getBoxStatusConfig } 
 import { formatDate, formatMoney } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { MemberRole, SerializedBoxListItem } from "@/types";
-import { StatusLegend, DocumentStatusBadges } from "./StatusLegend";
+import { DocumentStatusBadges } from "./StatusLegend";
 
 type TabValue = "all" | "draft" | "preparing" | "submitted" | "need_docs" | "completed";
 
@@ -351,9 +351,6 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
 
   return (
     <div className="space-y-6">
-      {/* Status Legend - คำอธิบายสถานะ */}
-      <StatusLegend showVatWht={isAccounting} />
-      
       {/* Tabs - Status-based */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
