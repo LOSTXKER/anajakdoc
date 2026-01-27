@@ -199,7 +199,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           </TableCell>
         )}
         
-        {/* Box Number */}
+        {/* 1. Box Number - เลขที่ */}
         <TableCell>
           <Link href={`/documents/${box.id}`} className="hover:underline">
             <div className="flex items-center gap-2">
@@ -211,40 +211,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           </Link>
         </TableCell>
         
-        {/* Date */}
-        <TableCell className="text-muted-foreground">
-          {formatDate(box.boxDate, "short")}
-        </TableCell>
-        
-        {/* Title */}
-        <TableCell className="max-w-[200px]">
-          <Link href={`/documents/${box.id}`} className="hover:underline">
-            <p className="truncate">{box.title || box.description || "-"}</p>
-          </Link>
-        </TableCell>
-        
-        {/* Contact */}
-        <TableCell className="text-muted-foreground">
-          {box.contact?.name || "-"}
-        </TableCell>
-        
-        {/* Category */}
-        <TableCell>
-          {box.category?.name && (
-            <Badge variant="outline" className="text-xs">
-              {box.category.name}
-            </Badge>
-          )}
-        </TableCell>
-        
-        {/* Amount */}
-        <TableCell className="text-right">
-          <span className={cn("font-semibold", boxTypeConfig.amountColor)}>
-            {box.boxType === "INCOME" ? "+" : "-"}฿{formatMoney(box.totalAmount)}
-          </span>
-        </TableCell>
-        
-        {/* Status */}
+        {/* 2. Status - สถานะ */}
         <TableCell>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
@@ -260,7 +227,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           </div>
         </TableCell>
         
-        {/* Documents - เอกสาร */}
+        {/* 3. Documents - เอกสาร */}
         <TableCell>
           <DocumentStatusBadges
             hasVat={box.hasVat}
@@ -269,6 +236,39 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
             whtDocStatus={box.whtDocStatus}
             documentsCount={box._count?.documents || 0}
           />
+        </TableCell>
+        
+        {/* 4. Date - วันที่ */}
+        <TableCell className="text-muted-foreground">
+          {formatDate(box.boxDate, "short")}
+        </TableCell>
+        
+        {/* 5. Title - รายการ */}
+        <TableCell className="max-w-[200px]">
+          <Link href={`/documents/${box.id}`} className="hover:underline">
+            <p className="truncate">{box.title || box.description || "-"}</p>
+          </Link>
+        </TableCell>
+        
+        {/* 6. Contact - คู่ค้า */}
+        <TableCell className="text-muted-foreground">
+          {box.contact?.name || "-"}
+        </TableCell>
+        
+        {/* 7. Amount - จำนวนเงิน */}
+        <TableCell className="text-right">
+          <span className={cn("font-semibold", boxTypeConfig.amountColor)}>
+            {box.boxType === "INCOME" ? "+" : "-"}฿{formatMoney(box.totalAmount)}
+          </span>
+        </TableCell>
+        
+        {/* 8. Category - หมวดหมู่ */}
+        <TableCell>
+          {box.category?.name && (
+            <Badge variant="outline" className="text-xs">
+              {box.category.name}
+            </Badge>
+          )}
         </TableCell>
         
         {/* Actions */}
@@ -331,13 +331,13 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 </TableHead>
               )}
               <TableHead>เลขที่</TableHead>
+              <TableHead>สถานะ</TableHead>
+              <TableHead>เอกสาร</TableHead>
               <TableHead>วันที่</TableHead>
               <TableHead>รายการ</TableHead>
               <TableHead>คู่ค้า</TableHead>
-              <TableHead>หมวดหมู่</TableHead>
               <TableHead className="text-right">จำนวนเงิน</TableHead>
-              <TableHead>สถานะ</TableHead>
-              <TableHead>เอกสาร</TableHead>
+              <TableHead>หมวดหมู่</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
