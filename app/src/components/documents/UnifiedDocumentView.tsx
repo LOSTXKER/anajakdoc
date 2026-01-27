@@ -211,32 +211,21 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           </Link>
         </TableCell>
         
-        {/* 2. Status - สถานะ */}
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
-              {boxStatusConfig.label}
-            </Badge>
-            {/* Reimbursement Badge */}
-            {box.paymentMode === "EMPLOYEE_ADVANCE" && box.reimbursementStatus === "PENDING" && (
-              <Badge variant="secondary" className="text-xs bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
-                <Wallet className="w-3 h-3 mr-1" />
-                รอคืนเงิน
-              </Badge>
-            )}
-          </div>
-        </TableCell>
-        
-        {/* 3. Date - วันที่ */}
+        {/* 2. Date - วันที่ */}
         <TableCell className="text-muted-foreground">
           {formatDate(box.boxDate, "short")}
         </TableCell>
         
-        {/* 4. Title - รายการ */}
+        {/* 3. Title - รายการ */}
         <TableCell className="max-w-[200px]">
           <Link href={`/documents/${box.id}`} className="hover:underline">
             <p className="truncate">{box.title || box.description || "-"}</p>
           </Link>
+        </TableCell>
+        
+        {/* 4. Contact - คู่ค้า */}
+        <TableCell className="text-muted-foreground">
+          {box.contact?.name || "-"}
         </TableCell>
         
         {/* 5. Documents - เอกสาร */}
@@ -250,25 +239,36 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           />
         </TableCell>
         
-        {/* 6. Contact - คู่ค้า */}
-        <TableCell className="text-muted-foreground">
-          {box.contact?.name || "-"}
-        </TableCell>
-        
-        {/* 7. Amount - จำนวนเงิน */}
+        {/* 6. Amount - จำนวนเงิน */}
         <TableCell className="text-right">
           <span className={cn("font-semibold", boxTypeConfig.amountColor)}>
             {box.boxType === "INCOME" ? "+" : "-"}฿{formatMoney(box.totalAmount)}
           </span>
         </TableCell>
         
-        {/* 8. Category - หมวดหมู่ */}
+        {/* 7. Category - หมวดหมู่ */}
         <TableCell>
           {box.category?.name && (
             <Badge variant="outline" className="text-xs">
               {box.category.name}
             </Badge>
           )}
+        </TableCell>
+        
+        {/* 8. Status - สถานะ (workflow) */}
+        <TableCell>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className={cn("text-xs", boxStatusConfig.className)}>
+              {boxStatusConfig.label}
+            </Badge>
+            {/* Reimbursement Badge */}
+            {box.paymentMode === "EMPLOYEE_ADVANCE" && box.reimbursementStatus === "PENDING" && (
+              <Badge variant="secondary" className="text-xs bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
+                <Wallet className="w-3 h-3 mr-1" />
+                รอคืนเงิน
+              </Badge>
+            )}
+          </div>
         </TableCell>
         
         {/* Actions */}
@@ -331,13 +331,13 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                 </TableHead>
               )}
               <TableHead>เลขที่</TableHead>
-              <TableHead>สถานะ</TableHead>
               <TableHead>วันที่</TableHead>
               <TableHead>รายการ</TableHead>
-              <TableHead>เอกสาร</TableHead>
               <TableHead>คู่ค้า</TableHead>
+              <TableHead>เอกสาร</TableHead>
               <TableHead className="text-right">จำนวนเงิน</TableHead>
               <TableHead>หมวดหมู่</TableHead>
+              <TableHead>สถานะ</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
