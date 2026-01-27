@@ -31,7 +31,6 @@ import {
 import { BulkActions } from "@/components/documents/BulkActions";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
-  User,
   Inbox,
   FileCheck,
   CheckCircle,
@@ -47,8 +46,7 @@ import {
   XCircle,
   FileQuestion,
   Send,
-  Search,
-  FileSearch,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { reviewBox } from "@/server/actions/box";
@@ -58,14 +56,15 @@ import { cn } from "@/lib/utils";
 import type { MemberRole, SerializedBoxListItem } from "@/types";
 import { StatusLegend, DocStatusIcons } from "./StatusLegend";
 
-type TabValue = "mine" | "pending" | "need_docs" | "tracking" | "done" | "reimburse" | "all";
+type TabValue = "all" | "draft" | "preparing" | "submitted" | "need_docs" | "completed";
 
 interface UnifiedDocumentViewProps {
   boxes: SerializedBoxListItem[];
   counts: {
     myBoxes: number;
     draft: number;
-    pending: number;
+    preparing: number;
+    submitted: number;
     needDocs: number;
     completed: number;
     total: number;
@@ -82,56 +81,31 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
   const [isPending, startTransition] = useTransition();
   const isAccounting = isAccountingRole(userRole);
   
-  // Memoize filtered box lists to prevent recalculation on every render
-  // Using simplified 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
+  // Memoize filtered box lists by status
+  // Using 5-status system: DRAFT, PREPARING, SUBMITTED, NEED_DOCS, COMPLETED
   const filteredBoxes = useMemo(() => ({
-    myBoxes: boxes.filter(b => b.createdById === userId),
-    // รอตรวจ: PENDING เท่านั้น (แยกจาก NEED_DOCS)
-    pendingBoxes: boxes.filter(b => b.status === "PENDING"),
-    // ขาดเอกสาร: NEED_DOCS เท่านั้น
+    draftBoxes: boxes.filter(b => b.status === "DRAFT"),
+    preparingBoxes: boxes.filter(b => b.status === "PREPARING"),
+    submittedBoxes: boxes.filter(b => b.status === "SUBMITTED"),
     needDocsBoxes: boxes.filter(b => b.status === "NEED_DOCS"),
-    // เสร็จ: COMPLETED
-    doneBoxes: boxes.filter(b => b.status === "COMPLETED"),
-    // ติดตาม VAT/WHT: boxes that need VAT/WHT documents
-    trackingBoxes: boxes.filter(b => 
-      (b.hasVat && b.vatDocStatus === "MISSING") ||
-      (b.hasWht && ["MISSING", "REQUEST_SENT"].includes(b.whtDocStatus))
-    ),
-    // รอคืนเงิน: Employee paid, pending reimbursement
-    reimburseBoxes: boxes.filter(b => 
-      b.paymentMode === "EMPLOYEE_ADVANCE" && b.reimbursementStatus === "PENDING"
-    ),
-  }), [boxes, userId]);
+    completedBoxes: boxes.filter(b => b.status === "COMPLETED"),
+  }), [boxes]);
 
-  const { myBoxes, pendingBoxes, needDocsBoxes, doneBoxes, trackingBoxes, reimburseBoxes } = filteredBoxes;
-  
-  // Tracking filter state
-  const [trackingFilter, setTrackingFilter] = useState<"all" | "vat_missing" | "wht_missing" | "wht_sent">("all");
-  
-  // Filter tracking boxes based on dropdown
-  const filteredTrackingBoxes = useMemo(() => {
-    if (trackingFilter === "all") return trackingBoxes;
-    if (trackingFilter === "vat_missing") return trackingBoxes.filter(b => b.hasVat && b.vatDocStatus === "MISSING");
-    if (trackingFilter === "wht_missing") return trackingBoxes.filter(b => b.hasWht && b.whtDocStatus === "MISSING");
-    if (trackingFilter === "wht_sent") return trackingBoxes.filter(b => b.hasWht && b.whtDocStatus === "REQUEST_SENT");
-    return trackingBoxes;
-  }, [trackingBoxes, trackingFilter]);
+  const { draftBoxes, preparingBoxes, submittedBoxes, needDocsBoxes, completedBoxes } = filteredBoxes;
   
   const getBoxesForTab = useCallback((tab: TabValue) => {
     switch (tab) {
-      case "mine": return myBoxes;
-      case "pending": return pendingBoxes;
+      case "draft": return draftBoxes;
+      case "preparing": return preparingBoxes;
+      case "submitted": return submittedBoxes;
       case "need_docs": return needDocsBoxes;
-      case "tracking": return filteredTrackingBoxes;
-      case "done": return doneBoxes;
-      case "reimburse": return reimburseBoxes;
+      case "completed": return completedBoxes;
       default: return boxes;
     }
-  }, [myBoxes, pendingBoxes, needDocsBoxes, filteredTrackingBoxes, doneBoxes, reimburseBoxes, boxes]);
+  }, [draftBoxes, preparingBoxes, submittedBoxes, needDocsBoxes, completedBoxes, boxes]);
   
-  // Default tab based on role
-  const defaultTab: TabValue = isAccounting ? "pending" : "mine";
-  const [activeTab, setActiveTab] = useState<TabValue>(defaultTab);
+  // Default tab - always start with "all"
+  const [activeTab, setActiveTab] = useState<TabValue>("all");
   
   const currentBoxes = getBoxesForTab(activeTab);
   
@@ -191,7 +165,7 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
       
       for (const id of selectedIds) {
         const box = boxes.find(b => b.id === id);
-        if (box && ["PENDING", "NEED_DOCS"].includes(box.status)) {
+        if (box && ["SUBMITTED", "NEED_DOCS"].includes(box.status)) {
           const result = await reviewBox(id, "approve");
           if (result.success) successCount++;
         }
@@ -203,8 +177,8 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
     });
   };
 
-  const showActions = isAccounting && (activeTab === "pending" || activeTab === "all");
-  const showCheckbox = isAccounting && activeTab === "pending";
+  const showActions = isAccounting && (activeTab === "submitted" || activeTab === "all");
+  const showCheckbox = isAccounting && activeTab === "submitted";
 
   // Render table row for a box
   const renderTableRow = (box: SerializedBoxListItem, showRowCheckbox: boolean, showRowActions: boolean) => {
@@ -374,77 +348,78 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
       {/* Status Legend - คำอธิบายสถานะ */}
       <StatusLegend showVatWht={isAccounting} />
       
-      {/* Tabs */}
+      {/* Tabs - Status-based */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <TabsList className="bg-muted">
-            <TabsTrigger value="mine" className="gap-2 data-[state=active]:bg-card">
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">ของฉัน</span>
-              <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">
-                {myBoxes.length}
-              </span>
-            </TabsTrigger>
-            {isAccounting && (
-              <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-card">
-                <Inbox className="h-4 w-4" />
-                <span className="hidden sm:inline">รอตรวจ</span>
-                {pendingBoxes.length > 0 && (
-                  <span className="text-xs bg-sky-500 text-white px-1.5 py-0.5 rounded-full">
-                    {pendingBoxes.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            )}
-            {isAccounting && (
-              <TabsTrigger value="need_docs" className="gap-2 data-[state=active]:bg-card">
-                <AlertCircle className="h-4 w-4" />
-                <span className="hidden sm:inline">ขาดเอกสาร</span>
-                {needDocsBoxes.length > 0 && (
-                  <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
-                    {needDocsBoxes.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            )}
-            {isAccounting && (
-              <TabsTrigger value="tracking" className="gap-2 data-[state=active]:bg-card">
-                <FileSearch className="h-4 w-4" />
-                <span className="hidden sm:inline">ติดตาม VAT/WHT</span>
-                {trackingBoxes.length > 0 && (
-                  <span className="text-xs bg-purple-500 text-white px-1.5 py-0.5 rounded-full">
-                    {trackingBoxes.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="done" className="gap-2 data-[state=active]:bg-card">
-              <CheckCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">เสร็จ</span>
-              <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">
-                {doneBoxes.length}
-              </span>
-            </TabsTrigger>
-            {isAccounting && (
-              <TabsTrigger value="reimburse" className="gap-2 data-[state=active]:bg-card">
-                <Wallet className="h-4 w-4" />
-                <span className="hidden sm:inline">รอคืนเงิน</span>
-                {reimburseBoxes.length > 0 && (
-                  <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
-                    {reimburseBoxes.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="all" className="data-[state=active]:bg-card">
+            {/* ทั้งหมด - First */}
+            <TabsTrigger value="all" className="gap-2 data-[state=active]:bg-card">
+              <Package className="h-4 w-4" />
               <span className="hidden sm:inline">ทั้งหมด</span>
-              <span className="sm:hidden">All</span>
+              <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">
+                {boxes.length}
+              </span>
+            </TabsTrigger>
+            
+            {/* ร่าง */}
+            <TabsTrigger value="draft" className="gap-2 data-[state=active]:bg-card">
+              <FileQuestion className="h-4 w-4" />
+              <span className="hidden sm:inline">ร่าง</span>
+              {draftBoxes.length > 0 && (
+                <span className="text-xs bg-slate-500 text-white px-1.5 py-0.5 rounded-full">
+                  {draftBoxes.length}
+                </span>
+              )}
+            </TabsTrigger>
+            
+            {/* เตรียมเอกสาร */}
+            <TabsTrigger value="preparing" className="gap-2 data-[state=active]:bg-card">
+              <FileCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">เตรียมเอกสาร</span>
+              {preparingBoxes.length > 0 && (
+                <span className="text-xs bg-purple-500 text-white px-1.5 py-0.5 rounded-full">
+                  {preparingBoxes.length}
+                </span>
+              )}
+            </TabsTrigger>
+            
+            {/* ส่งแล้ว */}
+            <TabsTrigger value="submitted" className="gap-2 data-[state=active]:bg-card">
+              <Send className="h-4 w-4" />
+              <span className="hidden sm:inline">ส่งแล้ว</span>
+              {submittedBoxes.length > 0 && (
+                <span className="text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded-full">
+                  {submittedBoxes.length}
+                </span>
+              )}
+            </TabsTrigger>
+            
+            {/* ต้องเพิ่มเอกสาร */}
+            <TabsTrigger value="need_docs" className="gap-2 data-[state=active]:bg-card">
+              <AlertCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">ต้องเพิ่มเอกสาร</span>
+              {needDocsBoxes.length > 0 && (
+                <span className="text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                  {needDocsBoxes.length}
+                </span>
+              )}
+            </TabsTrigger>
+            
+            {/* เสร็จสิ้น */}
+            <TabsTrigger value="completed" className="gap-2 data-[state=active]:bg-card">
+              <CheckCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">เสร็จสิ้น</span>
+              {completedBoxes.length > 0 && (
+                <span className="text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">
+                  {completedBoxes.length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-2">
             {/* Bulk Actions */}
-            {someSelected && activeTab === "pending" && (
+            {someSelected && activeTab === "submitted" && (
               <>
                 <span className="text-sm text-muted-foreground">
                   เลือก {selectedIds.size} รายการ
@@ -461,114 +436,19 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
               </>
             )}
 
-            {/* Tracking Filter Dropdown */}
-            {activeTab === "tracking" && (
-              <Select value={trackingFilter} onValueChange={(v) => setTrackingFilter(v as typeof trackingFilter)}>
-                <SelectTrigger className="w-[160px] h-9">
-                  <SelectValue placeholder="กรองตาม..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="vat_missing">ขาดใบ VAT</SelectItem>
-                  <SelectItem value="wht_missing">ขาดใบ WHT</SelectItem>
-                  <SelectItem value="wht_sent">ส่งคำขอ WHT แล้ว</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-
-            {activeTab === "mine" && (
-              <Button size="sm" asChild>
-                <Link href="/documents/new">
-                  <Plus className="mr-1 h-4 w-4" />
-                  สร้างกล่องใหม่
-                </Link>
-              </Button>
-            )}
+            {/* Create Button */}
+            <Button size="sm" asChild>
+              <Link href="/documents/new">
+                <Plus className="mr-1 h-4 w-4" />
+                สร้างกล่องใหม่
+              </Link>
+            </Button>
           </div>
         </div>
 
-        {/* Box Table */}
+        {/* Box Table by Status */}
         <div className="mt-4">
-          <TabsContent value="mine" className="m-0">
-            {myBoxes.length > 0 ? (
-              renderTable(myBoxes, false, false)
-            ) : (
-              <EmptyState
-                icon={Package}
-                title="ยังไม่มีกล่องเอกสาร"
-                description="เริ่มสร้างกล่องเอกสารแรกของคุณ"
-                action={
-                  <Button asChild>
-                    <Link href="/documents/new">
-                      <Plus className="mr-2 h-4 w-4" />
-                      สร้างกล่องใหม่
-                    </Link>
-                  </Button>
-                }
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="pending" className="m-0">
-            {pendingBoxes.length > 0 ? (
-              renderTable(pendingBoxes, showCheckbox, showActions)
-            ) : (
-              <EmptyState
-                icon={Inbox}
-                title="ไม่มีกล่องรอตรวจ"
-                description="กล่องเอกสารที่ส่งเข้ามาใหม่จะแสดงที่นี่"
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="need_docs" className="m-0">
-            {needDocsBoxes.length > 0 ? (
-              renderTable(needDocsBoxes, showCheckbox, showActions)
-            ) : (
-              <EmptyState
-                icon={AlertCircle}
-                title="ไม่มีกล่องที่ขาดเอกสาร"
-                description="กล่องที่ต้องเพิ่มเอกสารจะแสดงที่นี่"
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="tracking" className="m-0">
-            {filteredTrackingBoxes.length > 0 ? (
-              renderTable(filteredTrackingBoxes, false, false)
-            ) : (
-              <EmptyState
-                icon={Search}
-                title="ไม่มีเอกสารที่ต้องติดตาม"
-                description="กล่องที่ขาดใบ VAT หรือใบหัก ณ ที่จ่ายจะแสดงที่นี่"
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="done" className="m-0">
-            {doneBoxes.length > 0 ? (
-              renderTable(doneBoxes, false, false)
-            ) : (
-              <EmptyState
-                icon={CheckCircle}
-                title="ไม่มีกล่องที่เสร็จแล้ว"
-                description="กล่องที่ Export แล้วจะแสดงที่นี่"
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="reimburse" className="m-0">
-            {reimburseBoxes.length > 0 ? (
-              renderTable(reimburseBoxes, isAccounting, false)
-            ) : (
-              <EmptyState
-                icon={Wallet}
-                title="ไม่มีรายการรอคืนเงิน"
-                description="รายการที่พนักงานสำรองจ่ายจะแสดงที่นี่"
-              />
-            )}
-          </TabsContent>
-
+          {/* ทั้งหมด */}
           <TabsContent value="all" className="m-0">
             {boxes.length > 0 ? (
               renderTable(boxes, showCheckbox && showActions, showActions)
@@ -585,6 +465,71 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
                     </Link>
                   </Button>
                 }
+              />
+            )}
+          </TabsContent>
+
+          {/* ร่าง */}
+          <TabsContent value="draft" className="m-0">
+            {draftBoxes.length > 0 ? (
+              renderTable(draftBoxes, false, false)
+            ) : (
+              <EmptyState
+                icon={FileQuestion}
+                title="ไม่มีกล่องร่าง"
+                description="กล่องที่เพิ่งสร้างจะแสดงที่นี่"
+              />
+            )}
+          </TabsContent>
+
+          {/* เตรียมเอกสาร */}
+          <TabsContent value="preparing" className="m-0">
+            {preparingBoxes.length > 0 ? (
+              renderTable(preparingBoxes, false, false)
+            ) : (
+              <EmptyState
+                icon={FileCheck}
+                title="ไม่มีกล่องที่กำลังเตรียมเอกสาร"
+                description="กล่องที่กำลังอัปโหลดเอกสารจะแสดงที่นี่"
+              />
+            )}
+          </TabsContent>
+
+          {/* ส่งแล้ว */}
+          <TabsContent value="submitted" className="m-0">
+            {submittedBoxes.length > 0 ? (
+              renderTable(submittedBoxes, showCheckbox, showActions)
+            ) : (
+              <EmptyState
+                icon={Send}
+                title="ไม่มีกล่องที่ส่งแล้ว"
+                description="กล่องที่ส่งให้บัญชีตรวจสอบจะแสดงที่นี่"
+              />
+            )}
+          </TabsContent>
+
+          {/* ต้องเพิ่มเอกสาร */}
+          <TabsContent value="need_docs" className="m-0">
+            {needDocsBoxes.length > 0 ? (
+              renderTable(needDocsBoxes, showCheckbox, showActions)
+            ) : (
+              <EmptyState
+                icon={AlertCircle}
+                title="ไม่มีกล่องที่ต้องเพิ่มเอกสาร"
+                description="กล่องที่บัญชีขอเอกสารเพิ่มจะแสดงที่นี่"
+              />
+            )}
+          </TabsContent>
+
+          {/* เสร็จสิ้น */}
+          <TabsContent value="completed" className="m-0">
+            {completedBoxes.length > 0 ? (
+              renderTable(completedBoxes, false, false)
+            ) : (
+              <EmptyState
+                icon={CheckCircle}
+                title="ไม่มีกล่องที่เสร็จสิ้น"
+                description="กล่องที่ลงบัญชีเรียบร้อยแล้วจะแสดงที่นี่"
               />
             )}
           </TabsContent>

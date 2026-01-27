@@ -48,11 +48,11 @@ export function useBoxFilters<T extends FilterableBox>(
     [boxes, userId]
   );
 
-  // Using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
+  // Using new 5-status system: DRAFT, PREPARING, SUBMITTED, NEED_DOCS, COMPLETED
   const pendingBoxes = useMemo(
     () =>
       boxes.filter((b) =>
-        ["PENDING", "NEED_DOCS"].includes(b.status)
+        ["SUBMITTED", "NEED_DOCS"].includes(b.status)
       ),
     [boxes]
   );

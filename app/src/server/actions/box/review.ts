@@ -21,37 +21,47 @@ type TransitionRule = {
 };
 
 // Using existing NotificationType values (BOX_SUBMITTED, BOX_NEED_MORE_DOCS, BOX_BOOKED)
+// 5-status system: DRAFT → PREPARING → SUBMITTED → COMPLETED (with NEED_DOCS branch)
 const TRANSITIONS: TransitionRule[] = [
-  // Draft → Pending (ส่งตรวจ)
+  // Draft → Preparing (เริ่มเตรียมเอกสาร)
   {
     from: [BoxStatus.DRAFT],
-    to: BoxStatus.PENDING,
+    to: BoxStatus.PREPARING,
+    allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"],
+    action: "START_PREPARING",
+    notificationType: NotificationType.BOX_SUBMITTED,
+    notificationTitle: "เริ่มเตรียมเอกสาร",
+  },
+  // Preparing → Submitted (ส่งตรวจ)
+  {
+    from: [BoxStatus.PREPARING],
+    to: BoxStatus.SUBMITTED,
     allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"],
     action: "SUBMIT",
     notificationType: NotificationType.BOX_SUBMITTED,
     notificationTitle: "กล่องเอกสารใหม่รอตรวจ",
   },
-  // Pending → Need Docs (ขอเอกสารเพิ่ม)
+  // Submitted → Need Docs (ขอเอกสารเพิ่ม)
   {
-    from: [BoxStatus.PENDING],
+    from: [BoxStatus.SUBMITTED],
     to: BoxStatus.NEED_DOCS,
     allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
     action: "REQUEST_DOCS",
     notificationType: NotificationType.BOX_NEED_MORE_DOCS,
     notificationTitle: "ขาดเอกสาร",
   },
-  // Need Docs → Pending (ส่งใหม่)
+  // Need Docs → Submitted (ส่งใหม่)
   {
     from: [BoxStatus.NEED_DOCS],
-    to: BoxStatus.PENDING,
+    to: BoxStatus.SUBMITTED,
     allowedRoles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"],
     action: "RESUBMIT",
     notificationType: NotificationType.BOX_SUBMITTED,
     notificationTitle: "กล่องเอกสารถูกส่งใหม่",
   },
-  // Pending → Completed (อนุมัติ/ลงบัญชี)
+  // Submitted → Completed (อนุมัติ/ลงบัญชี)
   {
-    from: [BoxStatus.PENDING],
+    from: [BoxStatus.SUBMITTED],
     to: BoxStatus.COMPLETED,
     allowedRoles: ["ACCOUNTING", "ADMIN", "OWNER"],
     action: "APPROVE",
@@ -67,10 +77,10 @@ const TRANSITIONS: TransitionRule[] = [
     notificationType: NotificationType.BOX_BOOKED,
     notificationTitle: "เสร็จสิ้น",
   },
-  // Revert: Completed → Pending (กรณีต้องแก้ไข)
+  // Revert: Completed → Submitted (กรณีต้องแก้ไข)
   {
     from: [BoxStatus.COMPLETED],
-    to: BoxStatus.PENDING,
+    to: BoxStatus.SUBMITTED,
     allowedRoles: ["ADMIN", "OWNER"],
     action: "REVERT",
     notificationType: NotificationType.BOX_SUBMITTED,
@@ -97,11 +107,12 @@ export async function getAvailableTransitions(
   from: BoxStatus,
   role: MemberRole
 ): Promise<{ to: BoxStatus; action: string; label: string }[]> {
-  // Using new 4-status system
+  // Using new 5-status system
   const statusLabels: Record<BoxStatus, string> = {
-    DRAFT: "แบบร่าง",
-    PENDING: "รอตรวจ",
-    NEED_DOCS: "ขาดเอกสาร",
+    DRAFT: "ร่าง",
+    PREPARING: "เตรียมเอกสาร",
+    SUBMITTED: "ส่งแล้ว",
+    NEED_DOCS: "ต้องเพิ่มเอกสาร",
     COMPLETED: "เสร็จสิ้น",
   };
 
@@ -133,10 +144,10 @@ export async function submitBox(boxId: string): Promise<ApiResponse> {
     };
   }
 
-  // Check valid transition (DRAFT → PENDING)
+  // Check valid transition (PREPARING → SUBMITTED)
   const transition = findTransition(
     box.status,
-    BoxStatus.PENDING,
+    BoxStatus.SUBMITTED,
     session.currentOrganization.role
   );
 
@@ -151,7 +162,7 @@ export async function submitBox(boxId: string): Promise<ApiResponse> {
     await tx.box.update({
       where: { id: boxId },
       data: {
-        status: BoxStatus.PENDING,
+        status: BoxStatus.SUBMITTED,
         submittedAt: new Date(),
       },
     });
@@ -222,11 +233,11 @@ export async function changeBoxStatus(
     };
   }
 
-  // Build update data based on new status (using new 4-status system)
+  // Build update data based on new status (using new 5-status system)
   const updateData: Record<string, unknown> = { status: newStatus };
   
   switch (newStatus) {
-    case BoxStatus.PENDING:
+    case BoxStatus.SUBMITTED:
       updateData.submittedAt = new Date();
       break;
     case BoxStatus.COMPLETED:
@@ -294,20 +305,20 @@ export async function changeBoxStatus(
   };
 }
 
-// ==================== Review Box (Simplified for new 4-status system) ====================
+// ==================== Review Box (Simplified for new 5-status system) ====================
 
 export async function reviewBox(
   boxId: string,
   action: "approve" | "reject" | "need_info" | "ready" | "wht_pending" | "book",
   comment?: string
 ): Promise<ApiResponse> {
-  // Map old actions to new 4-status system
+  // Map old actions to new 5-status system
   const actionToStatus: Record<string, BoxStatus> = {
     approve: BoxStatus.COMPLETED,
     reject: BoxStatus.DRAFT, // Revert to draft instead of cancel
     need_info: BoxStatus.NEED_DOCS,
     ready: BoxStatus.COMPLETED,
-    wht_pending: BoxStatus.PENDING, // No separate WHT_PENDING, stays in PENDING
+    wht_pending: BoxStatus.SUBMITTED, // No separate WHT_PENDING, stays in SUBMITTED
     book: BoxStatus.COMPLETED,
   };
 
@@ -319,11 +330,11 @@ export async function reviewBox(
     };
   }
 
-  // Just change status directly in new 4-status system
+  // Just change status directly in new 5-status system
   return changeBoxStatus(boxId, newStatus, comment);
 }
 
-// ==================== Quick Actions (Simplified for 4-status system) ====================
+// ==================== Quick Actions (Simplified for 5-status system) ====================
 
 export async function requestMoreDocs(boxId: string, comment?: string): Promise<ApiResponse> {
   return changeBoxStatus(boxId, BoxStatus.NEED_DOCS, comment);
@@ -334,7 +345,7 @@ export async function approveBox(boxId: string): Promise<ApiResponse> {
 }
 
 export async function revertToEdit(boxId: string, reason?: string): Promise<ApiResponse> {
-  return changeBoxStatus(boxId, BoxStatus.PENDING, reason);
+  return changeBoxStatus(boxId, BoxStatus.SUBMITTED, reason);
 }
 
 // Legacy aliases for backward compatibility

@@ -1,9 +1,12 @@
 /**
  * Document Requirements Configuration
  * Defines required documents for different box types and expense types
+ * 
+ * Uses centralized config from box-type-config.ts for labels
  */
 
 import type { BoxType, ExpenseType, DocType } from "@/types";
+import { getBoxTypeLabels } from "./config/box-type-config";
 
 export interface RequiredDocument {
   id: string;
@@ -24,6 +27,7 @@ export function getRequiredDocuments(
   hasWht: boolean
 ): RequiredDocument[] {
   const docs: RequiredDocument[] = [];
+  const labels = getBoxTypeLabels(boxType);
 
   if (boxType === "EXPENSE") {
     switch (expenseType) {
@@ -31,7 +35,7 @@ export function getRequiredDocuments(
         docs.push({
           id: "tax_invoice",
           docType: "TAX_INVOICE",
-          label: "ใบกำกับภาษี",
+          label: labels.vat,
           description: "เอกสารหลักสำหรับขอคืน VAT",
           required: true,
           matchingDocTypes: ["TAX_INVOICE", "TAX_INVOICE_ABB"],
@@ -39,7 +43,7 @@ export function getRequiredDocuments(
         docs.push({
           id: "payment_proof",
           docType: "SLIP_TRANSFER",
-          label: "หลักฐานการชำระเงิน",
+          label: `หลักฐาน${labels.payment}`,
           description: "สลิปโอนเงิน, เช็ค หรือ Statement",
           required: true,
           matchingDocTypes: ["SLIP_TRANSFER", "SLIP_CHEQUE", "BANK_STATEMENT", "CREDIT_CARD_STATEMENT"],
@@ -51,47 +55,17 @@ export function getRequiredDocuments(
           id: "cash_receipt",
           docType: "CASH_RECEIPT",
           label: "บิลเงินสด/ใบเสร็จ",
-          description: "บิลเงินสด หรือใบเสร็จจากร้านค้า",
+          description: `บิลเงินสด หรือใบเสร็จจาก${labels.contactShort}`,
           required: true,
           matchingDocTypes: ["CASH_RECEIPT", "RECEIPT", "OTHER"],
         });
         docs.push({
           id: "payment_proof",
           docType: "SLIP_TRANSFER",
-          label: "หลักฐานการชำระเงิน",
+          label: `หลักฐาน${labels.payment}`,
           description: "สลิปโอนเงิน หรือยืนยันจ่ายเงินสด",
           required: true,
           matchingDocTypes: ["SLIP_TRANSFER", "SLIP_CHEQUE", "BANK_STATEMENT"],
-        });
-        break;
-
-      case "PETTY_CASH":
-        docs.push({
-          id: "petty_cash",
-          docType: "PETTY_CASH_VOUCHER",
-          label: "ใบสำคัญจ่าย/บิล",
-          description: "ใบสำคัญจ่ายหรือบิลเงินสด (ถ้ามี)",
-          required: false,
-          matchingDocTypes: ["PETTY_CASH_VOUCHER", "CASH_RECEIPT", "RECEIPT"],
-        });
-        break;
-
-      case "FOREIGN":
-        docs.push({
-          id: "foreign_invoice",
-          docType: "FOREIGN_INVOICE",
-          label: "Invoice ต่างประเทศ",
-          description: "Invoice จากผู้ขายต่างประเทศ",
-          required: true,
-          matchingDocTypes: ["FOREIGN_INVOICE"],
-        });
-        docs.push({
-          id: "payment_proof",
-          docType: "SLIP_TRANSFER",
-          label: "หลักฐานการชำระเงิน",
-          description: "สลิปโอน, Statement หรือ Online Receipt",
-          required: true,
-          matchingDocTypes: ["SLIP_TRANSFER", "BANK_STATEMENT", "ONLINE_RECEIPT"],
         });
         break;
 
@@ -107,13 +81,14 @@ export function getRequiredDocuments(
         docs.push({
           id: "payment_proof",
           docType: "SLIP_TRANSFER",
-          label: "หลักฐานการชำระเงิน",
+          label: `หลักฐาน${labels.payment}`,
           description: "สลิปโอนเงิน หรือหลักฐานการจ่าย",
           required: true,
           matchingDocTypes: ["SLIP_TRANSFER", "SLIP_CHEQUE", "BANK_STATEMENT"],
         });
     }
 
+    // EXPENSE WHT: เราออกหนังสือให้ผู้ขาย
     if (hasWht) {
       docs.push({
         id: "wht",
@@ -129,7 +104,7 @@ export function getRequiredDocuments(
       id: "invoice",
       docType: "INVOICE",
       label: "ใบแจ้งหนี้",
-      description: "ใบแจ้งหนี้ที่ออกให้ลูกค้า",
+      description: `ใบแจ้งหนี้ที่ออกให้${labels.contactShort}`,
       required: true,
       matchingDocTypes: ["INVOICE"],
     });
@@ -138,8 +113,8 @@ export function getRequiredDocuments(
       docs.push({
         id: "tax_invoice",
         docType: "TAX_INVOICE",
-        label: "ใบกำกับภาษี",
-        description: "ใบกำกับภาษีที่ออกให้ลูกค้า",
+        label: labels.vat,
+        description: `ใบกำกับภาษีที่ออกให้${labels.contactShort}`,
         required: true,
         matchingDocTypes: ["TAX_INVOICE"],
       });
@@ -148,31 +123,23 @@ export function getRequiredDocuments(
     docs.push({
       id: "payment_proof",
       docType: "RECEIPT",
-      label: "หลักฐานรับเงิน",
+      label: `หลักฐาน${labels.payment}`,
       description: "สลิปโอนเข้า หรือใบเสร็จรับเงิน",
       required: false,
       matchingDocTypes: ["RECEIPT", "SLIP_TRANSFER", "BANK_STATEMENT"],
     });
 
+    // INCOME WHT: เรารับหนังสือจากลูกค้า
     if (hasWht) {
       docs.push({
         id: "wht_incoming",
         docType: "WHT_INCOMING",
         label: "หนังสือหัก ณ ที่จ่าย",
-        description: "หนังสือหัก ณ ที่จ่ายจากลูกค้า",
+        description: `หนังสือหัก ณ ที่จ่ายจาก${labels.contactShort}`,
         required: true,
         matchingDocTypes: ["WHT_INCOMING", "WHT_RECEIVED"],
       });
     }
-  } else if (boxType === "ADJUSTMENT") {
-    docs.push({
-      id: "adjustment_doc",
-      docType: "CREDIT_NOTE",
-      label: "เอกสารประกอบ",
-      description: "CN/DN หรือหลักฐานการคืนเงิน",
-      required: true,
-      matchingDocTypes: ["CREDIT_NOTE", "DEBIT_NOTE", "REFUND_RECEIPT", "OTHER"],
-    });
   }
 
   return docs;

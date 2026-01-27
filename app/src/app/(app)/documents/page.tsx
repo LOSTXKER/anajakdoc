@@ -121,12 +121,13 @@ async function getFilteredBoxes(
   }));
 }
 
-// Using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
+// Using new 5-status system: DRAFT, PREPARING, SUBMITTED, NEED_DOCS, COMPLETED
 async function getStatusCounts(orgId: string, userId: string) {
-  const [myBoxes, draft, pending, needDocs, completed, total, vatMissing, whtMissing, reimbursePending] = await Promise.all([
+  const [myBoxes, draft, preparing, submitted, needDocs, completed, total, vatMissing, whtMissing, reimbursePending] = await Promise.all([
     prisma.box.count({ where: { organizationId: orgId, createdById: userId } }),
     prisma.box.count({ where: { organizationId: orgId, status: "DRAFT" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "PENDING" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "PREPARING" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "SUBMITTED" } }),
     prisma.box.count({ where: { organizationId: orgId, status: "NEED_DOCS" } }),
     prisma.box.count({ where: { organizationId: orgId, status: "COMPLETED" } }),
     prisma.box.count({ where: { organizationId: orgId } }),
@@ -147,7 +148,8 @@ async function getStatusCounts(orgId: string, userId: string) {
   return {
     myBoxes,
     draft,
-    pending,
+    preparing,
+    submitted,
     needDocs,
     completed,
     total,

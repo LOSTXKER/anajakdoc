@@ -82,37 +82,6 @@ function getRequiredDocuments(
         });
         break;
 
-      case "PETTY_CASH":
-        // เบิกเงินสดย่อย
-        docs.push({
-          docType: "PETTY_CASH_VOUCHER",
-          label: "ใบสำคัญจ่าย/บิล",
-          description: "ใบสำคัญจ่ายหรือบิลเงินสด (ถ้ามี)",
-          required: false,
-          uploaded: hasAny("PETTY_CASH_VOUCHER", "CASH_RECEIPT", "RECEIPT"),
-          alternativeTypes: ["CASH_RECEIPT", "RECEIPT"],
-        });
-        break;
-
-      case "FOREIGN":
-        // จ่ายต่างประเทศ
-        docs.push({
-          docType: "FOREIGN_INVOICE",
-          label: "Invoice ต่างประเทศ",
-          description: "Invoice จากผู้ขายต่างประเทศ",
-          required: true,
-          uploaded: hasAny("FOREIGN_INVOICE"),
-        });
-        docs.push({
-          docType: "SLIP_TRANSFER",
-          label: "หลักฐานการชำระเงิน",
-          description: "สลิปโอน, Statement หรือ Online Receipt",
-          required: true,
-          uploaded: hasAny("SLIP_TRANSFER", "BANK_STATEMENT", "ONLINE_RECEIPT"),
-          alternativeTypes: ["BANK_STATEMENT", "ONLINE_RECEIPT"],
-        });
-        break;
-
       default:
         // Default EXPENSE
         docs.push({
@@ -182,16 +151,6 @@ function getRequiredDocuments(
         alternativeTypes: ["WHT_RECEIVED"],
       });
     }
-  } else if (boxType === "ADJUSTMENT") {
-    // ปรับปรุง
-    docs.push({
-      docType: "CREDIT_NOTE",
-      label: "เอกสารประกอบ",
-      description: "CN/DN หรือหลักฐานการคืนเงิน",
-      required: true,
-      uploaded: hasAny("CREDIT_NOTE", "DEBIT_NOTE", "REFUND_RECEIPT", "OTHER"),
-      alternativeTypes: ["DEBIT_NOTE", "REFUND_RECEIPT", "OTHER"],
-    });
   }
 
   return docs;

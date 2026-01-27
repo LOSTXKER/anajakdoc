@@ -64,16 +64,16 @@ export async function generateDigest(
     startDate.setDate(startDate.getDate() - 7);
   }
 
-  // Get box stats (using new 4-status system)
+  // Get box stats (using new 5-status system)
   const [pendingBoxes, inReviewBoxes, readyToBookBoxes, completedBoxes] = await Promise.all([
     prisma.box.count({
       where: { organizationId, status: "DRAFT" },
     }),
     prisma.box.count({
-      where: { organizationId, status: { in: ["PENDING", "NEED_DOCS"] } },
+      where: { organizationId, status: { in: ["SUBMITTED", "NEED_DOCS"] } },
     }),
     prisma.box.count({
-      where: { organizationId, status: "PENDING" },
+      where: { organizationId, status: "SUBMITTED" },
     }),
     prisma.box.count({
       where: {
@@ -119,7 +119,7 @@ export async function generateDigest(
   const oldPendingBoxes = await prisma.box.findMany({
     where: {
       organizationId,
-      status: { in: ["PENDING", "NEED_DOCS"] },
+      status: { in: ["SUBMITTED", "NEED_DOCS"] },
       submittedAt: {
         lte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // > 7 days old
       },

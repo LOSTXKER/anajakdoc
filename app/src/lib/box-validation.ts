@@ -264,18 +264,6 @@ function validateDocumentCompleteness(ctx: ValidationContext): ValidationIssue[]
     });
   }
   
-  // FOREIGN: ต้องมี Invoice ต่างประเทศ
-  if (ctx.box.expenseType === "FOREIGN" && !hasForeignInvoice) {
-    issues.push({
-      id: "missing-foreign-invoice",
-      severity: "error",
-      code: "MISSING_FOREIGN_INVOICE",
-      message: "ยังไม่มี Invoice ต่างประเทศ",
-      suggestion: "อัปโหลด Invoice จากผู้ขายต่างประเทศ",
-      canDismiss: false,
-    });
-  }
-  
   // มีจ่ายเงินแต่ไม่มีสลิป
   if (ctx.box.paidAmount > 0 && !hasSlip) {
     issues.push({

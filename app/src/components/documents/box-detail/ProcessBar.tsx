@@ -1,18 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
 import { 
   Check, 
   Circle, 
-  FileText, 
-  CreditCard, 
-  Send, 
-  Eye, 
-  BookOpen,
-  Receipt,
+  FileEdit,
   FileCheck,
+  Send,
   AlertCircle,
-  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,324 +16,158 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { SerializedBox, BoxType, ExpenseType } from "@/types";
+import type { BoxStatus } from "@prisma/client";
 
 // ==================== Types ====================
 
 type StepStatus = "completed" | "current" | "pending" | "warning";
 
-interface ProcessStep {
-  id: string;
+interface StatusStep {
+  id: BoxStatus | "NEED_DOCS_BRANCH";
   label: string;
-  shortLabel: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   status: StepStatus;
 }
 
 interface ProcessBarProps {
-  box: SerializedBox;
+  status: BoxStatus;
   className?: string;
 }
 
-// ==================== Step Definitions ====================
+// ==================== Status Descriptions ====================
 
-function getStepsForBox(box: SerializedBox): ProcessStep[] {
-  const { boxType, expenseType, status, hasVat, hasWht, vatDocStatus, whtDocStatus, paymentStatus } = box;
+const STATUS_INFO: Record<BoxStatus, { label: string; description: string }> = {
+  DRAFT: {
+    label: "ร่าง",
+    description: "กำลังเตรียมข้อมูลและเอกสาร",
+  },
+  PREPARING: {
+    label: "เตรียมเอกสาร",
+    description: "รวบรวมเอกสารให้ครบก่อนส่ง",
+  },
+  SUBMITTED: {
+    label: "ส่งแล้ว",
+    description: "ส่งให้บัญชีแล้ว รอตรวจสอบ",
+  },
+  NEED_DOCS: {
+    label: "ต้องเพิ่มเอกสาร",
+    description: "บัญชีแจ้งว่าเอกสารไม่ครบ",
+  },
+  COMPLETED: {
+    label: "เสร็จสิ้น",
+    description: "ตรวจสอบและลงบัญชีเรียบร้อย",
+  },
+};
+
+// ==================== Main Steps ====================
+
+// Main flow: DRAFT → PREPARING → SUBMITTED → COMPLETED
+// NEED_DOCS is a branch/warning state from SUBMITTED
+
+function getStatusSteps(currentStatus: BoxStatus): StatusStep[] {
+  const steps: StatusStep[] = [];
   
-  const steps: ProcessStep[] = [];
+  // Determine completion state
+  const isDraft = currentStatus === "DRAFT";
+  const isPreparing = currentStatus === "PREPARING";
+  const isSubmitted = currentStatus === "SUBMITTED";
+  const isNeedDocs = currentStatus === "NEED_DOCS";
+  const isCompleted = currentStatus === "COMPLETED";
   
-  // Check statuses
-  const isDraft = status === "DRAFT";
-  const isPending = status === "PENDING";
-  const isNeedDocs = status === "NEED_DOCS";
-  const isCompleted = status === "COMPLETED";
-  const isSubmitted = !isDraft;
+  // Step 1: ร่าง (DRAFT)
+  steps.push({
+    id: "DRAFT",
+    label: STATUS_INFO.DRAFT.label,
+    description: STATUS_INFO.DRAFT.description,
+    icon: FileEdit,
+    status: isDraft ? "current" : "completed",
+  });
   
-  // Document checks
-  const hasDocuments = (box.documents?.length ?? 0) > 0;
-  const isPaid = paymentStatus === "PAID" || paymentStatus === "OVERPAID";
-  const vatReceived = vatDocStatus === "RECEIVED";
-  const whtReceived = whtDocStatus === "RECEIVED";
-  const whtSent = whtDocStatus === "REQUEST_SENT";
+  // Step 2: เตรียมเอกสาร (PREPARING)
+  steps.push({
+    id: "PREPARING",
+    label: STATUS_INFO.PREPARING.label,
+    description: STATUS_INFO.PREPARING.description,
+    icon: FileCheck,
+    status: isPreparing ? "current" : 
+            isDraft ? "pending" : "completed",
+  });
   
-  // === EXPENSE Flow ===
-  if (boxType === "EXPENSE") {
-    // Step 1: สร้างกล่อง (always completed if box exists)
-    steps.push({
-      id: "create",
-      label: "สร้างกล่อง",
-      shortLabel: "สร้าง",
-      description: "ระบุข้อมูลรายจ่าย",
-      icon: FileText,
-      status: "completed",
-    });
-    
-    // Step 2: เตรียมเอกสาร
-    steps.push({
-      id: "prepare",
-      label: "เตรียมเอกสาร",
-      shortLabel: "เอกสาร",
-      description: hasDocuments ? "อัปโหลดเอกสารแล้ว" : "อัปโหลดใบกำกับ/สลิป",
-      icon: FileCheck,
-      status: hasDocuments ? "completed" : isDraft ? "current" : "completed",
-    });
-    
-    // Step 3: ชำระเงิน (optional based on payment mode)
-    steps.push({
-      id: "payment",
-      label: "ชำระเงิน",
-      shortLabel: "จ่าย",
-      description: isPaid ? "ชำระแล้ว" : "บันทึกการชำระเงิน",
-      icon: CreditCard,
-      status: isPaid ? "completed" : isDraft ? "current" : "pending",
-    });
-    
-    // Step 4: VAT (if hasVat)
-    if (hasVat) {
-      steps.push({
-        id: "vat",
-        label: "ใบกำกับภาษี",
-        shortLabel: "VAT",
-        description: vatReceived ? "ได้รับแล้ว" : "รอรับใบกำกับภาษี",
-        icon: Receipt,
-        status: vatReceived ? "completed" : isSubmitted ? "warning" : "pending",
-      });
-    }
-    
-    // Step 5: WHT (if hasWht) - ฝั่งซื้อ: เราเป็นคนหัก ต้องออกหนังสือ WHT ให้ผู้ขาย
-    if (hasWht) {
-      let whtStatus: StepStatus = "pending";
-      let whtDesc = "ออกหนังสือหัก ณ ที่จ่ายให้ผู้ขาย";
-      
-      if (whtReceived) {
-        // whtReceived ในฝั่งซื้อ = ออกและนำส่งเรียบร้อยแล้ว
-        whtStatus = "completed";
-        whtDesc = "ออกหนังสือและนำส่งกรมสรรพากรแล้ว";
-      } else if (whtSent) {
-        whtStatus = "current";
-        whtDesc = "ออกหนังสือแล้ว รอนำส่งกรมสรรพากร";
-      } else if (isSubmitted) {
-        whtStatus = "warning";
-        whtDesc = "ยังไม่ได้ออกหนังสือหัก ณ ที่จ่าย";
-      }
-      
-      steps.push({
-        id: "wht",
-        label: "ออก WHT",
-        shortLabel: "WHT",
-        description: whtDesc,
-        icon: FileText,
-        status: whtStatus,
-      });
-    }
-    
-    // Step 6: ส่งบัญชี
-    steps.push({
-      id: "submit",
-      label: "ส่งบัญชี",
-      shortLabel: "ส่ง",
-      description: isSubmitted ? "ส่งแล้ว" : "ส่งให้บัญชีตรวจสอบ",
-      icon: Send,
-      status: isSubmitted ? "completed" : "pending",
-    });
-    
-    // Step 7: ตรวจสอบ
-    steps.push({
-      id: "review",
-      label: "ตรวจสอบ",
-      shortLabel: "ตรวจ",
-      description: isNeedDocs ? "ขาดเอกสาร - กรุณาเพิ่ม" : isPending ? "บัญชีกำลังตรวจสอบ" : isCompleted ? "ตรวจสอบแล้ว" : "รอบัญชีตรวจสอบ",
-      icon: Eye,
-      status: isCompleted ? "completed" : isNeedDocs ? "warning" : isPending ? "current" : "pending",
-    });
-    
-    // Step 8: เสร็จสิ้น
-    steps.push({
-      id: "complete",
-      label: "เสร็จสิ้น",
-      shortLabel: "เสร็จ",
-      description: isCompleted ? "ลงบัญชีเรียบร้อย" : "รอลงบัญชี",
-      icon: BookOpen,
-      status: isCompleted ? "completed" : "pending",
-    });
-  }
+  // Step 3: ส่งแล้ว (SUBMITTED)
+  steps.push({
+    id: "SUBMITTED",
+    label: STATUS_INFO.SUBMITTED.label,
+    description: isNeedDocs ? "ส่งแล้ว แต่เอกสารไม่ครบ" : STATUS_INFO.SUBMITTED.description,
+    icon: Send,
+    status: isSubmitted ? "current" : 
+            isNeedDocs ? "warning" :
+            (isDraft || isPreparing) ? "pending" : "completed",
+  });
   
-  // === INCOME Flow ===
-  else if (boxType === "INCOME") {
-    // Step 1: สร้างกล่อง
-    steps.push({
-      id: "create",
-      label: "สร้างกล่อง",
-      shortLabel: "สร้าง",
-      description: "ระบุข้อมูลรายรับ",
-      icon: FileText,
-      status: "completed",
-    });
-    
-    // Step 2: ออกใบแจ้งหนี้
-    steps.push({
-      id: "invoice",
-      label: "ออกใบแจ้งหนี้",
-      shortLabel: "Invoice",
-      description: hasDocuments ? "ออกแล้ว" : "ออก Invoice ให้ลูกค้า",
-      icon: FileCheck,
-      status: hasDocuments ? "completed" : isDraft ? "current" : "completed",
-    });
-    
-    // Step 3: VAT (if hasVat)
-    if (hasVat) {
-      steps.push({
-        id: "vat",
-        label: "ออกใบกำกับภาษี",
-        shortLabel: "VAT",
-        description: vatReceived ? "ออกแล้ว" : "ออกใบกำกับภาษี",
-        icon: Receipt,
-        status: vatReceived ? "completed" : isSubmitted ? "current" : "pending",
-      });
-    }
-    
-    // Step 4: รับเงิน
-    steps.push({
-      id: "receive",
-      label: "รับเงิน",
-      shortLabel: "รับเงิน",
-      description: isPaid ? "รับเงินแล้ว" : "ยืนยันการรับเงิน",
-      icon: CreditCard,
-      status: isPaid ? "completed" : isDraft ? "current" : "pending",
-    });
-    
-    // Step 5: WHT (if hasWht) - ฝั่งขาย: เราถูกหัก ต้องรอรับหนังสือ WHT จากลูกค้า
-    if (hasWht) {
-      let whtStatus: StepStatus = "pending";
-      let whtDesc = "รอรับหนังสือหัก ณ ที่จ่ายจากลูกค้า";
-      
-      if (whtReceived) {
-        whtStatus = "completed";
-        whtDesc = "ได้รับหนังสือหัก ณ ที่จ่ายแล้ว";
-      } else if (whtSent) {
-        // whtSent ในฝั่งขาย = ขอหนังสือจากลูกค้าแล้ว
-        whtStatus = "current";
-        whtDesc = "ขอหนังสือจากลูกค้าแล้ว รอรับ";
-      } else if (isSubmitted) {
-        whtStatus = "warning";
-        whtDesc = "ยังไม่ได้รับหนังสือหัก ณ ที่จ่าย";
-      }
-      
-      steps.push({
-        id: "wht",
-        label: "รับ WHT",
-        shortLabel: "WHT",
-        description: whtDesc,
-        icon: Receipt,
-        status: whtStatus,
-      });
-    }
-    
-    // Step 6: ส่งบัญชี
-    steps.push({
-      id: "submit",
-      label: "ส่งบัญชี",
-      shortLabel: "ส่ง",
-      description: isSubmitted ? "ส่งแล้ว" : "ส่งให้บัญชีตรวจสอบ",
-      icon: Send,
-      status: isSubmitted ? "completed" : "pending",
-    });
-    
-    // Step 7: ตรวจสอบ
-    steps.push({
-      id: "review",
-      label: "ตรวจสอบ",
-      shortLabel: "ตรวจ",
-      description: isNeedDocs ? "ขาดเอกสาร" : isPending ? "กำลังตรวจสอบ" : isCompleted ? "ตรวจสอบแล้ว" : "รอตรวจสอบ",
-      icon: Eye,
-      status: isCompleted ? "completed" : isNeedDocs ? "warning" : isPending ? "current" : "pending",
-    });
-    
-    // Step 8: เสร็จสิ้น
-    steps.push({
-      id: "complete",
-      label: "เสร็จสิ้น",
-      shortLabel: "เสร็จ",
-      description: isCompleted ? "ลงบัญชีเรียบร้อย" : "รอลงบัญชี",
-      icon: BookOpen,
-      status: isCompleted ? "completed" : "pending",
-    });
-  }
-  
-  // === ADJUSTMENT Flow ===
-  else {
-    steps.push({
-      id: "create",
-      label: "สร้างรายการ",
-      shortLabel: "สร้าง",
-      description: "ระบุรายการปรับปรุง",
-      icon: FileText,
-      status: "completed",
-    });
-    
-    steps.push({
-      id: "document",
-      label: "เอกสารประกอบ",
-      shortLabel: "เอกสาร",
-      description: hasDocuments ? "แนบแล้ว" : "แนบ CN/DN หรือหลักฐาน",
-      icon: FileCheck,
-      status: hasDocuments ? "completed" : isDraft ? "current" : "completed",
-    });
-    
-    steps.push({
-      id: "submit",
-      label: "ส่งบัญชี",
-      shortLabel: "ส่ง",
-      description: isSubmitted ? "ส่งแล้ว" : "ส่งให้บัญชีตรวจสอบ",
-      icon: Send,
-      status: isSubmitted ? "completed" : "pending",
-    });
-    
-    steps.push({
-      id: "review",
-      label: "ตรวจสอบ",
-      shortLabel: "ตรวจ",
-      description: isCompleted ? "ตรวจสอบแล้ว" : isPending ? "กำลังตรวจสอบ" : "รอตรวจสอบ",
-      icon: Eye,
-      status: isCompleted ? "completed" : isPending ? "current" : "pending",
-    });
-    
-    steps.push({
-      id: "complete",
-      label: "เสร็จสิ้น",
-      shortLabel: "เสร็จ",
-      description: isCompleted ? "ลงบัญชีเรียบร้อย" : "รอลงบัญชี",
-      icon: BookOpen,
-      status: isCompleted ? "completed" : "pending",
-    });
-  }
+  // Step 4: เสร็จสิ้น (COMPLETED)
+  steps.push({
+    id: "COMPLETED",
+    label: STATUS_INFO.COMPLETED.label,
+    description: STATUS_INFO.COMPLETED.description,
+    icon: CheckCircle2,
+    status: isCompleted ? "completed" : "pending",
+  });
   
   return steps;
 }
 
 // ==================== Main Component ====================
 
-export function ProcessBar({ box, className }: ProcessBarProps) {
-  const steps = useMemo(() => getStepsForBox(box), [box]);
+export function ProcessBar({ status, className }: ProcessBarProps) {
+  const steps = getStatusSteps(status);
+  const isNeedDocs = status === "NEED_DOCS";
   
-  // Calculate progress
-  const completedCount = steps.filter(s => s.status === "completed").length;
-  const progressPercent = Math.round((completedCount / steps.length) * 100);
+  // Calculate progress (NEED_DOCS counts as 75% since it's after SUBMITTED)
+  const progressMap: Record<BoxStatus, number> = {
+    DRAFT: 25,
+    PREPARING: 50,
+    SUBMITTED: 75,
+    NEED_DOCS: 60, // Between PREPARING and SUBMITTED visually
+    COMPLETED: 100,
+  };
+  const progressPercent = progressMap[status];
+  
+  // Get current status info
+  const currentInfo = STATUS_INFO[status];
   
   return (
     <TooltipProvider>
       <div className={cn("rounded-xl border bg-card p-4", className)}>
-        {/* Header with progress */}
+        {/* Header with status and progress */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">ความคืบหน้า</span>
+            {isNeedDocs ? (
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+            ) : status === "COMPLETED" ? (
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+            ) : (
+              <Circle className="h-5 w-5 text-primary" />
+            )}
+            <div>
+              <span className={cn(
+                "text-sm font-medium",
+                isNeedDocs && "text-orange-600"
+              )}>
+                {currentInfo.label}
+              </span>
+              <p className="text-xs text-muted-foreground">
+                {currentInfo.description}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
               <div 
-                className="h-full bg-primary transition-all duration-500"
+                className={cn(
+                  "h-full transition-all duration-500",
+                  isNeedDocs ? "bg-orange-400" : "bg-primary"
+                )}
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -348,32 +177,31 @@ export function ProcessBar({ box, className }: ProcessBarProps) {
           </div>
         </div>
         
-        {/* Steps - Horizontal scrollable on mobile */}
+        {/* Steps - 4 main statuses */}
         <div className="relative">
           {/* Connector line */}
           <div className="absolute top-5 left-5 right-5 h-0.5 bg-muted hidden sm:block" />
           
           {/* Steps container */}
-          <div className="flex overflow-x-auto pb-2 sm:pb-0 gap-1 sm:gap-0 sm:justify-between scrollbar-hide">
-            {steps.map((step, index) => (
+          <div className="flex justify-between">
+            {steps.map((step) => (
               <Tooltip key={step.id}>
                 <TooltipTrigger asChild>
-                  <div className="flex flex-col items-center min-w-[60px] sm:min-w-0 relative">
+                  <div className="flex flex-col items-center relative">
                     {/* Step icon */}
                     <StepIcon status={step.status} Icon={step.icon} />
                     
                     {/* Label */}
                     <span 
                       className={cn(
-                        "mt-2 text-xs text-center leading-tight",
+                        "mt-2 text-xs text-center leading-tight max-w-[80px]",
                         step.status === "completed" && "text-primary font-medium",
                         step.status === "current" && "text-foreground font-medium",
                         step.status === "warning" && "text-orange-600 font-medium",
                         step.status === "pending" && "text-muted-foreground"
                       )}
                     >
-                      <span className="hidden sm:inline">{step.label}</span>
-                      <span className="sm:hidden">{step.shortLabel}</span>
+                      {step.label}
                     </span>
                   </div>
                 </TooltipTrigger>
@@ -386,37 +214,18 @@ export function ProcessBar({ box, className }: ProcessBarProps) {
           </div>
         </div>
         
-        {/* Current step hint */}
-        {steps.some(s => s.status === "current") && (
-          <div className="mt-4 pt-3 border-t">
-            <div className="flex items-start gap-2">
-              <div className="w-2 h-2 rounded-full bg-primary mt-1.5 animate-pulse" />
-              <div>
-                <p className="text-sm font-medium">
-                  ขั้นตอนปัจจุบัน: {steps.find(s => s.status === "current")?.label}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {steps.find(s => s.status === "current")?.description}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Warning hint */}
-        {steps.some(s => s.status === "warning") && (
-          <div className="mt-3 p-2 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+        {/* NEED_DOCS Warning Banner */}
+        {isNeedDocs && (
+          <div className="mt-4 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium text-orange-700 dark:text-orange-400">
-                  รายการที่ต้องติดตาม
+                  ต้องเพิ่มเอกสาร
                 </p>
-                <ul className="text-xs text-orange-600 dark:text-orange-500 mt-1 space-y-0.5">
-                  {steps.filter(s => s.status === "warning").map(s => (
-                    <li key={s.id}>• {s.label}: {s.description}</li>
-                  ))}
-                </ul>
+                <p className="text-xs text-orange-600 dark:text-orange-500 mt-0.5">
+                  บัญชีแจ้งว่าเอกสารไม่ครบ กรุณาตรวจสอบและเพิ่มเอกสารที่ขาด
+                </p>
               </div>
             </div>
           </div>
@@ -454,7 +263,7 @@ function StepIcon({ status, Icon }: StepIconProps) {
   if (status === "warning") {
     return (
       <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-400 flex items-center justify-center shrink-0 z-10">
-        <Icon className="h-4 w-4 text-orange-600" />
+        <AlertCircle className="h-4 w-4 text-orange-600" />
       </div>
     );
   }

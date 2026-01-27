@@ -19,12 +19,13 @@ interface DocumentFiltersProps {
   savedFilters?: SavedFilterData[];
 }
 
-// New 4-status system
+// New 5-status system
 const statusOptions = [
   { value: "all", label: "ทุกสถานะ" },
-  { value: "DRAFT", label: "แบบร่าง" },
-  { value: "PENDING", label: "รอตรวจ" },
-  { value: "NEED_DOCS", label: "ขาดเอกสาร" },
+  { value: "DRAFT", label: "ร่าง" },
+  { value: "PREPARING", label: "เตรียมเอกสาร" },
+  { value: "SUBMITTED", label: "ส่งแล้ว" },
+  { value: "NEED_DOCS", label: "ต้องเพิ่มเอกสาร" },
   { value: "COMPLETED", label: "เสร็จสิ้น" },
 ];
 

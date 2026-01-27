@@ -103,7 +103,7 @@ const BOX_TEMPLATES = [
     title: "ค่าน้ำมันรถ",
     boxType: BoxType.EXPENSE,
     expenseType: ExpenseType.STANDARD,
-    status: BoxStatus.PENDING,
+    status: BoxStatus.SUBMITTED,
     amount: 2500,
     hasVat: true,
     hasWht: false,
@@ -130,7 +130,7 @@ const BOX_TEMPLATES = [
     title: "ค่าที่ปรึกษากฎหมาย",
     boxType: BoxType.EXPENSE,
     expenseType: ExpenseType.STANDARD,
-    status: BoxStatus.PENDING,
+    status: BoxStatus.SUBMITTED,
     amount: 50000,
     hasVat: true,
     hasWht: true,
@@ -170,7 +170,7 @@ const BOX_TEMPLATES = [
     title: "ค่าบริการ AWS",
     boxType: BoxType.EXPENSE,
     expenseType: ExpenseType.STANDARD,
-    status: BoxStatus.PENDING,
+    status: BoxStatus.SUBMITTED,
     amount: 3200,
     hasVat: false,
     hasWht: false,
@@ -199,7 +199,7 @@ const BOX_TEMPLATES = [
     title: "เบิกค่าเดินทางไปพบลูกค้า",
     boxType: BoxType.EXPENSE,
     expenseType: ExpenseType.STANDARD,
-    status: BoxStatus.PENDING,
+    status: BoxStatus.SUBMITTED,
     amount: 1850,
     hasVat: true,
     hasWht: false,
@@ -226,7 +226,7 @@ const BOX_TEMPLATES = [
   {
     title: "เบิกค่าที่จอดรถ",
     boxType: BoxType.EXPENSE,
-    expenseType: ExpenseType.PETTY_CASH,
+    expenseType: ExpenseType.NO_VAT,
     status: BoxStatus.DRAFT,
     amount: 300,
     hasVat: false,
@@ -271,7 +271,7 @@ const BOX_TEMPLATES = [
     title: "รายได้จากบริการ - ลูกค้า Y",
     boxType: BoxType.INCOME,
     expenseType: null,
-    status: BoxStatus.PENDING,
+    status: BoxStatus.SUBMITTED,
     amount: 85000,
     hasVat: true,
     hasWht: true,
@@ -311,7 +311,7 @@ const BOX_TEMPLATES = [
     title: "รายได้จากบริการ - ลูกค้า X (งวด 2)",
     boxType: BoxType.INCOME,
     expenseType: null,
-    status: BoxStatus.PENDING,
+    status: BoxStatus.SUBMITTED,
     amount: 75000,
     hasVat: true,
     hasWht: true,
@@ -322,33 +322,6 @@ const BOX_TEMPLATES = [
     contactType: "CUSTOMER",
   },
 
-  // ============ ADJUSTMENT ============
-  {
-    title: "ปรับปรุง CN - ส่วนลดสินค้า",
-    boxType: BoxType.ADJUSTMENT,
-    expenseType: null,
-    status: BoxStatus.COMPLETED,
-    amount: -5000,
-    hasVat: true,
-    hasWht: false,
-    vatDocStatus: VatDocStatus.RECEIVED,
-    whtDocStatus: WhtDocStatus.NA,
-    paymentStatus: PaymentStatus.PAID,
-    contactType: "CUSTOMER",
-  },
-  {
-    title: "ปรับปรุง DN - ค่าบริการเพิ่มเติม",
-    boxType: BoxType.ADJUSTMENT,
-    expenseType: null,
-    status: BoxStatus.PENDING,
-    amount: 3500,
-    hasVat: true,
-    hasWht: false,
-    vatDocStatus: VatDocStatus.MISSING,
-    whtDocStatus: WhtDocStatus.NA,
-    paymentStatus: PaymentStatus.UNPAID,
-    contactType: "VENDOR",
-  },
 ];
 
 // ==================== HELPER FUNCTIONS ====================
@@ -710,7 +683,6 @@ async function seedBoxes(prisma: PrismaClient, organizationId: string, userId: s
 
       const isReimbursement = !!template.reimbursementStatus;
       const typeLabel = template.boxType === BoxType.INCOME ? "📈" : 
-                       template.boxType === BoxType.ADJUSTMENT ? "🔄" :
                        isReimbursement ? "💰" : "📤";
       results.push(`${typeLabel} Box: ${template.title} [${template.status}]`);
     }

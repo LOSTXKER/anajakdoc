@@ -122,7 +122,7 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
     label: "ส่งตรวจ → ตรวจเสร็จ",
     avgDays: Math.round(avgReviewDays * 10) / 10,
     boxCount: submittedToReviewed.length,
-    pendingCount: boxes.filter((b) => ["PENDING", "NEED_DOCS"].includes(b.status)).length,
+    pendingCount: boxes.filter((b) => ["SUBMITTED", "NEED_DOCS"].includes(b.status)).length,
   });
 
   // Stage 3: REVIEWED → COMPLETED
@@ -141,7 +141,7 @@ export async function getBottleneckAnalytics(): Promise<ApiResponse<BottleneckDa
     label: "ตรวจเสร็จ → เสร็จสิ้น",
     avgDays: Math.round(avgBookDays * 10) / 10,
     boxCount: reviewedToBooked.length,
-    pendingCount: boxes.filter((b) => b.status === "PENDING").length,
+    pendingCount: boxes.filter((b) => b.status === "SUBMITTED").length,
   });
 
   // Find bottleneck (stage with highest avg days)

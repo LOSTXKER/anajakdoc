@@ -46,31 +46,41 @@ export interface StatusConfig {
   borderClass: string;
 }
 
-// Simplified to 4 statuses
+// 5-status system
 export const BOX_STATUS_CONFIG: Record<BoxStatus, StatusConfig> = {
   DRAFT: {
-    label: "แบบร่าง",
+    label: "ร่าง",
     labelShort: "ร่าง",
-    description: "กำลังสร้าง/แก้ไข",
+    description: "เพิ่งสร้าง ยังไม่มีเอกสาร",
     icon: FileText,
     className: "bg-slate-100 text-slate-700 border-slate-200",
     bgClass: "bg-slate-100",
     textClass: "text-slate-700",
     borderClass: "border-slate-200",
   },
-  PENDING: {
-    label: "รอตรวจ",
-    labelShort: "รอตรวจ",
-    description: "ส่งบัญชีแล้ว รอตรวจสอบ",
-    icon: Clock,
+  PREPARING: {
+    label: "เตรียมเอกสาร",
+    labelShort: "เตรียม",
+    description: "กำลังอัปโหลดเอกสาร",
+    icon: FileCheck,
+    className: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+    bgClass: "bg-purple-100 dark:bg-purple-900",
+    textClass: "text-purple-700",
+    borderClass: "border-purple-200",
+  },
+  SUBMITTED: {
+    label: "ส่งแล้ว",
+    labelShort: "ส่งแล้ว",
+    description: "ส่งให้บัญชีแล้ว รอตรวจ",
+    icon: Send,
     className: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
     bgClass: "bg-blue-100 dark:bg-blue-900",
     textClass: "text-blue-700",
     borderClass: "border-blue-200",
   },
   NEED_DOCS: {
-    label: "ขาดเอกสาร",
-    labelShort: "ขาดเอกสาร",
+    label: "ต้องเพิ่มเอกสาร",
+    labelShort: "เพิ่มเอกสาร",
     description: "บัญชีขอเอกสารเพิ่ม",
     icon: FileQuestion,
     className: "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
@@ -453,13 +463,13 @@ export function isAdminRole(role: string): boolean {
 // Statuses that allow editing (simplified)
 export const EDITABLE_STATUSES: BoxStatus[] = [
   "DRAFT",
-  "PENDING",
+  "PREPARING",
   "NEED_DOCS",
 ];
 
 // Statuses that can be reviewed by accounting
 export const REVIEWABLE_STATUSES: BoxStatus[] = [
-  "PENDING",
+  "SUBMITTED",
 ];
 
 // Final status (no further changes)
@@ -481,18 +491,21 @@ export function isFinalStatus(status: BoxStatus): boolean {
 
 // ==================== Status Transition Helpers ====================
 
-// Simplified status transitions (4 statuses)
+// 5-status transitions: DRAFT → PREPARING → SUBMITTED → COMPLETED (with NEED_DOCS branch)
 export function getNextStatuses(currentStatus: BoxStatus, role: MemberRole): BoxStatus[] {
   const transitions: Record<BoxStatus, { to: BoxStatus; roles: MemberRole[] }[]> = {
     DRAFT: [
-      { to: "PENDING", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
+      { to: "PREPARING", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
     ],
-    PENDING: [
+    PREPARING: [
+      { to: "SUBMITTED", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
+    ],
+    SUBMITTED: [
       { to: "COMPLETED", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
       { to: "NEED_DOCS", roles: ["ACCOUNTING", "ADMIN", "OWNER"] },
     ],
     NEED_DOCS: [
-      { to: "PENDING", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
+      { to: "SUBMITTED", roles: ["STAFF", "ACCOUNTING", "ADMIN", "OWNER"] },
     ],
     COMPLETED: [],
   };

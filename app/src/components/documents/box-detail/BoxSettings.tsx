@@ -57,8 +57,6 @@ interface BoxSettingsProps {
 const EXPENSE_TYPES = [
   { value: "STANDARD", label: "มีใบกำกับภาษี" },
   { value: "NO_VAT", label: "ไม่มีใบกำกับภาษี" },
-  { value: "PETTY_CASH", label: "เบิกเงินสดย่อย" },
-  { value: "FOREIGN", label: "จ่ายต่างประเทศ" },
 ];
 
 const PAYMENT_MODES = [

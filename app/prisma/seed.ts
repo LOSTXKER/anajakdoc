@@ -63,22 +63,22 @@ const TEST_CATEGORIES = [
   { code: "SVC", name: "รายได้จากบริการ", type: "INCOME" as const },
 ];
 
-// Using new 4-status system: DRAFT, PENDING, NEED_DOCS, COMPLETED
+// Using new 5-status system: DRAFT, PREPARING, SUBMITTED, NEED_DOCS, COMPLETED
 const BOX_TEMPLATES = [
   { title: "ค่าเช่าออฟฟิศ เดือนมกราคม", status: BoxStatus.COMPLETED, amount: 35000, hasVat: true, hasWht: true, whtRate: 5, days: 25 },
-  { title: "ค่าน้ำมันรถ", status: BoxStatus.PENDING, amount: 2500, hasVat: true, hasWht: false, days: 3 },
-  { title: "ค่าอินเทอร์เน็ต TRUE", status: BoxStatus.PENDING, amount: 1200, hasVat: true, hasWht: false, days: 5 },
+  { title: "ค่าน้ำมันรถ", status: BoxStatus.SUBMITTED, amount: 2500, hasVat: true, hasWht: false, days: 3 },
+  { title: "ค่าอินเทอร์เน็ต TRUE", status: BoxStatus.SUBMITTED, amount: 1200, hasVat: true, hasWht: false, days: 5 },
   { title: "ค่าจ้างออกแบบโลโก้", status: BoxStatus.NEED_DOCS, amount: 15000, hasVat: true, hasWht: true, whtRate: 3, days: 7 },
-  { title: "ค่าที่ปรึกษาการตลาด", status: BoxStatus.PENDING, amount: 50000, hasVat: true, hasWht: true, whtRate: 3, days: 2 },
-  { title: "ค่าโฆษณา Facebook Ads", status: BoxStatus.PENDING, amount: 8500, hasVat: false, hasWht: false, days: 4 },
+  { title: "ค่าที่ปรึกษาการตลาด", status: BoxStatus.SUBMITTED, amount: 50000, hasVat: true, hasWht: true, whtRate: 3, days: 2 },
+  { title: "ค่าโฆษณา Facebook Ads", status: BoxStatus.PREPARING, amount: 8500, hasVat: false, hasWht: false, days: 4 },
   { title: "ค่าอุปกรณ์คอมพิวเตอร์ Dell", status: BoxStatus.COMPLETED, amount: 25000, hasVat: true, hasWht: false, days: 15 },
-  { title: "ค่าบริการ AWS Cloud", status: BoxStatus.PENDING, amount: 3200, hasVat: false, hasWht: false, days: 1 },
-  { title: "ค่าทำความสะอาด", status: BoxStatus.PENDING, amount: 4500, hasVat: true, hasWht: true, whtRate: 1, days: 6 },
-  { title: "ค่าซ่อมแอร์ Daikin", status: BoxStatus.PENDING, amount: 6800, hasVat: true, hasWht: true, whtRate: 3, days: 8 },
-  { title: "ค่าจัดส่งสินค้า Kerry", status: BoxStatus.PENDING, amount: 1500, hasVat: true, hasWht: false, days: 2 },
+  { title: "ค่าบริการ AWS Cloud", status: BoxStatus.PREPARING, amount: 3200, hasVat: false, hasWht: false, days: 1 },
+  { title: "ค่าทำความสะอาด", status: BoxStatus.SUBMITTED, amount: 4500, hasVat: true, hasWht: true, whtRate: 1, days: 6 },
+  { title: "ค่าซ่อมแอร์ Daikin", status: BoxStatus.SUBMITTED, amount: 6800, hasVat: true, hasWht: true, whtRate: 3, days: 8 },
+  { title: "ค่าจัดส่งสินค้า Kerry", status: BoxStatus.SUBMITTED, amount: 1500, hasVat: true, hasWht: false, days: 2 },
   { title: "ค่าไฟฟ้า MEA", status: BoxStatus.COMPLETED, amount: 8900, hasVat: true, hasWht: false, days: 20 },
   { title: "ค่าน้ำประปา MWA", status: BoxStatus.COMPLETED, amount: 1200, hasVat: true, hasWht: false, days: 18 },
-  { title: "ค่าโทรศัพท์ AIS", status: BoxStatus.PENDING, amount: 3500, hasVat: true, hasWht: false, days: 3 },
+  { title: "ค่าโทรศัพท์ AIS", status: BoxStatus.SUBMITTED, amount: 3500, hasVat: true, hasWht: false, days: 3 },
   { title: "ค่าจ้างพัฒนาเว็บไซต์", status: BoxStatus.NEED_DOCS, amount: 45000, hasVat: true, hasWht: true, whtRate: 3, days: 10 },
 ];
 

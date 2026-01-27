@@ -113,11 +113,12 @@ export default function SharePage({ params }: SharePageProps) {
     loadData(password);
   };
 
-  // Using new 4-status system
+  // Using new 5-status system
   const getStatusColor = (status: string) => {
     switch (status) {
       case "COMPLETED": return "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300";
-      case "PENDING": return "bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300";
+      case "SUBMITTED": return "bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300";
+      case "PREPARING": return "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300";
       case "NEED_DOCS": return "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300";
       case "DRAFT": return "bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300";
       default: return "bg-muted text-foreground";
@@ -242,9 +243,10 @@ export default function SharePage({ params }: SharePageProps) {
                   </div>
                   <Badge className={getStatusColor(box.status)}>
                     {box.status === "COMPLETED" ? "เสร็จสิ้น" :
-                     box.status === "PENDING" ? "รอตรวจ" :
-                     box.status === "NEED_DOCS" ? "ขาดเอกสาร" :
-                     box.status === "DRAFT" ? "แบบร่าง" :
+                     box.status === "SUBMITTED" ? "ส่งแล้ว" :
+                     box.status === "PREPARING" ? "เตรียมเอกสาร" :
+                     box.status === "NEED_DOCS" ? "ต้องเพิ่มเอกสาร" :
+                     box.status === "DRAFT" ? "ร่าง" :
                      box.status}
                   </Badge>
                 </div>

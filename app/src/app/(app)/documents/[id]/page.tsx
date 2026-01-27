@@ -91,11 +91,19 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const activities = activitiesResult.success && activitiesResult.data ? activitiesResult.data : [];
 
   // Determine permissions
-  // canEdit: allow editing box details and advancing status (using new 4-status system)
-  const editableStatuses = ["DRAFT", "PENDING", "NEED_DOCS"];
-  const canEdit = ["OWNER", "ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
+  // canEditDetails: edit box info, amounts, upload docs (DRAFT, PREPARING, NEED_DOCS)
+  const editableStatuses = ["DRAFT", "PREPARING", "NEED_DOCS"];
+  const canEditDetails = ["OWNER", "ADMIN", "ACCOUNTING", "STAFF"].includes(userRole) && 
     editableStatuses.includes(box.status);
-  const canSend = ["OWNER", "ADMIN", "STAFF"].includes(userRole) && box.status === "DRAFT";
+  
+  // canAdvanceStatus: change status (accounting can advance SUBMITTED to COMPLETED/NEED_DOCS)
+  const canAdvanceStatus = ["OWNER", "ADMIN", "ACCOUNTING"].includes(userRole) && 
+    (editableStatuses.includes(box.status) || box.status === "SUBMITTED" || box.status === "COMPLETED");
+  
+  // Combined canEdit for backward compatibility (used for edit buttons + status buttons)
+  const canEdit = canEditDetails || canAdvanceStatus;
+  
+  const canSend = ["OWNER", "ADMIN", "STAFF"].includes(userRole) && box.status === "PREPARING";
   const canDelete = box.status === "DRAFT" && (
     ["OWNER", "ADMIN"].includes(userRole) || 
     box.createdById === session.id
@@ -112,6 +120,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
       currentUserId={session.id}
       isAdmin={isAdmin}
       canEdit={canEdit}
+      canEditDetails={canEditDetails}
       canSend={canSend}
       canDelete={canDelete}
     />

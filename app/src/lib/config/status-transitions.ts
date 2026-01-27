@@ -22,35 +22,46 @@ export interface StatusConfig {
 }
 
 // ==================== Configuration ====================
-// Simplified to 4 statuses: DRAFT → PENDING → COMPLETED
-//                                    ↓ ↑
-//                               NEED_DOCS
+// 5-status system:
+// DRAFT → PREPARING → SUBMITTED → COMPLETED
+//                          ↓ ↑
+//                      NEED_DOCS
 
 export const STATUS_TRANSITIONS: Record<BoxStatus, StatusConfig> = {
   DRAFT: {
-    label: "แบบร่าง",
-    description: "กำลังสร้าง/แก้ไข",
+    label: "ร่าง",
+    description: "เพิ่งสร้าง ยังไม่มีเอกสาร",
     advance: [
-      { to: "PENDING", label: "ส่งบัญชี", description: "ส่งให้บัญชีตรวจสอบ" },
+      { to: "PREPARING", label: "เริ่มเตรียมเอกสาร", description: "เริ่มอัปโหลดเอกสาร" },
     ],
     revert: [],
   },
-  PENDING: {
-    label: "รอตรวจ",
-    description: "รอบัญชีตรวจสอบ",
+  PREPARING: {
+    label: "เตรียมเอกสาร",
+    description: "กำลังอัปโหลดเอกสาร",
     advance: [
-      { to: "COMPLETED", label: "เสร็จสิ้น", description: "ลงบัญชีเรียบร้อย" },
-      { to: "NEED_DOCS", label: "ขาดเอกสาร", description: "ต้องการเอกสารเพิ่ม" },
+      { to: "SUBMITTED", label: "ส่งบัญชี", description: "ส่งให้บัญชีตรวจสอบ" },
     ],
     revert: [
-      { to: "DRAFT", label: "ย้อนกลับ", requiresReason: true },
+      { to: "DRAFT", label: "ย้อนกลับ", requiresReason: false },
+    ],
+  },
+  SUBMITTED: {
+    label: "ส่งแล้ว",
+    description: "ส่งให้บัญชีแล้ว รอตรวจ",
+    advance: [
+      { to: "COMPLETED", label: "เสร็จสิ้น", description: "ลงบัญชีเรียบร้อย" },
+      { to: "NEED_DOCS", label: "ต้องเพิ่มเอกสาร", description: "ต้องการเอกสารเพิ่ม" },
+    ],
+    revert: [
+      { to: "PREPARING", label: "ย้อนกลับ", requiresReason: true },
     ],
   },
   NEED_DOCS: {
-    label: "ขาดเอกสาร",
-    description: "รอเอกสารเพิ่ม",
+    label: "ต้องเพิ่มเอกสาร",
+    description: "บัญชีขอเอกสารเพิ่ม",
     advance: [
-      { to: "PENDING", label: "ส่งใหม่", description: "ส่งให้บัญชีตรวจอีกครั้ง" },
+      { to: "SUBMITTED", label: "ส่งใหม่", description: "ส่งให้บัญชีตรวจอีกครั้ง" },
     ],
     revert: [],
   },
@@ -59,7 +70,7 @@ export const STATUS_TRANSITIONS: Record<BoxStatus, StatusConfig> = {
     description: "ลงบัญชีเรียบร้อย",
     advance: [],
     revert: [
-      { to: "PENDING", label: "เปิดใหม่", requiresReason: true },
+      { to: "SUBMITTED", label: "เปิดใหม่", requiresReason: true },
     ],
   },
 };

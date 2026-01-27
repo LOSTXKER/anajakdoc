@@ -8,16 +8,12 @@ import { describe, it, expect } from "vitest";
 
 // Test box number generation logic
 describe("Box Number Generation Logic", () => {
-  const getPrefix = (boxType: "EXPENSE" | "INCOME" | "ADJUSTMENT"): string => {
-    switch (boxType) {
-      case "EXPENSE": return "EXP";
-      case "INCOME": return "INC";
-      case "ADJUSTMENT": return "ADJ";
-    }
+  const getPrefix = (boxType: "EXPENSE" | "INCOME"): string => {
+    return boxType === "EXPENSE" ? "EXP" : "INC";
   };
 
   const generateBoxNumber = (
-    boxType: "EXPENSE" | "INCOME" | "ADJUSTMENT",
+    boxType: "EXPENSE" | "INCOME",
     count: number,
     date: Date = new Date()
   ): string => {
@@ -34,10 +30,6 @@ describe("Box Number Generation Logic", () => {
 
   it("should generate correct prefix for INCOME", () => {
     expect(getPrefix("INCOME")).toBe("INC");
-  });
-
-  it("should generate correct prefix for ADJUSTMENT", () => {
-    expect(getPrefix("ADJUSTMENT")).toBe("ADJ");
   });
 
   it("should generate correct box number format", () => {
@@ -63,9 +55,9 @@ describe("Box Number Generation Logic", () => {
 
   it("should handle December month correctly", () => {
     const date = new Date("2026-12-25");
-    const result = generateBoxNumber("ADJUSTMENT", 0, date);
+    const result = generateBoxNumber("INCOME", 0, date);
     
-    expect(result).toBe("ADJ2612-0001");
+    expect(result).toBe("INC2612-0001");
   });
 });
 
@@ -175,7 +167,7 @@ describe("Form Data Parsing", () => {
 
 // Test WHT tracking type determination
 describe("WHT Tracking Type", () => {
-  const getWhtTrackingType = (boxType: "EXPENSE" | "INCOME" | "ADJUSTMENT") => {
+  const getWhtTrackingType = (boxType: "EXPENSE" | "INCOME") => {
     return boxType === "INCOME" ? "INCOMING" : "OUTGOING";
   };
 
@@ -185,9 +177,5 @@ describe("WHT Tracking Type", () => {
 
   it("should return INCOMING for INCOME", () => {
     expect(getWhtTrackingType("INCOME")).toBe("INCOMING");
-  });
-
-  it("should return OUTGOING for ADJUSTMENT", () => {
-    expect(getWhtTrackingType("ADJUSTMENT")).toBe("OUTGOING");
   });
 });

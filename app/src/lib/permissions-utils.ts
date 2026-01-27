@@ -25,7 +25,7 @@ export function hasAdminPermission(role: string): boolean {
  * Replaces pattern found 15+ times
  */
 export function isBoxEditable(status: BoxStatus, role: string): boolean {
-  const editableStatuses: BoxStatus[] = ["DRAFT", "NEED_DOCS", "PENDING"];
+  const editableStatuses: BoxStatus[] = ["DRAFT", "PREPARING", "NEED_DOCS"];
   
   // Admins and owners can edit any box
   if (hasAdminPermission(role)) {

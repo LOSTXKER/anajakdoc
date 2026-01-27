@@ -90,7 +90,7 @@ export async function updateBoxStatus(
 
   // Set timestamps based on new status (using new 4-status system)
   const now = new Date();
-  if (newStatus === BoxStatus.PENDING && !box.submittedAt) {
+  if (newStatus === BoxStatus.SUBMITTED && !box.submittedAt) {
     updateData.submittedAt = now;
   }
   if (newStatus === BoxStatus.COMPLETED && !box.bookedAt) {
@@ -104,7 +104,7 @@ export async function updateBoxStatus(
   }
   
   // If reverting from COMPLETED to PENDING/NEED_DOCS
-  if (newStatus === BoxStatus.PENDING || newStatus === BoxStatus.NEED_DOCS) {
+  if (newStatus === BoxStatus.SUBMITTED || newStatus === BoxStatus.NEED_DOCS) {
     updateData.bookedAt = null;
   }
 

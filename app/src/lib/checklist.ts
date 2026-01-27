@@ -1,5 +1,12 @@
+/**
+ * Checklist Logic
+ * 
+ * Uses centralized config from box-type-config.ts for labels
+ */
+
 import type { BoxType, DocType, ExpenseType } from "@/types";
 import { EXPENSE_TYPE_CONFIG } from "./document-config";
+import { getBoxTypeLabels } from "./config/box-type-config";
 
 // Checklist item definition
 export interface ChecklistItem {
@@ -37,66 +44,39 @@ export function getExpenseChecklist(
   noReceiptReason?: string | null
 ): ChecklistItem[] {
   const items: ChecklistItem[] = [];
+  const labels = getBoxTypeLabels("EXPENSE");
   
   // Get required docs from expense type config
   const config = expenseType ? EXPENSE_TYPE_CONFIG[expenseType] : null;
   const requiredDocs = config?.requiredDocs || [];
   
-  // Special case: Petty Cash
-  if (expenseType === "PETTY_CASH") {
-    items.push({
-      id: "isPaid",
-      label: "จ่ายเงินสดแล้ว",
-      description: "ยืนยันว่าได้ชำระเงินสดแล้ว",
-      required: true,
-      completed: checklist.isPaid,
-      canToggle: true,
-    });
-    
-    items.push({
-      id: "hasPaymentProof",
-      label: "มีใบสำคัญจ่าย/บิล",
-      description: "อัปโหลดใบสำคัญจ่ายหรือบิลเงินสด",
-      required: false, // optional สำหรับจ่ายสด
-      completed: hasPaymentEvidence(uploadedDocTypes) || checklist.hasPaymentProof,
-      relatedDocType: "PETTY_CASH_VOUCHER",
-      canToggle: false,
-    });
-    return items;
-  }
-  
-  // Standard flow for other expense types
-  
   // Check if has slip uploaded
   const hasSlipUploaded = hasPaymentEvidence(uploadedDocTypes);
   
   // 1. การชำระเงิน (รวม isPaid + hasPaymentProof เป็น 1 item)
-  // - มีสลิป → completed (auto จาก payment record)
-  // - ไม่มีสลิป แต่ยืนยันจ่ายเงินสด → completed
-  // - ยังไม่จ่าย → pending
   const paymentDescription = checklist.isPaid
     ? hasSlipUploaded
-      ? "ชำระแล้ว - มีหลักฐานการโอน"
-      : "ชำระแล้ว - ยืนยันจ่ายเงินสด"
-    : "รอชำระเงิน";
+      ? `${labels.paid} - มีหลักฐานการโอน`
+      : `${labels.paid} - ยืนยันจ่ายเงินสด`
+    : `รอ${labels.payment}`;
     
   items.push({
     id: "payment",
-    label: "การชำระเงิน",
+    label: labels.payment,
     description: paymentDescription,
     required: true,
     completed: checklist.isPaid,
     relatedDocType: "SLIP_TRANSFER",
-    canToggle: true, // สามารถกด "จ่ายเงินสด" หรือ อัปโหลดสลิปได้
+    canToggle: true,
   });
   
-  // 3. มีใบกำกับภาษี (ถ้าต้องการ VAT)
+  // 2. มีใบกำกับภาษี (ถ้าต้องการ VAT)
   const needsTaxInvoice = requiredDocs.includes("TAX_INVOICE") || hasVat;
   if (needsTaxInvoice) {
     items.push({
       id: "hasTaxInvoice",
-      label: "มีใบกำกับภาษี",
-      description: "อัปโหลดใบกำกับภาษีจากผู้ขาย",
+      label: `มี${labels.vat}`,
+      description: `อัปโหลด${labels.vat}จาก${labels.contactShort}`,
       required: true,
       completed: hasTaxInvoiceEvidence(uploadedDocTypes) || checklist.hasTaxInvoice,
       relatedDocType: "TAX_INVOICE",
@@ -104,8 +84,7 @@ export function getExpenseChecklist(
     });
   }
   
-  // 3b. มีบิลเงินสด (สำหรับ NO_VAT - ไม่มีใบกำกับภาษี)
-  // บังคับอัปโหลดบิลเงินสด แต่ถ้าไม่มีก็กดยืนยัน "ไม่มีบิล" ได้
+  // 3. มีบิลเงินสด (สำหรับ NO_VAT)
   if (expenseType === "NO_VAT") {
     const hasCashReceipt = uploadedDocTypes.has("CASH_RECEIPT") || 
                            uploadedDocTypes.has("RECEIPT") ||
@@ -120,28 +99,15 @@ export function getExpenseChecklist(
       required: true,
       completed: hasCashReceipt || noCashReceiptConfirmed,
       relatedDocType: "CASH_RECEIPT",
-      canToggle: true, // กดยืนยัน "ไม่มีบิล" ได้
+      canToggle: true,
     });
   }
   
-  // 4. Foreign invoice (สำหรับ FOREIGN)
-  if (expenseType === "FOREIGN") {
-    items.push({
-      id: "hasForeignInvoice",
-      label: "มี Invoice ต่างประเทศ",
-      description: "อัปโหลด Invoice จากต่างประเทศ",
-      required: true,
-      completed: uploadedDocTypes.has("FOREIGN_INVOICE"),
-      relatedDocType: "FOREIGN_INVOICE",
-      canToggle: false,
-    });
-  }
-  
-  // 6. WHT items (ถ้ามี WHT)
+  // 4. WHT items (ถ้ามี WHT) - EXPENSE = เราออก WHT
   if (hasWht) {
     items.push({
       id: "whtIssued",
-      label: "ออกหนังสือหัก ณ ที่จ่ายแล้ว",
+      label: `${labels.wht}แล้ว`,
       description: "อัปโหลดหนังสือหัก ณ ที่จ่าย",
       required: true,
       completed: uploadedDocTypes.has("WHT_SENT") || checklist.whtIssued,
@@ -152,10 +118,10 @@ export function getExpenseChecklist(
     items.push({
       id: "whtSent",
       label: "ส่งหนังสือหัก ณ ที่จ่ายแล้ว",
-      description: "ยืนยันว่าส่งให้คู่ค้าแล้ว",
+      description: `ยืนยันว่าส่งให้${labels.contactShort}แล้ว`,
       required: true,
       completed: checklist.whtSent,
-      canToggle: true, // toggle ได้หลังออก WHT แล้ว
+      canToggle: true,
     });
   }
   
@@ -174,12 +140,13 @@ export function getIncomeChecklist(
   uploadedDocTypes: Set<DocType>
 ): ChecklistItem[] {
   const items: ChecklistItem[] = [];
+  const labels = getBoxTypeLabels("INCOME");
   
   // 1. ออกใบแจ้งหนี้แล้ว
   items.push({
     id: "hasInvoice",
     label: "ออกใบแจ้งหนี้แล้ว",
-    description: "อัปโหลดใบแจ้งหนี้ที่ออกให้ลูกค้า",
+    description: `อัปโหลดใบแจ้งหนี้ที่ออกให้${labels.contactShort}`,
     required: true,
     completed: uploadedDocTypes.has("INVOICE") || checklist.hasInvoice,
     relatedDocType: "INVOICE",
@@ -190,8 +157,8 @@ export function getIncomeChecklist(
   if (hasVat) {
     items.push({
       id: "hasTaxInvoice",
-      label: "ออกใบกำกับภาษีแล้ว",
-      description: "อัปโหลดใบกำกับภาษีที่ออกให้ลูกค้า",
+      label: `${labels.vat}แล้ว`,
+      description: `อัปโหลดใบกำกับภาษีที่ออกให้${labels.contactShort}`,
       required: true,
       completed: hasTaxInvoiceEvidence(uploadedDocTypes) || checklist.hasTaxInvoice,
       relatedDocType: "TAX_INVOICE",
@@ -202,8 +169,8 @@ export function getIncomeChecklist(
   // 3. รับเงินแล้ว
   items.push({
     id: "isPaid",
-    label: "รับเงินแล้ว",
-    description: "ยืนยันว่าได้รับเงินแล้ว",
+    label: labels.paid,
+    description: `ยืนยันว่า${labels.paid}`,
     required: true,
     completed: checklist.isPaid,
     canToggle: true,
@@ -212,20 +179,20 @@ export function getIncomeChecklist(
   // 4. มีหลักฐานการรับเงิน (optional)
   items.push({
     id: "hasPaymentProof",
-    label: "มีหลักฐานการรับเงิน",
-    description: "อัปโหลดหลักฐานการรับเงิน",
+    label: `มีหลักฐาน${labels.payment}`,
+    description: `อัปโหลดหลักฐาน${labels.payment}`,
     required: false,
     completed: hasPaymentEvidence(uploadedDocTypes) || uploadedDocTypes.has("RECEIPT") || checklist.hasPaymentProof,
     relatedDocType: "RECEIPT",
     canToggle: false,
   });
   
-  // 5. ได้รับ WHT จากลูกค้า (ถ้าถูกหัก)
+  // 5. ได้รับ WHT จากลูกค้า (ถ้าถูกหัก) - INCOME = เรารับ WHT จากลูกค้า
   if (hasWht) {
     items.push({
       id: "whtReceived",
-      label: "ได้รับหนังสือหัก ณ ที่จ่ายแล้ว",
-      description: "อัปโหลดหนังสือหัก ณ ที่จ่ายที่ได้รับจากลูกค้า",
+      label: `${labels.wht}แล้ว`,
+      description: `อัปโหลดหนังสือหัก ณ ที่จ่ายที่ได้รับจาก${labels.contactShort}`,
       required: true,
       completed: uploadedDocTypes.has("WHT_INCOMING") || uploadedDocTypes.has("WHT_RECEIVED") || checklist.whtReceived,
       relatedDocType: "WHT_INCOMING",
@@ -250,24 +217,12 @@ export function getBoxChecklist(
   uploadedDocTypes: Set<DocType>,
   noReceiptReason?: string | null
 ): ChecklistItem[] {
-  if (boxType === "EXPENSE") {
-    return getExpenseChecklist(expenseType, hasVat, hasWht, checklist, uploadedDocTypes, noReceiptReason);
-  }
   if (boxType === "INCOME") {
     return getIncomeChecklist(hasVat, hasWht, checklist, uploadedDocTypes);
   }
   
-  // ADJUSTMENT - minimal checklist
-  return [
-    {
-      id: "hasDocument",
-      label: "มีเอกสารประกอบ",
-      description: "CN/DN หรือหลักฐานการคืนเงิน",
-      required: true,
-      completed: uploadedDocTypes.size > 0,
-      canToggle: false,
-    },
-  ];
+  // EXPENSE (default)
+  return getExpenseChecklist(expenseType, hasVat, hasWht, checklist, uploadedDocTypes, noReceiptReason);
 }
 
 // ==================== Helper Functions ====================

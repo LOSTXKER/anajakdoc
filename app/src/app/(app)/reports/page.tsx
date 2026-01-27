@@ -42,7 +42,7 @@ async function getKpiData(orgId: string) {
   const totalCompletedBoxes = await prisma.box.count({
     where: {
       organizationId: orgId,
-      status: { in: ["PENDING", "COMPLETED"] },
+      status: { in: ["SUBMITTED", "COMPLETED"] },
       boxDate: { gte: thirtyDaysAgo },
     },
   });

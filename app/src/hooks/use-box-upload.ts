@@ -6,6 +6,7 @@ import { createBox } from "@/server/actions/box";
 import { getContactsForUpload, type ContactWithDefaults } from "@/server/actions/settings";
 import { toast } from "sonner";
 import { getTodayForInput } from "@/lib/formatters";
+import { getContactRole } from "@/lib/config/box-type-config";
 import type { BoxType, ExpenseType } from "@/types";
 import type { ExtractedFile } from "@/components/documents/upload/FileAnalysisCard";
 import type { Payer } from "@/components/documents/upload/PayerSelector";
@@ -64,7 +65,7 @@ export function useBoxUpload({ initialType, members = [] }: UseBoxUploadOptions)
   useEffect(() => {
     const loadContacts = async () => {
       setContactsLoading(true);
-      const result = await getContactsForUpload(boxType === "EXPENSE" ? "VENDOR" : "CUSTOMER");
+      const result = await getContactsForUpload(getContactRole(boxType));
       if (result.success) {
         setContacts(result.data);
       }

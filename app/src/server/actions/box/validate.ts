@@ -44,7 +44,7 @@ export async function validateBoxAccess(
 
   // Check if box is in editable status
   if (options?.requireEditable) {
-    const editableStatuses = ["DRAFT", "PENDING", "NEED_DOCS"];
+    const editableStatuses = ["DRAFT", "PREPARING", "NEED_DOCS"];
     if (!editableStatuses.includes(box.status)) {
       return {
         success: false,
@@ -93,7 +93,7 @@ export function canEditBox(role: string, boxStatus: string): boolean {
 
   // Accountants can edit boxes in certain statuses
   if (role === "ACCOUNTING") {
-    return ["DRAFT", "PENDING", "NEED_DOCS"].includes(boxStatus);
+    return ["DRAFT", "PREPARING", "NEED_DOCS"].includes(boxStatus);
   }
 
   // Staff can only edit drafts
@@ -149,7 +149,7 @@ export function checkEditableStatus(
     return { success: false, error: "ไม่พบข้อมูล Organization" };
   }
 
-  const editableStatuses = ["DRAFT", "PENDING", "NEED_DOCS"];
+  const editableStatuses = ["DRAFT", "PREPARING", "NEED_DOCS"];
   if (!editableStatuses.includes(box.status)) {
     return { success: false, error: "ไม่สามารถแก้ไขกล่องในสถานะนี้" };
   }

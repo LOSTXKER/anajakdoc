@@ -26,6 +26,7 @@ import { formatMoney } from "@/lib/formatters";
 import { toast } from "sonner";
 
 import { updateBox } from "@/server/actions/box/update-box";
+import { calculateNetAmount } from "@/lib/config/box-type-config";
 
 import type { BoxType, ExpenseType } from "@/types";
 
@@ -104,19 +105,15 @@ export function AmountSummary({
   const editAmount = parseFloat(formAmount) || 0;
   const editVat = calculateVat(editAmount, formHasVat);
   const editWht = calculateWht(editAmount, formHasVat, formHasWht, parseFloat(formWhtRate) || 0);
-  const editNet = boxType === "EXPENSE" ? editAmount - editWht : editAmount;
+  const editNet = calculateNetAmount(boxType, editAmount, editWht);
 
   // Display values
-  const netAmount = boxType === "EXPENSE" ? totalAmount - whtAmount : totalAmount;
+  const netAmount = calculateNetAmount(boxType, totalAmount, whtAmount);
 
   // Get expense type label
-  // Get expense type label (with fallback for legacy values)
   const getExpenseTypeLabel = () => {
     const found = EXPENSE_TYPES.find(t => t.value === expenseType);
     if (found) return found.label;
-    // Legacy values fallback
-    if (expenseType === "PETTY_CASH") return "เงินสดย่อย";
-    if (expenseType === "FOREIGN") return "จ่ายต่างประเทศ";
     return "ไม่ระบุ";
   };
   const expenseTypeLabel = getExpenseTypeLabel();

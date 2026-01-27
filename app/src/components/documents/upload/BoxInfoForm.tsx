@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getBoxTypeLabels } from "@/lib/config/box-type-config";
 import type { BoxType, ExpenseType } from "@/types";
 import type { ContactWithDefaults } from "@/server/actions/settings";
 import { WHT_RATE_OPTIONS } from "@/lib/constants";
@@ -123,6 +124,7 @@ export function BoxInfoForm({
   members = [],
 }: BoxInfoFormProps) {
   const selectedContact = contacts.find(c => c.id === selectedContactId);
+  const labels = getBoxTypeLabels(boxType);
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
@@ -144,7 +146,7 @@ export function BoxInfoForm({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium flex items-center gap-2">
-                {boxType === "EXPENSE" ? "ผู้ขาย/ร้านค้า" : "ลูกค้า"}
+                {labels.contact}
                 {selectedContact && (selectedContact.defaultVatRequired || selectedContact.whtApplicable) && (
                   <span className="inline-flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
                     <Sparkles className="h-3 w-3" />
@@ -165,7 +167,7 @@ export function BoxInfoForm({
                     กำลังโหลด...
                   </div>
                 ) : (
-                  <SelectValue placeholder={`เลือก${boxType === "EXPENSE" ? "ผู้ขาย" : "ลูกค้า"}...`} />
+                  <SelectValue placeholder={`เลือก${labels.contactShort}...`} />
                 )}
               </SelectTrigger>
               <SelectContent>

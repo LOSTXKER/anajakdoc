@@ -56,8 +56,10 @@ async function recalculateBoxChecklistLocal(boxId: string): Promise<void> {
 
 // ==================== Box Number Generation ====================
 
-export async function generateBoxNumber(orgId: string, type: "EXPENSE" | "INCOME" | "ADJUSTMENT"): Promise<string> {
-  const prefix = type === "EXPENSE" ? "EXP" : type === "INCOME" ? "INC" : "ADJ";
+import { getBoxPrefix, getWhtDirection } from "@/lib/config/box-type-config";
+
+export async function generateBoxNumber(orgId: string, type: "EXPENSE" | "INCOME"): Promise<string> {
+  const prefix = getBoxPrefix(type);
   const year = new Date().getFullYear().toString().slice(-2);
   const month = (new Date().getMonth() + 1).toString().padStart(2, "0");
   
@@ -102,14 +104,14 @@ export async function createBox(formData: FormData): Promise<ApiResponse<{ id: s
   
   const boxNumber = await generateBoxNumber(
     session.currentOrganization.id,
-    boxType as "EXPENSE" | "INCOME" | "ADJUSTMENT"
+    boxType as "EXPENSE" | "INCOME"
   );
 
   const box = await prisma.box.create({
     data: {
       organizationId: session.currentOrganization.id,
       boxNumber,
-      boxType: boxType as "EXPENSE" | "INCOME" | "ADJUSTMENT",
+      boxType: boxType as "EXPENSE" | "INCOME",
       expenseType: expenseType ? expenseType as ExpenseType : null,
       boxDate: boxDateStr ? new Date(boxDateStr) : new Date(),
       dueDate: dueDateStr ? new Date(dueDateStr) : null,
@@ -144,7 +146,7 @@ export async function createBox(formData: FormData): Promise<ApiResponse<{ id: s
 
   // Auto-create WHT Tracking when hasWht is true
   if (formData.get("hasWht") === "true") {
-    const trackingType = boxType === "EXPENSE" ? "OUTGOING" : "INCOMING";
+    const trackingType = getWhtDirection(boxType as "EXPENSE" | "INCOME");
     const whtAmountCalc = whtAmount || totalAmount * 0.03; // Default 3%
     
     await prisma.whtTracking.create({

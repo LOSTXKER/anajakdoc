@@ -2,6 +2,7 @@
 
 import type { BoxForExport, ExportProfile } from "./types";
 import { PROFILE_COLUMNS } from "./types";
+import { getBoxTypeLabel } from "@/lib/config/box-type-config";
 
 /**
  * Transform box data to export row based on profile
@@ -13,7 +14,7 @@ export function transformBoxToRow(box: BoxForExport, profile: ExportProfile): Re
   const fieldGetters: Record<string, () => unknown> = {
     boxNumber: () => box.boxNumber,
     boxDate: () => new Date(box.boxDate).toLocaleDateString("th-TH"),
-    boxType: () => box.boxType === "EXPENSE" ? "รายจ่าย" : box.boxType === "INCOME" ? "รายรับ" : "ปรับปรุง",
+    boxType: () => getBoxTypeLabel(box.boxType as "EXPENSE" | "INCOME"),
     vendorName: () => box.contact?.name || "-",
     vendorTaxId: () => box.contact?.taxId || "",
     categoryName: () => box.category?.name || "-",

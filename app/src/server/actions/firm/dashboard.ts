@@ -109,7 +109,7 @@ export async function getFirmDashboard(): Promise<ApiResponse<FirmDashboardStats
     const boxes = boxesByOrg.get(client.id) || [];
     const pendingBoxes = boxes.filter(b => b.status !== "COMPLETED").length;
     const needMoreDocsCount = boxes.filter(b => b.status === "NEED_DOCS").length;
-    const readyToBookCount = boxes.filter(b => b.status === "PENDING").length;
+    const readyToBookCount = boxes.filter(b => b.status === "SUBMITTED").length;
     const totalBoxes = boxes.filter(b => b.status !== "DRAFT").length;
     const completedBoxes = boxes.filter(b => b.status === "COMPLETED").length;
     

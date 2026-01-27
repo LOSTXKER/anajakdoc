@@ -5,11 +5,11 @@ import { ExportPanel } from "@/components/export/export-panel";
 import prisma from "@/lib/prisma";
 
 async function getExportableBoxes(orgId: string) {
-  // Using new 4-status: PENDING and COMPLETED boxes can be exported
+  // Using new 5-status: SUBMITTED and COMPLETED boxes can be exported
   const boxes = await prisma.box.findMany({
     where: {
       organizationId: orgId,
-      status: { in: ["PENDING", "COMPLETED"] },
+      status: { in: ["SUBMITTED", "COMPLETED"] },
     },
     include: {
       category: true,

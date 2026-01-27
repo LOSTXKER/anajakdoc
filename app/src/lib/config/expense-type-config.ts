@@ -5,8 +5,6 @@
 import {
   Receipt,
   FileCheck,
-  Banknote,
-  Plane,
   type LucideIcon,
 } from "lucide-react";
 import type { ExpenseType, DocType } from "@/types";
@@ -36,22 +34,6 @@ export const EXPENSE_TYPE_CONFIG: Record<ExpenseType, ExpenseTypeConfig> = {
     colorClass: "bg-slate-100 text-slate-700",
     requiredDocs: ["SLIP_TRANSFER"],
     optionalDocs: ["CASH_RECEIPT", "RECEIPT"],
-  },
-  PETTY_CASH: {
-    label: "เบิกเงินสดย่อย",
-    description: "ค่าใช้จ่ายเล็กน้อย",
-    icon: Banknote,
-    colorClass: "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300",
-    requiredDocs: [],
-    optionalDocs: ["PETTY_CASH_VOUCHER", "CASH_RECEIPT"],
-  },
-  FOREIGN: {
-    label: "จ่ายต่างประเทศ",
-    description: "สกุลเงินอื่น เช่น USD",
-    icon: Plane,
-    colorClass: "bg-indigo-100 text-indigo-700",
-    requiredDocs: ["SLIP_TRANSFER", "FOREIGN_INVOICE"],
-    optionalDocs: ["BANK_STATEMENT"],
   },
 };
 

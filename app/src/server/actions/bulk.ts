@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 import type { ApiResponse } from "@/types";
 import { BoxStatus } from "@prisma/client";
+import { getBoxTypeLabel } from "@/lib/config/box-type-config";
 
 export async function bulkApproveBoxes(
   boxIds: string[],
@@ -26,7 +27,7 @@ export async function bulkApproveBoxes(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.PENDING, BoxStatus.NEED_DOCS] },
+      status: { in: [BoxStatus.SUBMITTED, BoxStatus.NEED_DOCS] },
     },
   });
 
@@ -105,7 +106,7 @@ export async function bulkRejectBoxes(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.PENDING, BoxStatus.NEED_DOCS] },
+      status: { in: [BoxStatus.SUBMITTED, BoxStatus.NEED_DOCS] },
     },
   });
 
@@ -190,7 +191,7 @@ export async function bulkExportBoxes(
   const data = boxes.map((box) => ({
     "เลขที่กล่อง": box.boxNumber,
     "วันที่": new Date(box.boxDate).toLocaleDateString("th-TH"),
-    "ประเภท": box.boxType === "EXPENSE" ? "รายจ่าย" : box.boxType === "INCOME" ? "รายรับ" : "ปรับปรุง",
+    "ประเภท": getBoxTypeLabel(box.boxType),
     "หมวดหมู่": box.category?.name || "-",
     "ศูนย์ต้นทุน": box.costCenter?.name || "-",
     "คู่ค้า": box.contact?.name || "-",
@@ -320,7 +321,7 @@ export async function bulkRequestDocs(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: BoxStatus.PENDING,
+      status: BoxStatus.SUBMITTED,
     },
   });
 
@@ -393,7 +394,7 @@ export async function bulkMarkReady(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: { in: [BoxStatus.PENDING, BoxStatus.NEED_DOCS] },
+      status: { in: [BoxStatus.SUBMITTED, BoxStatus.NEED_DOCS] },
     },
   });
 
@@ -439,7 +440,7 @@ export async function bulkMarkBooked(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: BoxStatus.PENDING,
+      status: BoxStatus.SUBMITTED,
     },
   });
 

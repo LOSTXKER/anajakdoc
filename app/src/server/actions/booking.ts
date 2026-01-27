@@ -42,12 +42,12 @@ export async function createBookingEntry(
     return { success: false, error: "กรุณาเลือกกล่องอย่างน้อย 1 กล่อง" };
   }
 
-  // Verify boxes exist and are in correct status (PENDING = ready to book)
+  // Verify boxes exist and are in correct status (SUBMITTED = ready to book)
   const boxes = await prisma.box.findMany({
     where: {
       id: { in: input.boxIds },
       organizationId: session.currentOrganization.id,
-      status: BoxStatus.PENDING,
+      status: BoxStatus.SUBMITTED,
     },
   });
 
@@ -158,7 +158,7 @@ export async function linkBoxesToEntry(
     where: {
       id: { in: boxIds },
       organizationId: session.currentOrganization.id,
-      status: BoxStatus.PENDING,
+      status: BoxStatus.SUBMITTED,
     },
   });
 
@@ -244,7 +244,7 @@ export async function unlinkBoxFromEntry(boxId: string): Promise<ApiResponse> {
       where: { id: boxId },
       data: {
         bookingEntryId: null,
-        status: BoxStatus.PENDING,
+        status: BoxStatus.SUBMITTED,
         bookedAt: null,
       },
     });
@@ -412,7 +412,7 @@ export async function deleteBookingEntry(entryId: string): Promise<ApiResponse> 
       where: { bookingEntryId: entryId },
       data: {
         bookingEntryId: null,
-        status: BoxStatus.PENDING,
+        status: BoxStatus.SUBMITTED,
         bookedAt: null,
       },
     });
@@ -434,7 +434,7 @@ export async function getReadyToBookBoxes() {
   return prisma.box.findMany({
     where: {
       organizationId: session.currentOrganization.id,
-      status: BoxStatus.PENDING,
+      status: BoxStatus.SUBMITTED,
       bookingEntryId: null,
     },
     include: {
@@ -456,7 +456,7 @@ export async function getBookingSummary() {
     prisma.box.count({
       where: {
         organizationId: session.currentOrganization.id,
-        status: BoxStatus.PENDING,
+        status: BoxStatus.SUBMITTED,
         bookingEntryId: null,
       },
     }),

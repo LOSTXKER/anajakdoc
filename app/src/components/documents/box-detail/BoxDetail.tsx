@@ -70,7 +70,8 @@ interface BoxDetailProps {
   payers?: PayerInfo[];
   currentUserId?: string;
   isAdmin?: boolean;
-  canEdit?: boolean;
+  canEdit?: boolean;        // Can advance/revert status
+  canEditDetails?: boolean; // Can edit box info, amounts, upload docs
   canSend?: boolean;
   canDelete?: boolean;
   onSendToAccounting?: () => Promise<void>;
@@ -88,6 +89,7 @@ export function BoxDetail({
   currentUserId = "",
   isAdmin = false,
   canEdit = false,
+  canEditDetails = false,
   canSend = false,
   canDelete = false,
   onSendToAccounting,
@@ -326,8 +328,8 @@ export function BoxDetail({
 
       {/* Content - 2 Column Layout */}
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* Process Bar - Shows steps with VAT/WHT tracking */}
-        <ProcessBar box={box} />
+        {/* Process Bar - Shows 5 status steps */}
+        <ProcessBar status={box.status} />
 
         {/* 2 Column Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -338,11 +340,11 @@ export function BoxDetail({
             <DocumentChecklist
               box={box}
               files={allFiles}
-              canEdit={canEdit}
+              canEdit={canEditDetails}
               onUploadFiles={handleUploadFiles}
-              onDeleteFile={canEdit ? handleDeleteFile : undefined}
-              onChangeDocType={canEdit ? handleChangeDocType : undefined}
-              onUpdateVatStatus={canEdit ? async (status) => {
+              onDeleteFile={canEditDetails ? handleDeleteFile : undefined}
+              onChangeDocType={canEditDetails ? handleChangeDocType : undefined}
+              onUpdateVatStatus={canEditDetails ? async (status) => {
                 const result = await updateVatDocStatus(box.id, status);
                 if (result.success) {
                   toast.success("อัปเดตสถานะใบกำกับภาษีแล้ว");
@@ -350,7 +352,7 @@ export function BoxDetail({
                   toast.error(result.error || "เกิดข้อผิดพลาด");
                 }
               } : undefined}
-              onUpdateWhtStatus={canEdit ? async (status) => {
+              onUpdateWhtStatus={canEditDetails ? async (status) => {
                 const result = await updateWhtDocStatus(box.id, status);
                 if (result.success) {
                   toast.success(
@@ -393,7 +395,7 @@ export function BoxDetail({
               hasWht={hasWht}
               whtRate={box.whtRate}
               expenseType={box.expenseType}
-              canEdit={canEdit}
+              canEdit={canEditDetails}
             />
 
             {/* Box Info Card - Inline Editable */}
@@ -409,14 +411,14 @@ export function BoxDetail({
               contacts={contacts}
               categories={categories}
               costCenters={costCenters}
-              canEdit={canEdit}
+              canEdit={canEditDetails}
             />
 
             {/* Payer Info Card - Who Paid */}
             {payers.length > 0 && (
               <PayerInfoCard
                 payers={payers}
-                canEdit={canEdit}
+                canEdit={canEditDetails}
               />
             )}
 

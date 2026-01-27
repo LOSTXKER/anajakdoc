@@ -34,6 +34,7 @@ interface BoxDetailWrapperProps {
   currentUserId: string;
   isAdmin: boolean;
   canEdit: boolean;
+  canEditDetails: boolean;
   canSend: boolean;
   canDelete: boolean;
 }
@@ -46,7 +47,8 @@ export function BoxDetailWrapper({
   payers = [],
   currentUserId,
   isAdmin,
-  canEdit, 
+  canEdit,
+  canEditDetails,
   canSend,
   canDelete,
 }: BoxDetailWrapperProps) {
@@ -84,6 +86,7 @@ export function BoxDetailWrapper({
       currentUserId={currentUserId}
       isAdmin={isAdmin}
       canEdit={canEdit}
+      canEditDetails={canEditDetails}
       canSend={canSend}
       canDelete={canDelete}
       onSendToAccounting={canSend ? handleSendToAccounting : undefined}

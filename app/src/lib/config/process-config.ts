@@ -13,8 +13,6 @@ import {
   BookOpen,
   Archive,
   Receipt,
-  Banknote,
-  Plane,
   FileWarning,
   type LucideIcon,
 } from "lucide-react";
@@ -78,7 +76,7 @@ const isSubmitted = (ctx: ProcessContext) =>
   ctx.boxStatus !== "DRAFT";
 
 const isPending = (ctx: ProcessContext) =>
-  ctx.boxStatus === "PENDING" || ctx.boxStatus === "NEED_DOCS";
+  ctx.boxStatus === "SUBMITTED" || ctx.boxStatus === "NEED_DOCS";
 
 const isCompleted = (ctx: ProcessContext) =>
   ctx.boxStatus === "COMPLETED";
@@ -233,39 +231,6 @@ const STEP_CASH_RECEIPT: ProcessStep = {
     !hasUploadedDoc(ctx.uploadedDocTypes, "CASH_RECEIPT", "RECEIPT", "OTHER"),
 };
 
-// PETTY_CASH - เบิกเงินสดย่อย
-const STEP_PETTY_CASH_CONFIRM: ProcessStep = {
-  id: "pettyCashConfirm",
-  label: "ยืนยันจ่ายเงินสด",
-  description: "ยืนยันว่าจ่ายเงินสดแล้ว",
-  icon: Banknote,
-  isComplete: (ctx) => ctx.isPaid,
-  isCurrent: (ctx) => ctx.boxStatus === "DRAFT" && !ctx.isPaid,
-};
-
-const STEP_PETTY_CASH_DOC: ProcessStep = {
-  id: "pettyCashDoc",
-  label: "บิล/ใบสำคัญจ่าย",
-  description: "อัปโหลดเอกสาร (ถ้ามี)",
-  icon: Receipt,
-  isComplete: (ctx) => 
-    hasUploadedDoc(ctx.uploadedDocTypes, "PETTY_CASH_VOUCHER", "CASH_RECEIPT"),
-  isCurrent: () => false, // Optional step, never "current"
-  skipIf: () => false, // Always show, just optional
-};
-
-// FOREIGN - จ่ายต่างประเทศ
-const STEP_FOREIGN_INVOICE: ProcessStep = {
-  id: "foreignInvoice",
-  label: "Invoice ต่างประเทศ",
-  description: "อัปโหลด Foreign Invoice",
-  icon: Plane,
-  isComplete: (ctx) => hasUploadedDoc(ctx.uploadedDocTypes, "FOREIGN_INVOICE"),
-  isCurrent: (ctx) => 
-    ctx.boxStatus === "DRAFT" && 
-    !hasUploadedDoc(ctx.uploadedDocTypes, "FOREIGN_INVOICE"),
-};
-
 // ==================== Income Steps ====================
 
 const STEP_ISSUE_INVOICE: ProcessStep = {
@@ -316,17 +281,6 @@ const STEP_RECEIVE_WHT: ProcessStep = {
   skipIf: (ctx) => !ctx.hasWht,
 };
 
-// ==================== Adjustment Steps ====================
-
-const STEP_ADJUSTMENT_DOC: ProcessStep = {
-  id: "adjustmentDoc",
-  label: "เอกสารประกอบ",
-  description: "CN/DN หรือหลักฐานการคืนเงิน",
-  icon: FileText,
-  isComplete: (ctx) => ctx.uploadedDocTypes.size > 0,
-  isCurrent: (ctx) => ctx.boxStatus === "DRAFT" && ctx.uploadedDocTypes.size === 0,
-};
-
 // ==================== Process Configurations ====================
 // All box types use 4 statuses but with different step labels
 
@@ -349,10 +303,7 @@ const INCOME_PHASES: ProcessStep[] = [
 // Expense types all use same phases
 const EXPENSE_STANDARD_STEPS = EXPENSE_PHASES;
 const EXPENSE_NO_VAT_STEPS = EXPENSE_PHASES;
-const EXPENSE_PETTY_CASH_STEPS = EXPENSE_PHASES;
-const EXPENSE_FOREIGN_STEPS = EXPENSE_PHASES;
 const INCOME_STEPS = INCOME_PHASES;
-const ADJUSTMENT_STEPS = EXPENSE_PHASES; // Adjustments use expense flow
 
 // ==================== Main Function ====================
 
@@ -367,20 +318,12 @@ export function getProcessSteps(
     return INCOME_STEPS;
   }
   
-  if (boxType === "ADJUSTMENT") {
-    return ADJUSTMENT_STEPS;
-  }
-  
   // EXPENSE - check expense type
   switch (expenseType) {
     case "STANDARD":
       return EXPENSE_STANDARD_STEPS;
     case "NO_VAT":
       return EXPENSE_NO_VAT_STEPS;
-    case "PETTY_CASH":
-      return EXPENSE_PETTY_CASH_STEPS;
-    case "FOREIGN":
-      return EXPENSE_FOREIGN_STEPS;
     default:
       return EXPENSE_STANDARD_STEPS; // Default to STANDARD
   }

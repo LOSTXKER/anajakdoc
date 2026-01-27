@@ -873,21 +873,19 @@ enum PeriodStatus {
 enum BoxType {
   EXPENSE
   INCOME
-  ADJUSTMENT
 }
 
 enum ExpenseType {
   STANDARD
   NO_VAT
-  PETTY_CASH
-  FOREIGN
 }
 
 // Simplified 4-status system
 enum BoxStatus {
-  DRAFT       // แบบร่าง - กำลังสร้าง/แก้ไข
-  PENDING     // รอตรวจ - ส่งบัญชีแล้ว รอตรวจสอบ
-  NEED_DOCS   // ขาดเอกสาร - บัญชีขอเอกสารเพิ่ม
+  DRAFT       // ร่าง - เพิ่งสร้าง ยังไม่มีเอกสาร
+  PREPARING   // เตรียมเอกสาร - กำลังอัปโหลดเอกสาร
+  SUBMITTED   // ส่งแล้ว - ส่งให้บัญชีแล้ว รอตรวจ
+  NEED_DOCS   // ต้องเพิ่มเอกสาร - บัญชีขอเอกสารเพิ่ม
   COMPLETED   // เสร็จสิ้น - ลงบัญชีเรียบร้อย
 }
 

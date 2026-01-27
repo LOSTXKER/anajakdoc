@@ -159,7 +159,7 @@ async function getDashboardStats(orgId: string) {
     
     // Accountant stats - using new status system
     prisma.box.count({ where: { organizationId: orgId, status: "DRAFT" } }),
-    prisma.box.count({ where: { organizationId: orgId, status: "PENDING" } }),
+    prisma.box.count({ where: { organizationId: orgId, status: "SUBMITTED" } }),
     prisma.box.count({ where: { organizationId: orgId, status: "NEED_DOCS" } }),
     prisma.box.count({ where: { organizationId: orgId, status: "COMPLETED" } }),
     // VAT missing count

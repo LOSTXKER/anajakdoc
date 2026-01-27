@@ -1,4 +1,4 @@
-﻿-- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
@@ -23,13 +23,13 @@ CREATE TYPE "WhtSuggestion" AS ENUM ('NONE', 'SOMETIMES', 'USUALLY');
 CREATE TYPE "PeriodStatus" AS ENUM ('OPEN', 'CLOSING', 'CLOSED');
 
 -- CreateEnum
-CREATE TYPE "BoxType" AS ENUM ('EXPENSE', 'INCOME', 'ADJUSTMENT');
+CREATE TYPE "BoxType" AS ENUM ('EXPENSE', 'INCOME');
 
 -- CreateEnum
-CREATE TYPE "ExpenseType" AS ENUM ('STANDARD', 'NO_VAT', 'PETTY_CASH', 'FOREIGN');
+CREATE TYPE "ExpenseType" AS ENUM ('STANDARD', 'NO_VAT');
 
 -- CreateEnum
-CREATE TYPE "BoxStatus" AS ENUM ('DRAFT', 'PENDING_REVIEW', 'NEED_INFO', 'APPROVED', 'EXPORTED', 'CANCELLED');
+CREATE TYPE "BoxStatus" AS ENUM ('DRAFT', 'PREPARING', 'SUBMITTED', 'NEED_DOCS', 'COMPLETED');
 
 -- CreateEnum
 CREATE TYPE "DocStatus" AS ENUM ('INCOMPLETE', 'COMPLETE', 'NA');

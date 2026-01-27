@@ -1,8 +1,8 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import Link from "next/link";
-import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle, AlertCircle, CheckCircle, Wallet } from "lucide-react";
+import { Package, MoreVertical, Eye, CheckCircle2, HelpCircle, XCircle, AlertCircle, CheckCircle, Wallet, Receipt, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
 import { formatDate, formatMoney } from "@/lib/formatters";
 import { canReviewBox, getBoxTypeConfig, getBoxStatusConfig, getDocStatusConfig, getExpenseTypeLabel } from "@/lib/document-config";
 import { cn } from "@/lib/utils";
+import { getMissingBadges } from "@/lib/config/box-requirements";
 import type { SerializedBoxListItem } from "@/types";
 
 interface DocumentBoxCardProps {
@@ -48,13 +49,23 @@ export const DocumentBoxCard = memo(function DocumentBoxCard({
   const docStatusConfig = getDocStatusConfig(box.docStatus);
   const BoxTypeIcon = boxTypeConfig.icon;
 
+  // Calculate missing requirements badges
+  const missingBadges = useMemo(() => getMissingBadges({
+    boxType: box.boxType,
+    status: box.status,
+    hasVat: box.hasVat,
+    hasWht: box.hasWht,
+    vatDocStatus: box.vatDocStatus,
+    whtDocStatus: box.whtDocStatus,
+    paymentStatus: box.paymentStatus,
+    documentsCount: box._count?.documents || 0,
+  }), [box]);
+
   return (
     <div className={cn(
       "group relative border border-border rounded-xl p-4 bg-card hover:shadow-sm transition-all duration-200",
       box.boxType === "INCOME" 
         ? "hover:border-emerald-300 dark:hover:border-emerald-700 border-l-4 border-l-emerald-400 dark:border-l-emerald-600" 
-        : box.boxType === "ADJUSTMENT"
-        ? "hover:border-purple-300 dark:hover:border-purple-700 border-l-4 border-l-purple-400 dark:border-l-purple-600"
         : "hover:border-rose-300 dark:hover:border-rose-700 border-l-4 border-l-rose-400 dark:border-l-rose-600"
     )}>
       <div className="flex items-start gap-4">
@@ -122,6 +133,25 @@ export const DocumentBoxCard = memo(function DocumentBoxCard({
                 รอคืนเงิน
               </Badge>
             )}
+            
+            {/* Missing requirements badges */}
+            {missingBadges.map((badge) => (
+              <Badge 
+                key={badge.id}
+                variant="secondary" 
+                className={cn(
+                  "text-xs gap-1",
+                  badge.type === "warning" 
+                    ? "bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800"
+                    : "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                )}
+              >
+                {badge.id === "vat" && <Receipt className="w-3 h-3" />}
+                {badge.id === "wht" && <FileText className="w-3 h-3" />}
+                {badge.id === "payment" && <Wallet className="w-3 h-3" />}
+                {badge.label}
+              </Badge>
+            ))}
           </div>
           
           <p className="text-muted-foreground truncate mt-1">

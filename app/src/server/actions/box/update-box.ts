@@ -49,7 +49,7 @@ export async function updateBox(
   const editableStatuses: BoxStatus[] = [
     BoxStatus.DRAFT,
     BoxStatus.NEED_DOCS,
-    BoxStatus.PENDING,
+    BoxStatus.SUBMITTED,
   ];
   
   if (!editableStatuses.includes(box.status) && 
@@ -183,7 +183,7 @@ export async function updateBoxData(
   const editableStatuses: BoxStatus[] = [
     BoxStatus.DRAFT,
     BoxStatus.NEED_DOCS,
-    BoxStatus.PENDING,
+    BoxStatus.SUBMITTED,
   ];
   
   if (!editableStatuses.includes(box.status) && 

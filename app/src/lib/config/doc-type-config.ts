@@ -313,12 +313,6 @@ export function getDocTypesForBoxType(boxType: BoxType): DocTypeOption[] {
         { type: "QUOTATION", label: "เอกสารประกอบ", icon: FileText },
         { type: "OTHER", label: "อื่นๆ", icon: File },
       ];
-    case "ADJUSTMENT":
-      return [
-        { type: "CREDIT_NOTE", label: "ใบลดหนี้/เพิ่มหนี้", icon: FileText },
-        { type: "SLIP_TRANSFER", label: "หลักฐานคืนเงิน", icon: Receipt },
-        { type: "OTHER", label: "อื่นๆ", icon: File },
-      ];
     default:
       return [{ type: "OTHER", label: "อื่นๆ", icon: File }];
   }
