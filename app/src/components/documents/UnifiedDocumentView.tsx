@@ -227,7 +227,19 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
           </div>
         </TableCell>
         
-        {/* 3. Documents - เอกสาร */}
+        {/* 3. Date - วันที่ */}
+        <TableCell className="text-muted-foreground">
+          {formatDate(box.boxDate, "short")}
+        </TableCell>
+        
+        {/* 4. Title - รายการ */}
+        <TableCell className="max-w-[200px]">
+          <Link href={`/documents/${box.id}`} className="hover:underline">
+            <p className="truncate">{box.title || box.description || "-"}</p>
+          </Link>
+        </TableCell>
+        
+        {/* 5. Documents - เอกสาร */}
         <TableCell>
           <DocumentStatusBadges
             hasVat={box.hasVat}
@@ -236,18 +248,6 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
             whtDocStatus={box.whtDocStatus}
             documentsCount={box._count?.documents || 0}
           />
-        </TableCell>
-        
-        {/* 4. Date - วันที่ */}
-        <TableCell className="text-muted-foreground">
-          {formatDate(box.boxDate, "short")}
-        </TableCell>
-        
-        {/* 5. Title - รายการ */}
-        <TableCell className="max-w-[200px]">
-          <Link href={`/documents/${box.id}`} className="hover:underline">
-            <p className="truncate">{box.title || box.description || "-"}</p>
-          </Link>
         </TableCell>
         
         {/* 6. Contact - คู่ค้า */}
@@ -332,9 +332,9 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
               )}
               <TableHead>เลขที่</TableHead>
               <TableHead>สถานะ</TableHead>
-              <TableHead>เอกสาร</TableHead>
               <TableHead>วันที่</TableHead>
               <TableHead>รายการ</TableHead>
+              <TableHead>เอกสาร</TableHead>
               <TableHead>คู่ค้า</TableHead>
               <TableHead className="text-right">จำนวนเงิน</TableHead>
               <TableHead>หมวดหมู่</TableHead>
