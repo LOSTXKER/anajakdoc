@@ -213,16 +213,13 @@ export function DocumentStatusBadges({
   documentsCount = 0,
   className = "" 
 }: DocumentStatusBadgesProps) {
-  // If no VAT/WHT required, show document count only
+  // If no VAT/WHT required, show clear message
   if (!hasVat && !hasWht) {
-    if (documentsCount > 0) {
-      return (
-        <span className="text-xs text-muted-foreground">
-          {documentsCount} ไฟล์
-        </span>
-      );
-    }
-    return <span className="text-xs text-muted-foreground">-</span>;
+    return (
+      <span className="text-xs text-muted-foreground">
+        ไม่มี VAT/WHT
+      </span>
+    );
   }
 
   const getVatBadge = () => {
