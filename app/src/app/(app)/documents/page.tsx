@@ -3,7 +3,6 @@ import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
 import { UnifiedDocumentView } from "@/components/documents/UnifiedDocumentView";
 import { DocumentFilters } from "@/components/documents/DocumentFilters";
-import { getSavedFilters } from "@/server/actions/saved-filter";
 import prisma from "@/lib/prisma";
 import type { BoxStatus, BoxType } from "@prisma/client";
 
@@ -167,7 +166,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   const session = await requireOrganization();
   const params = await searchParams;
 
-  const [boxes, counts, savedFilters] = await Promise.all([
+  const [boxes, counts] = await Promise.all([
     getFilteredBoxes(
       session.currentOrganization.id, 
       session.id,
@@ -175,7 +174,6 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
       params
     ),
     getStatusCounts(session.currentOrganization.id, session.id),
-    getSavedFilters(),
   ]);
 
   const hasActiveFilters = !!(params.search || params.status || params.type || params.reimburse);
@@ -189,9 +187,9 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
       />
       
       <div className="p-6 space-y-4">
-        {/* Filters */}
+        {/* Search */}
         <Suspense fallback={null}>
-          <DocumentFilters savedFilters={savedFilters} />
+          <DocumentFilters />
         </Suspense>
 
         {/* Results info when filtering */}
