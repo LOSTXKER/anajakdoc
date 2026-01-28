@@ -282,12 +282,15 @@ export function AuditLogViewer({ initialData }: AuditLogViewerProps) {
               </div>
               <div className="space-y-2">
                 <Label>ประเภทการดำเนินการ</Label>
-                <Select value={actionFilter} onValueChange={setActionFilter}>
+                <Select 
+                  value={actionFilter || "all"} 
+                  onValueChange={(val) => setActionFilter(val === "all" ? "" : val)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="ทั้งหมด" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">ทั้งหมด</SelectItem>
+                    <SelectItem value="all">ทั้งหมด</SelectItem>
                     {ACTION_TYPES.map((action) => (
                       <SelectItem key={action.value} value={action.value}>
                         {action.label}
