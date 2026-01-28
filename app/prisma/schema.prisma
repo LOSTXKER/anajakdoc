@@ -313,6 +313,7 @@ model Box {
   vatVerifiedAt       DateTime?            @map("vat_verified_at")
   vatVerifiedById     String?              @map("vat_verified_by_id")
   whtDocStatus        WhtDocStatus         @default(MISSING) @map("wht_doc_status")
+  naDocTypes          String[]             @default([]) @map("na_doc_types")
   whtDueDate          DateTime?            @map("wht_due_date")
   whtOverdue          Boolean              @default(false) @map("wht_overdue")
   whtSent             Boolean              @default(false) @map("wht_sent")

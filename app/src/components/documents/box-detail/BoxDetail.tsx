@@ -35,10 +35,9 @@ import { ActivityTimeline } from "@/components/documents/ActivityTimeline";
 import type { CommentData } from "@/server/actions/comment";
 import type { AuditLogEntry } from "@/server/actions/audit";
 
-import { addFileToBox, deleteBoxFile, updateFileDocType } from "@/server/actions/box/files";
+import { addFileToBox, deleteBoxFile } from "@/server/actions/box/files";
 import { updateBoxStatus } from "@/server/actions/box/update-status";
-import { updateVatDocStatus, updateWhtDocStatus } from "@/server/actions/box/update-doc-status";
-import { extractDocumentData } from "@/server/actions/ai-classify";
+import { updateVatDocStatus, updateWhtDocStatus, toggleDocTypeNA } from "@/server/actions/box/update-doc-status";
 
 import type { SerializedBox, DocType, BoxStatus } from "@/types";
 
@@ -114,32 +113,14 @@ export function BoxDetail({
   const primaryAdvance = getPrimaryAdvance(box.status);
   const primaryRevert = getPrimaryRevert(box.status);
 
-  // Handle file upload with AI classification
-  const handleUploadFiles = async (files: File[]) => {
+  // Handle file upload with specified doc type
+  const handleUploadFiles = async (files: File[], docType: DocType) => {
     let successCount = 0;
     for (const file of files) {
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString("base64");
-        
-        let docType = "OTHER";
-        let amount: number | undefined;
-        let vatAmount: number | undefined;
-        
-        // AI classification
-        const classifyResult = await extractDocumentData(base64, file.type);
-        if (classifyResult.success && classifyResult.data) {
-          docType = classifyResult.data.type;
-          amount = classifyResult.data.amount;
-          vatAmount = classifyResult.data.vatAmount;
-          toast.info(`AI จำแนก: ${classifyResult.data.reason}`);
-        }
-        
         const formData = new FormData();
         formData.append("file", file);
         formData.append("docType", docType);
-        if (amount) formData.append("amount", amount.toString());
-        if (vatAmount) formData.append("vatAmount", vatAmount.toString());
         
         const result = await addFileToBox(box.id, formData);
         if (result.success) {
@@ -166,15 +147,6 @@ export function BoxDetail({
       return;
     }
     toast.success("ลบไฟล์สำเร็จ");
-  };
-
-  const handleChangeDocType = async (fileId: string, newDocType: DocType) => {
-    const result = await updateFileDocType(box.id, fileId, newDocType);
-    if (!result.success) {
-      toast.error(result.error || "เปลี่ยนประเภทไม่สำเร็จ");
-      return;
-    }
-    toast.success(result.message || "เปลี่ยนประเภทเอกสารสำเร็จ");
   };
 
   const handleAction = (action: "send" | "delete") => {
@@ -341,9 +313,9 @@ export function BoxDetail({
               box={box}
               files={allFiles}
               canEdit={canEditDetails}
+              status={box.status}
               onUploadFiles={handleUploadFiles}
               onDeleteFile={canEditDetails ? handleDeleteFile : undefined}
-              onChangeDocType={canEditDetails ? handleChangeDocType : undefined}
               onUpdateVatStatus={canEditDetails ? async (status) => {
                 const result = await updateVatDocStatus(box.id, status);
                 if (result.success) {
@@ -355,11 +327,15 @@ export function BoxDetail({
               onUpdateWhtStatus={canEditDetails ? async (status) => {
                 const result = await updateWhtDocStatus(box.id, status);
                 if (result.success) {
-                  toast.success(
-                    status === "REQUEST_SENT" 
-                      ? "ส่งคำขอใบหัก ณ ที่จ่ายแล้ว" 
-                      : "อัปเดตสถานะใบหัก ณ ที่จ่ายแล้ว"
-                  );
+                  toast.success("อัปเดตสถานะใบหัก ณ ที่จ่ายแล้ว");
+                } else {
+                  toast.error(result.error || "เกิดข้อผิดพลาด");
+                }
+              } : undefined}
+              onToggleDocTypeNA={canEditDetails ? async (docTypeId, isNA) => {
+                const result = await toggleDocTypeNA(box.id, docTypeId, isNA);
+                if (result.success) {
+                  toast.success(isNA ? "ทำเครื่องหมายว่าไม่มีเอกสารแล้ว" : "ยกเลิกเครื่องหมายแล้ว");
                 } else {
                   toast.error(result.error || "เกิดข้อผิดพลาด");
                 }
@@ -396,6 +372,7 @@ export function BoxDetail({
               whtRate={box.whtRate}
               expenseType={box.expenseType}
               canEdit={canEditDetails}
+              status={box.status}
             />
 
             {/* Box Info Card - Inline Editable */}
@@ -412,6 +389,7 @@ export function BoxDetail({
               categories={categories}
               costCenters={costCenters}
               canEdit={canEditDetails}
+              status={box.status}
             />
 
             {/* Payer Info Card - Who Paid */}

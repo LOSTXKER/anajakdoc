@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { sendDocumentRequestNotification } from "@/lib/external-notifications";
-import type { VatDocStatus, WhtDocStatus, ApiResponse } from "@/types";
+import type { VatDocStatus, WhtDocStatus, ApiResponse, DocType } from "@/types";
 
 // ==================== VAT Document Status ====================
 
@@ -123,6 +123,73 @@ export async function markDocumentReceived(
     return updateVatDocStatus(boxId, "RECEIVED");
   } else {
     return updateWhtDocStatus(boxId, "RECEIVED");
+  }
+}
+
+// ==================== Toggle NA Status for Any Document Type ====================
+
+export async function toggleDocTypeNA(
+  boxId: string,
+  docTypeId: string, // e.g., "payment_proof", "tax_invoice", etc.
+  isNA: boolean
+): Promise<ApiResponse<void>> {
+  try {
+    const session = await requireOrganization();
+
+    // Check if user has access to this box
+    const box = await prisma.box.findFirst({
+      where: {
+        id: boxId,
+        organizationId: session.currentOrganization.id,
+      },
+    });
+
+    if (!box) {
+      return { success: false, error: "ไม่พบกล่องเอกสาร" };
+    }
+
+    // Get current naDocTypes array
+    const currentNA = box.naDocTypes || [];
+    
+    let newNA: string[];
+    if (isNA) {
+      // Add to NA list (if not already there)
+      newNA = currentNA.includes(docTypeId) ? currentNA : [...currentNA, docTypeId];
+    } else {
+      // Remove from NA list
+      newNA = currentNA.filter((id) => id !== docTypeId);
+    }
+
+    // Update box
+    await prisma.box.update({
+      where: { id: boxId },
+      data: {
+        naDocTypes: newNA,
+      },
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        boxId,
+        userId: session.id,
+        action: isNA ? "DOC_MARKED_NA" : "DOC_UNMARKED_NA",
+        details: {
+          docTypeId,
+          isNA,
+        },
+      },
+    });
+
+    revalidatePath(`/documents/${boxId}`);
+    revalidatePath("/documents");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error toggling doc type NA:", error);
+    // Return more detailed error for debugging
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { success: false, error: `เกิดข้อผิดพลาด: ${errorMessage}` };
   }
 }
 

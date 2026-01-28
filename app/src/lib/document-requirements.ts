@@ -100,15 +100,6 @@ export function getRequiredDocuments(
       });
     }
   } else if (boxType === "INCOME") {
-    docs.push({
-      id: "invoice",
-      docType: "INVOICE",
-      label: "ใบแจ้งหนี้",
-      description: `ใบแจ้งหนี้ที่ออกให้${labels.contactShort}`,
-      required: true,
-      matchingDocTypes: ["INVOICE"],
-    });
-
     if (hasVat) {
       docs.push({
         id: "tax_invoice",
@@ -125,7 +116,7 @@ export function getRequiredDocuments(
       docType: "RECEIPT",
       label: `หลักฐาน${labels.payment}`,
       description: "สลิปโอนเข้า หรือใบเสร็จรับเงิน",
-      required: false,
+      required: true,
       matchingDocTypes: ["RECEIPT", "SLIP_TRANSFER", "BANK_STATEMENT"],
     });
 

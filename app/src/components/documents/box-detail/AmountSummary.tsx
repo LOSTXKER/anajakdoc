@@ -24,11 +24,17 @@ import {
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/formatters";
 import { toast } from "sonner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { updateBox } from "@/server/actions/box/update-box";
 import { calculateNetAmount } from "@/lib/config/box-type-config";
+import { getBoxStatusLabel } from "@/lib/config/status-config";
 
-import type { BoxType, ExpenseType } from "@/types";
+import type { BoxType, ExpenseType, BoxStatus } from "@/types";
 
 // ==================== Types ====================
 
@@ -44,6 +50,7 @@ interface AmountSummaryProps {
   whtRate?: number | null;
   expenseType?: ExpenseType | null;
   canEdit?: boolean;
+  status?: BoxStatus;
 }
 
 // ==================== Config ====================
@@ -73,6 +80,7 @@ export function AmountSummary({
   whtRate,
   expenseType,
   canEdit = false,
+  status,
 }: AmountSummaryProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -180,16 +188,37 @@ export function AmountSummary({
           <Calculator className="h-4 w-4" />
           ยอดเงิน
         </h3>
-        {canEdit && !isEditing && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleStartEdit}
-            className="h-8 px-3 text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="h-4 w-4 mr-1.5" />
-            แก้ไข
-          </Button>
+        {!isEditing && (
+          canEdit ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartEdit}
+              className="h-8 px-3 text-muted-foreground hover:text-foreground"
+            >
+              <Pencil className="h-4 w-4 mr-1.5" />
+              แก้ไข
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="h-8 px-3 text-muted-foreground/50 cursor-not-allowed"
+                  >
+                    <Pencil className="h-4 w-4 mr-1.5" />
+                    แก้ไข
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>สถานะ "{status ? getBoxStatusLabel(status) : "ไม่ทราบ"}" ไม่สามารถแก้ไขได้</p>
+              </TooltipContent>
+            </Tooltip>
+          )
         )}
         {isEditing && (
           <div className="flex items-center gap-2">
@@ -290,7 +319,13 @@ export function AmountSummary({
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Banknote className="h-4 w-4" />
-            <span>หัก ณ ที่จ่าย</span>
+            <span>
+              หัก ณ ที่จ่าย
+              {isEditing 
+                ? (formHasWht && formWhtRate ? ` ${formWhtRate}%` : "")
+                : (hasWht && whtRate ? ` ${whtRate}%` : "")
+              }
+            </span>
           </div>
           {isEditing ? (
             <div className="flex items-center gap-2">

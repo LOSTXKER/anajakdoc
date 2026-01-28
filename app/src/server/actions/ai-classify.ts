@@ -81,6 +81,18 @@ export async function classifyDocument(
   "reason": "เหตุผลสั้นๆ ภาษาไทย"
 }`;
 
+    // Validate base64 data size (max ~10MB for Gemini)
+    const base64Size = base64Data.length * 0.75;
+    if (base64Size > 10 * 1024 * 1024) {
+      return { success: false, error: "ไฟล์ใหญ่เกินไป (สูงสุด 10MB)" };
+    }
+
+    // Validate mime type
+    const supportedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+    if (!supportedTypes.includes(mimeType)) {
+      return { success: false, error: `ไม่รองรับไฟล์ประเภท ${mimeType}` };
+    }
+
     const result = await model.generateContent([
       prompt,
       {
@@ -92,12 +104,25 @@ export async function classifyDocument(
     ]);
 
     const response = result.response;
+    
+    // Check for safety blocks
+    if (response.promptFeedback?.blockReason) {
+      console.error("Content blocked:", response.promptFeedback);
+      return { success: false, error: "ภาพถูกบล็อกเนื่องจากนโยบายความปลอดภัย" };
+    }
+
     const text = response.text();
+    
+    // Check if response is empty
+    if (!text || text.trim() === "") {
+      return { success: false, error: "AI ไม่สามารถอ่านข้อมูลจากภาพนี้ได้" };
+    }
     
     // Parse JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return { success: false, error: "ไม่สามารถวิเคราะห์เอกสารได้" };
+      console.error("No JSON in response:", text);
+      return { success: false, error: "AI ไม่สามารถวิเคราะห์เอกสารได้ - ลองใช้ภาพที่ชัดกว่านี้" };
     }
 
     const parsed = JSON.parse(jsonMatch[0]) as DocumentClassification;
@@ -110,7 +135,20 @@ export async function classifyDocument(
     return { success: true, data: parsed };
   } catch (error) {
     console.error("Error classifying document:", error);
-    return { success: false, error: "เกิดข้อผิดพลาดในการวิเคราะห์เอกสาร" };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    // Check for specific Gemini API errors
+    if (errorMessage.includes("SAFETY")) {
+      return { success: false, error: "ภาพถูกบล็อกเนื่องจากนโยบายความปลอดภัย" };
+    }
+    if (errorMessage.includes("quota") || errorMessage.includes("rate")) {
+      return { success: false, error: "เกินโควต้า API กรุณาลองใหม่ภายหลัง" };
+    }
+    if (errorMessage.includes("Could not process") || errorMessage.includes("Invalid")) {
+      return { success: false, error: "ไม่สามารถประมวลผลภาพนี้ได้ ลองใช้ภาพอื่น" };
+    }
+    
+    return { success: false, error: `เกิดข้อผิดพลาด: ${errorMessage}` };
   }
 }
 
@@ -170,6 +208,18 @@ export async function extractDocumentData(
   "items": ["รายการ 1", "รายการ 2"]
 }`;
 
+    // Validate base64 data size (max ~10MB for Gemini)
+    const base64Size = base64Data.length * 0.75; // Approximate decoded size
+    if (base64Size > 10 * 1024 * 1024) {
+      return { success: false, error: "ไฟล์ใหญ่เกินไป (สูงสุด 10MB)" };
+    }
+
+    // Validate mime type
+    const supportedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+    if (!supportedTypes.includes(mimeType)) {
+      return { success: false, error: `ไม่รองรับไฟล์ประเภท ${mimeType}` };
+    }
+
     const result = await model.generateContent([
       prompt,
       {
@@ -181,12 +231,25 @@ export async function extractDocumentData(
     ]);
 
     const response = result.response;
+    
+    // Check for safety blocks
+    if (response.promptFeedback?.blockReason) {
+      console.error("Content blocked:", response.promptFeedback);
+      return { success: false, error: "ภาพถูกบล็อกเนื่องจากนโยบายความปลอดภัย" };
+    }
+
     const text = response.text();
+    
+    // Check if response is empty
+    if (!text || text.trim() === "") {
+      return { success: false, error: "AI ไม่สามารถอ่านข้อมูลจากภาพนี้ได้ ลองใช้ภาพที่ชัดกว่านี้" };
+    }
     
     // Parse JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return { success: false, error: "ไม่สามารถวิเคราะห์เอกสารได้" };
+      console.error("No JSON in response:", text);
+      return { success: false, error: "AI ไม่สามารถวิเคราะห์เอกสารได้ - ลองใช้ภาพที่ชัดกว่านี้" };
     }
 
     const rawParsed = JSON.parse(jsonMatch[0]) as {

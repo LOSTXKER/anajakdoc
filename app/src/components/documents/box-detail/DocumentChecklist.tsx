@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, useCallback } from "react";
+import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import {
   Check,
@@ -16,14 +16,11 @@ import {
   ChevronUp,
   AlertCircle,
   Paperclip,
-  Send,
-  Clock,
-  CheckCircle2,
+  Undo2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { getDocTypeConfig, getDocTypesForBoxType } from "@/lib/config/doc-type-config";
 import { getDocTypeLabel } from "@/lib/utils";
 import { getRequiredDocuments, type RequiredDocument } from "@/lib/document-requirements";
 import {
@@ -38,13 +35,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { SerializedBox, DocType, ExpenseType, BoxType } from "@/types";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getBoxStatusLabel } from "@/lib/config/status-config";
+import type { SerializedBox, DocType, ExpenseType, BoxType, BoxStatus } from "@/types";
 
 // ==================== Types ====================
 
@@ -61,11 +57,12 @@ interface DocumentChecklistProps {
   box: SerializedBox;
   files: FileItem[];
   canEdit?: boolean;
-  onUploadFiles?: (files: File[]) => Promise<void>;
+  status?: BoxStatus;
+  onUploadFiles?: (files: File[], docType: DocType) => Promise<void>;
   onDeleteFile?: (fileId: string) => Promise<void>;
-  onChangeDocType?: (fileId: string, newDocType: DocType) => Promise<void>;
-  onUpdateVatStatus?: (status: "RECEIVED" | "VERIFIED") => Promise<void>;
-  onUpdateWhtStatus?: (status: "REQUEST_SENT" | "RECEIVED" | "VERIFIED") => Promise<void>;
+  onUpdateVatStatus?: (status: "MISSING" | "NA") => Promise<void>;
+  onUpdateWhtStatus?: (status: "MISSING" | "NA") => Promise<void>;
+  onToggleDocTypeNA?: (docTypeId: string, isNA: boolean) => Promise<void>;
 }
 
 // ==================== Helper Functions ====================
@@ -89,6 +86,72 @@ const getDocTypeBadgeClass = (docType: DocType) => {
   return "bg-muted text-muted-foreground";
 };
 
+// ==================== Reusable Action Button ====================
+
+interface ActionButtonProps {
+  canEdit: boolean;
+  status?: BoxStatus;
+  onClick: (e: React.MouseEvent) => void;
+  variant?: "default" | "outline" | "ghost" | "destructive";
+  size?: "default" | "sm" | "lg" | "icon";
+  className?: string;
+  disabled?: boolean;
+  disabledTooltip?: string;
+  children: React.ReactNode;
+}
+
+function ActionButton({
+  canEdit,
+  status,
+  onClick,
+  variant = "outline",
+  size = "sm",
+  className,
+  disabled = false,
+  disabledTooltip,
+  children,
+}: ActionButtonProps) {
+  const tooltipMessage = disabledTooltip || `สถานะ "${status ? getBoxStatusLabel(status) : "ไม่ทราบ"}" ไม่สามารถแก้ไขได้`;
+
+  if (!canEdit) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">
+            <Button
+              variant={variant}
+              size={size}
+              className={cn("opacity-50 cursor-not-allowed", className)}
+              disabled
+              onClick={(e) => e.stopPropagation()}
+            >
+              {children}
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{tooltipMessage}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      className={className}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(e);
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
+
 
 // ==================== Main Component ====================
 
@@ -96,19 +159,19 @@ export function DocumentChecklist({
   box,
   files,
   canEdit = false,
+  status,
   onUploadFiles,
   onDeleteFile,
-  onChangeDocType,
   onUpdateVatStatus,
   onUpdateWhtStatus,
+  onToggleDocTypeNA,
 }: DocumentChecklistProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const pendingDocTypeRef = useRef<DocType>("OTHER");
   const [isPending, startTransition] = useTransition();
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
-  const [isDragging, setIsDragging] = useState(false);
 
   // Get required documents based on box config
   const requiredDocs = getRequiredDocuments(
@@ -133,60 +196,47 @@ export function DocumentChecklist({
     return !requiredDocTypes.has(file.docType);
   });
 
-  // Calculate stats
-  const stats = requiredDocs.map((req) => ({
-    ...req,
-    files: getFilesForRequirement(req),
-    isComplete: getFilesForRequirement(req).length > 0,
-  }));
+  // Calculate stats - include NA status as "complete"
+  const statsUnsorted = requiredDocs.map((req) => {
+    const reqFiles = getFilesForRequirement(req);
+    const hasFiles = reqFiles.length > 0;
+    
+    // Check if marked as NA
+    const isWhtType = (req.id === "wht" || req.id === "wht_incoming") && box.hasWht;
+    const isVatType = req.id === "tax_invoice" && box.hasVat;
+    const isWhtNA = isWhtType && box.whtDocStatus === "NA";
+    const isVatNA = isVatType && box.vatDocStatus === "NA";
+    const isGeneralNA = !isWhtType && !isVatType && (box.naDocTypes || []).includes(req.id);
+    const isNA = isWhtNA || isVatNA || isGeneralNA;
+    
+    return {
+      ...req,
+      files: reqFiles,
+      isComplete: hasFiles || isNA, // NA counts as complete
+    };
+  });
+
+  // Use original order (no special sorting needed now)
+  const stats = statsUnsorted;
 
   const requiredCount = stats.filter((s) => s.required).length;
   const completedCount = stats.filter((s) => s.required && s.isComplete).length;
   const allRequiredComplete = completedCount === requiredCount;
 
-  // Drag & Drop handlers
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Only set dragging to false if we're leaving the drop zone entirely
-    if (!dropZoneRef.current?.contains(e.relatedTarget as Node)) {
-      setIsDragging(false);
-    }
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    if (!onUploadFiles) return;
-
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    if (droppedFiles.length === 0) return;
-
-    startTransition(async () => {
-      await onUploadFiles(droppedFiles);
-    });
-  }, [onUploadFiles]);
+  // Trigger upload with specific doc type
+  const triggerUpload = (docType: DocType) => {
+    pendingDocTypeRef.current = docType;
+    fileInputRef.current?.click();
+  };
 
   // Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0 || !onUploadFiles) return;
 
+    const docType = pendingDocTypeRef.current;
     startTransition(async () => {
-      await onUploadFiles(Array.from(selectedFiles));
+      await onUploadFiles(Array.from(selectedFiles), docType);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -251,43 +301,21 @@ export function DocumentChecklist({
         </div>
       </div>
 
-      {/* Drag & Drop Zone */}
-      {canEdit && onUploadFiles && (
-        <div
-          ref={dropZoneRef}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={cn(
-            "mx-4 my-3 p-4 border-2 border-dashed rounded-xl transition-all cursor-pointer",
-            "flex flex-col items-center justify-center gap-2",
-            isDragging
-              ? "border-primary bg-primary/5 scale-[1.02]"
-              : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
-          )}
-        >
-          {isPending ? (
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          ) : (
-            <Upload className={cn("h-6 w-6", isDragging ? "text-primary" : "text-muted-foreground")} />
-          )}
-          <div className="text-center">
-            <p className={cn("text-sm font-medium", isDragging ? "text-primary" : "text-foreground")}>
-              {isDragging ? "ปล่อยไฟล์ที่นี่" : "ลากไฟล์มาวางที่นี่"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              หรือคลิกเพื่อเลือกไฟล์ (AI จะจำแนกประเภทให้อัตโนมัติ)
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Document Checklist */}
       <div className="divide-y">
         {stats.map((item) => {
           const isExpanded = expandedSections.has(item.id) || item.files.length > 0;
+          
+          // Check if this is a WHT/VAT item (uses separate status fields)
+          const isWhtType = (item.id === "wht" || item.id === "wht_incoming") && box.hasWht;
+          const isVatType = item.id === "tax_invoice" && box.hasVat;
+          
+          // Check if marked as NA (no document)
+          const isWhtNA = isWhtType && box.whtDocStatus === "NA";
+          const isVatNA = isVatType && box.vatDocStatus === "NA";
+          // For non-WHT/VAT items, check naDocTypes array
+          const isGeneralNA = !isWhtType && !isVatType && (box.naDocTypes || []).includes(item.id);
+          const isNA = isWhtNA || isVatNA || isGeneralNA;
 
           return (
             <Collapsible
@@ -307,12 +335,11 @@ export function DocumentChecklist({
                 <div
                   className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                    item.isComplete
-                      ? "bg-emerald-100 dark:bg-emerald-900"
-                      : "bg-muted"
+                    (item.isComplete || isNA) && "bg-emerald-100 dark:bg-emerald-900",
+                    !item.isComplete && !isNA && "bg-muted"
                   )}
                 >
-                  {item.isComplete ? (
+                  {item.isComplete || isNA ? (
                     <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   ) : (
                     <Circle className="h-4 w-4 text-muted-foreground" />
@@ -325,10 +352,10 @@ export function DocumentChecklist({
                     <span className="font-medium text-sm text-foreground">
                       {item.label}
                     </span>
-                    {item.required && !item.isComplete && (
+                    {item.required && !item.isComplete && !isNA && (
                       <span className="text-xs text-destructive">*จำเป็น</span>
                     )}
-                    {!item.required && (
+                    {!item.required && !isNA && (
                       <span className="text-xs text-muted-foreground">(ไม่บังคับ)</span>
                     )}
                     {item.files.length > 0 && (
@@ -336,130 +363,137 @@ export function DocumentChecklist({
                         ({item.files.length} ไฟล์)
                       </span>
                     )}
-                    
-                    {/* VAT Status Badge */}
-                    {item.id === "tax_invoice" && box.hasVat && !item.isComplete && (
-                      <Badge 
-                        variant="secondary" 
-                        className={cn(
-                          "text-xs",
-                          box.vatDocStatus === "MISSING" && "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
-                          box.vatDocStatus === "RECEIVED" && "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
-                          box.vatDocStatus === "VERIFIED" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
-                        )}
-                      >
-                        {box.vatDocStatus === "MISSING" && "รอใบกำกับ"}
-                        {box.vatDocStatus === "RECEIVED" && "ได้รับแล้ว"}
-                        {box.vatDocStatus === "VERIFIED" && "ตรวจสอบแล้ว"}
-                      </Badge>
-                    )}
-                    
-                    {/* WHT Status Badge */}
-                    {(item.id === "wht" || item.id === "wht_incoming") && box.hasWht && !item.isComplete && (
-                      <Badge 
-                        variant="secondary" 
-                        className={cn(
-                          "text-xs",
-                          box.whtDocStatus === "MISSING" && "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
-                          box.whtDocStatus === "REQUEST_SENT" && "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
-                          box.whtDocStatus === "RECEIVED" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
-                        )}
-                      >
-                        {box.whtDocStatus === "MISSING" && (
-                          <><Clock className="w-3 h-3 mr-1" />รอใบหัก ณ ที่จ่าย</>
-                        )}
-                        {box.whtDocStatus === "REQUEST_SENT" && (
-                          <><Send className="w-3 h-3 mr-1" />ส่งคำขอแล้ว</>
-                        )}
-                        {box.whtDocStatus === "RECEIVED" && (
-                          <><CheckCircle2 className="w-3 h-3 mr-1" />ได้รับแล้ว</>
-                        )}
+                    {isNA && (
+                      <Badge variant="outline" className="text-[10px] h-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-600">
+                        ไม่มีเอกสาร
                       </Badge>
                     )}
                   </div>
+                  
+                  {/* Description */}
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {item.description}
                   </p>
-                  
-                  {/* WHT CTA Buttons */}
-                  {(item.id === "wht" || item.id === "wht_incoming") && box.hasWht && !item.isComplete && canEdit && (
-                    <div className="flex items-center gap-2 mt-2">
-                      {box.whtDocStatus === "MISSING" && onUpdateWhtStatus && (
-                        <>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdateWhtStatus("REQUEST_SENT");
-                            }}
-                          >
-                            <Send className="w-3 h-3 mr-1" />
-                            ส่งคำขอ
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdateWhtStatus("RECEIVED");
-                            }}
-                          >
-                            <Check className="w-3 h-3 mr-1" />
-                            ได้รับแล้ว
-                          </Button>
-                        </>
-                      )}
-                      {box.whtDocStatus === "REQUEST_SENT" && onUpdateWhtStatus && (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="h-7 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onUpdateWhtStatus("RECEIVED");
-                          }}
-                        >
-                          <Check className="w-3 h-3 mr-1" />
-                          ได้รับแล้ว
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* VAT CTA Button (Mark as Received) */}
-                  {item.id === "tax_invoice" && box.hasVat && !item.isComplete && canEdit && box.vatDocStatus === "MISSING" && onUpdateVatStatus && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onUpdateVatStatus("RECEIVED");
-                        }}
-                      >
-                        <Check className="w-3 h-3 mr-1" />
-                        ได้รับแล้ว
-                      </Button>
-                    </div>
-                  )}
                 </div>
 
-                {/* Expand Button */}
-                {item.files.length > 0 && (
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
+                {/* Action Buttons - Simple: ไม่มี + อัปโหลด - fixed width for alignment */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Undo NA button for WHT */}
+                  {isWhtNA && onUpdateWhtStatus && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onUpdateWhtStatus("MISSING")}
+                      disabled={isPending}
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground px-2"
+                    >
+                      <Undo2 className="h-3 w-3 mr-1" />
+                      ยกเลิก
+                    </ActionButton>
+                  )}
+                  {/* Undo NA button for VAT */}
+                  {isVatNA && onUpdateVatStatus && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onUpdateVatStatus("MISSING")}
+                      disabled={isPending}
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground px-2"
+                    >
+                      <Undo2 className="h-3 w-3 mr-1" />
+                      ยกเลิก
+                    </ActionButton>
+                  )}
+                  {/* Undo NA button for general documents */}
+                  {isGeneralNA && onToggleDocTypeNA && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onToggleDocTypeNA(item.id, false)}
+                      disabled={isPending}
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground px-2"
+                    >
+                      <Undo2 className="h-3 w-3 mr-1" />
+                      ยกเลิก
+                    </ActionButton>
+                  )}
+                  
+                  {/* "ไม่มี" button for WHT */}
+                  {isWhtType && !item.isComplete && !isNA && onUpdateWhtStatus && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onUpdateWhtStatus("NA")}
+                      disabled={isPending}
+                      variant="outline"
+                      className="h-7 text-xs w-[52px]"
+                    >
+                      ไม่มี
+                    </ActionButton>
+                  )}
+                  {/* "ไม่มี" button for VAT */}
+                  {isVatType && !item.isComplete && !isNA && onUpdateVatStatus && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onUpdateVatStatus("NA")}
+                      disabled={isPending}
+                      variant="outline"
+                      className="h-7 text-xs w-[52px]"
+                    >
+                      ไม่มี
+                    </ActionButton>
+                  )}
+                  {/* "ไม่มี" button for general documents */}
+                  {!isWhtType && !isVatType && !item.isComplete && !isNA && onToggleDocTypeNA && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onToggleDocTypeNA(item.id, true)}
+                      disabled={isPending}
+                      variant="outline"
+                      className="h-7 text-xs w-[52px]"
+                    >
+                      ไม่มี
+                    </ActionButton>
+                  )}
+                  
+                  {/* Upload button - show when not NA */}
+                  {!isNA && onUploadFiles && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => triggerUpload(item.matchingDocTypes[0])}
+                      disabled={isPending}
+                      disabledTooltip={`สถานะ "${status ? getBoxStatusLabel(status) : "ไม่ทราบ"}" ไม่สามารถอัปโหลดได้`}
+                      variant="outline"
+                      className="h-7 text-xs w-[76px]"
+                    >
+                      {isPending ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       ) : (
-                        <ChevronDown className="h-4 w-4" />
+                        <Upload className="h-3 w-3 mr-1" />
                       )}
-                    </Button>
-                  </CollapsibleTrigger>
-                )}
+                      อัปโหลด
+                    </ActionButton>
+                  )}
+                  
+                  {/* Expand Button for files */}
+                  {item.files.length > 0 && (
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </CollapsibleTrigger>
+                  )}
+                </div>
               </div>
 
               {/* Files under this requirement */}
@@ -469,12 +503,11 @@ export function DocumentChecklist({
                     <FileRow
                       key={file.id}
                       file={file}
-                      boxType={box.boxType}
                       canEdit={canEdit}
                       isDeleting={deletingId === file.id}
+                      status={status}
                       onPreview={() => setPreviewFile(file)}
                       onDelete={() => handleDelete(file.id)}
-                      onChangeDocType={onChangeDocType}
                     />
                   ))}
                 </div>
@@ -483,58 +516,71 @@ export function DocumentChecklist({
           );
         })}
 
-        {/* Supporting Documents Section - Always show */}
-        <Collapsible defaultOpen={otherFiles.length > 0}>
-          <CollapsibleTrigger className="w-full">
-            <div className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 cursor-pointer">
-              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                <Paperclip className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-              </div>
-              <div className="flex-1 min-w-0 text-left">
+        {/* Supporting Documents Section - Always visible */}
+        <div>
+          <div className="flex items-center gap-3 px-5 py-3">
+            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+              <Paperclip className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-sm text-foreground">
                   เอกสารประกอบ
                 </span>
-                <span className="text-xs text-muted-foreground ml-2">(ไม่บังคับ)</span>
+                <span className="text-xs text-muted-foreground">(ไม่บังคับ)</span>
                 {otherFiles.length > 0 && (
-                  <span className="text-xs text-muted-foreground ml-1">
-                    - {otherFiles.length} ไฟล์
+                  <span className="text-xs text-muted-foreground">
+                    ({otherFiles.length} ไฟล์)
                   </span>
                 )}
               </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground mt-0.5">
+                ใบเสนอราคา, ใบสั่งซื้อ, สัญญา, ใบส่งของ หรืออื่นๆ
+              </p>
             </div>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="bg-muted/20 border-t px-5 py-3">
-              {otherFiles.length > 0 ? (
-                <div className="space-y-0 -mx-5 -my-3">
-                  {otherFiles.map((file) => (
-                    <FileRow
-                      key={file.id}
-                      file={file}
-                      boxType={box.boxType}
-                      canEdit={canEdit}
-                      isDeleting={deletingId === file.id}
-                      onPreview={() => setPreviewFile(file)}
-                      onDelete={() => handleDelete(file.id)}
-                      onChangeDocType={onChangeDocType}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground">
-                  <p className="mb-2">เอกสารเพิ่มเติมที่อาจเป็นประโยชน์:</p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground/80">
-                    <li>ใบเสนอราคา (Quotation)</li>
-                    <li>ใบสั่งซื้อ (Purchase Order)</li>
-                    <li>สัญญา (Contract)</li>
-                    <li>ใบส่งของ (Delivery Note)</li>
-                  </ul>
-                </div>
+            
+            {/* Upload Button - aligned with other rows */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Placeholder for "ไม่มี" alignment */}
+              <span className="h-7 w-[52px]"></span>
+              {onUploadFiles && (
+                <ActionButton
+                  canEdit={canEdit}
+                  status={status}
+                  onClick={() => triggerUpload("OTHER")}
+                  disabled={isPending}
+                  disabledTooltip={`สถานะ "${status ? getBoxStatusLabel(status) : "ไม่ทราบ"}" ไม่สามารถอัปโหลดได้`}
+                  variant="outline"
+                  className="h-7 text-xs w-[76px]"
+                >
+                  {isPending ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Upload className="h-3 w-3 mr-1" />
+                  )}
+                  อัปโหลด
+                </ActionButton>
               )}
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+          </div>
+          
+          {/* Files list - always visible */}
+          {otherFiles.length > 0 && (
+            <div className="bg-muted/20 border-t">
+              {otherFiles.map((file) => (
+                <FileRow
+                  key={file.id}
+                  file={file}
+                  canEdit={canEdit}
+                  isDeleting={deletingId === file.id}
+                  status={status}
+                  onPreview={() => setPreviewFile(file)}
+                  onDelete={() => handleDelete(file.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Hidden file input */}
@@ -550,10 +596,7 @@ export function DocumentChecklist({
       {/* Preview Dialog */}
       <FilePreviewDialog
         file={previewFile}
-        boxType={box.boxType}
         onClose={() => setPreviewFile(null)}
-        canEdit={canEdit}
-        onChangeDocType={onChangeDocType}
       />
     </div>
   );
@@ -563,34 +606,21 @@ export function DocumentChecklist({
 
 interface FileRowProps {
   file: FileItem;
-  boxType: BoxType;
   canEdit: boolean;
   isDeleting: boolean;
+  status?: BoxStatus;
   onPreview: () => void;
   onDelete: () => void;
-  onChangeDocType?: (fileId: string, newDocType: DocType) => Promise<void>;
 }
 
-function FileRow({ file, boxType, canEdit, isDeleting, onPreview, onDelete, onChangeDocType }: FileRowProps) {
-  const docTypeOptions = getDocTypesForBoxType(boxType);
+function FileRow({ file, canEdit, isDeleting, status, onPreview, onDelete }: FileRowProps) {
   const IconComponent = getFileIcon(file.mimeType);
-  const [isChanging, setIsChanging] = useState(false);
-
-  const handleDocTypeChange = async (newType: string) => {
-    if (!onChangeDocType || newType === file.docType) return;
-    setIsChanging(true);
-    try {
-      await onChangeDocType(file.id, newType as DocType);
-    } finally {
-      setIsChanging(false);
-    }
-  };
 
   return (
     <div
       className={cn(
         "flex items-center gap-3 px-5 pl-16 py-2.5 hover:bg-muted/50 transition-colors",
-        (isDeleting || isChanging) && "opacity-50"
+        isDeleting && "opacity-50"
       )}
     >
       {/* Thumbnail */}
@@ -625,40 +655,15 @@ function FileRow({ file, boxType, canEdit, isDeleting, onPreview, onDelete, onCh
             {file.fileName}
           </p>
         </div>
-        {/* Doc Type - Dropdown if editable */}
-        {canEdit && onChangeDocType ? (
-          <Select
-            value={file.docType}
-            onValueChange={handleDocTypeChange}
-            disabled={isChanging}
-          >
-            <SelectTrigger 
-              className={cn(
-                "h-auto w-auto gap-1 px-2 py-0.5 mt-0.5 text-xs rounded border-0 cursor-pointer",
-                "hover:ring-2 hover:ring-primary/20 transition-all",
-                getDocTypeBadgeClass(file.docType)
-              )}
-            >
-              <SelectValue>{getDocTypeLabel(file.docType)}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {docTypeOptions.map((dt) => (
-                <SelectItem key={dt.type} value={dt.type}>
-                  {dt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span
-            className={cn(
-              "inline-block px-2 py-0.5 rounded text-xs font-medium mt-0.5",
-              getDocTypeBadgeClass(file.docType)
-            )}
-          >
-            {getDocTypeLabel(file.docType)}
-          </span>
-        )}
+        {/* Doc Type Badge */}
+        <span
+          className={cn(
+            "inline-block px-2 py-0.5 rounded text-xs font-medium mt-0.5",
+            getDocTypeBadgeClass(file.docType)
+          )}
+        >
+          {getDocTypeLabel(file.docType)}
+        </span>
       </div>
 
       {/* Actions */}
@@ -671,7 +676,7 @@ function FileRow({ file, boxType, canEdit, isDeleting, onPreview, onDelete, onCh
         >
           <Eye className="h-4 w-4" />
         </Button>
-        {canEdit && (
+        {canEdit ? (
           <Button
             variant="ghost"
             size="icon"
@@ -685,6 +690,24 @@ function FileRow({ file, boxType, canEdit, isDeleting, onPreview, onDelete, onCh
               <Trash2 className="h-4 w-4" />
             )}
           </Button>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground/50 cursor-not-allowed"
+                  disabled
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>สถานะ "{status ? getBoxStatusLabel(status) : "ไม่ทราบ"}" ไม่สามารถลบได้</p>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
     </div>
@@ -693,27 +716,11 @@ function FileRow({ file, boxType, canEdit, isDeleting, onPreview, onDelete, onCh
 
 interface FilePreviewDialogProps {
   file: FileItem | null;
-  boxType: BoxType;
   onClose: () => void;
-  canEdit?: boolean;
-  onChangeDocType?: (fileId: string, newDocType: DocType) => Promise<void>;
 }
 
-function FilePreviewDialog({ file, boxType, onClose, canEdit, onChangeDocType }: FilePreviewDialogProps) {
-  const [isChanging, setIsChanging] = useState(false);
-  const docTypeOptions = getDocTypesForBoxType(boxType);
-
+function FilePreviewDialog({ file, onClose }: FilePreviewDialogProps) {
   if (!file) return null;
-
-  const handleDocTypeChange = async (newType: string) => {
-    if (!onChangeDocType || newType === file.docType) return;
-    setIsChanging(true);
-    try {
-      await onChangeDocType(file.id, newType as DocType);
-    } finally {
-      setIsChanging(false);
-    }
-  };
 
   return (
     <Dialog open={!!file} onOpenChange={onClose}>
@@ -755,40 +762,15 @@ function FilePreviewDialog({ file, boxType, onClose, canEdit, onChangeDocType }:
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          {/* Doc Type - Editable dropdown in preview */}
-          {canEdit && onChangeDocType ? (
-            <Select
-              value={file.docType}
-              onValueChange={handleDocTypeChange}
-              disabled={isChanging}
-            >
-              <SelectTrigger 
-                className={cn(
-                  "h-auto w-auto gap-1.5 px-3 py-1.5 text-sm rounded-lg border-0 cursor-pointer",
-                  "hover:ring-2 hover:ring-primary/20 transition-all",
-                  getDocTypeBadgeClass(file.docType)
-                )}
-              >
-                <SelectValue>{getDocTypeLabel(file.docType)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {docTypeOptions.map((dt) => (
-                  <SelectItem key={dt.type} value={dt.type}>
-                    {dt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <span
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-sm font-medium",
-                getDocTypeBadgeClass(file.docType)
-              )}
-            >
-              {getDocTypeLabel(file.docType)}
-            </span>
-          )}
+          {/* Doc Type Badge */}
+          <span
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-sm font-medium",
+              getDocTypeBadgeClass(file.docType)
+            )}
+          >
+            {getDocTypeLabel(file.docType)}
+          </span>
 
           {file.fileUrl && (
             <Button

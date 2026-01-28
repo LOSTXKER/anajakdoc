@@ -26,8 +26,15 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/formatters";
 import { toast } from "sonner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { updateBox } from "@/server/actions/box/update-box";
+import { getBoxStatusLabel } from "@/lib/config/status-config";
+import type { BoxStatus } from "@/types";
 
 // ==================== Types ====================
 
@@ -60,6 +67,7 @@ interface BoxInfoCardProps {
   categories?: Category[];
   costCenters?: CostCenter[];
   canEdit?: boolean;
+  status?: BoxStatus;
 }
 
 // ==================== Display Field Component ====================
@@ -186,6 +194,7 @@ export function BoxInfoCard({
   categories = [],
   costCenters = [],
   canEdit = false,
+  status,
 }: BoxInfoCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -259,16 +268,37 @@ export function BoxInfoCard({
       {/* Header with Edit Button */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">ข้อมูลกล่อง</h3>
-        {canEdit && !isEditing && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleStartEdit}
-            className="h-8 px-3 text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="h-4 w-4 mr-1.5" />
-            แก้ไข
-          </Button>
+        {!isEditing && (
+          canEdit ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartEdit}
+              className="h-8 px-3 text-muted-foreground hover:text-foreground"
+            >
+              <Pencil className="h-4 w-4 mr-1.5" />
+              แก้ไข
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="h-8 px-3 text-muted-foreground/50 cursor-not-allowed"
+                  >
+                    <Pencil className="h-4 w-4 mr-1.5" />
+                    แก้ไข
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>สถานะ "{status ? getBoxStatusLabel(status) : "ไม่ทราบ"}" ไม่สามารถแก้ไขได้</p>
+              </TooltipContent>
+            </Tooltip>
+          )
         )}
         {isEditing && (
           <div className="flex items-center gap-2">

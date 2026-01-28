@@ -179,8 +179,23 @@ export function ProcessBar({ status, className }: ProcessBarProps) {
         
         {/* Steps - 4 main statuses */}
         <div className="relative">
-          {/* Connector line */}
+          {/* Background connector line */}
           <div className="absolute top-5 left-5 right-5 h-0.5 bg-muted hidden sm:block" />
+          
+          {/* Progress connector line */}
+          {(() => {
+            // Find current step index
+            const currentIndex = steps.findIndex(s => s.status === "current" || s.status === "warning");
+            const completedIndex = currentIndex === -1 ? steps.length - 1 : currentIndex;
+            // Calculate progress width (0%, 33%, 66%, 100% for 4 steps)
+            const lineProgress = completedIndex === 0 ? 0 : (completedIndex / (steps.length - 1)) * 100;
+            return (
+              <div 
+                className="absolute top-5 left-5 h-0.5 bg-primary hidden sm:block transition-all duration-500"
+                style={{ width: `calc(${lineProgress}% - 20px)` }}
+              />
+            );
+          })()}
           
           {/* Steps container */}
           <div className="flex justify-between">
@@ -253,16 +268,16 @@ function StepIcon({ status, Icon }: StepIconProps) {
   
   if (status === "current") {
     return (
-      <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center shrink-0 relative z-10">
+      <div className="w-10 h-10 rounded-full bg-card border-2 border-primary flex items-center justify-center shrink-0 relative z-10">
         <Icon className="h-4 w-4 text-primary" />
-        <span className="absolute inset-0 rounded-full border-2 border-primary animate-ping opacity-30" />
+        <span className="absolute -inset-1 rounded-full border-2 border-primary animate-ping opacity-30" />
       </div>
     );
   }
   
   if (status === "warning") {
     return (
-      <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-400 flex items-center justify-center shrink-0 z-10">
+      <div className="w-10 h-10 rounded-full bg-card border-2 border-orange-400 flex items-center justify-center shrink-0 z-10">
         <AlertCircle className="h-4 w-4 text-orange-600" />
       </div>
     );
@@ -270,7 +285,7 @@ function StepIcon({ status, Icon }: StepIconProps) {
   
   // Pending
   return (
-    <div className="w-10 h-10 rounded-full bg-muted border-2 border-muted-foreground/20 flex items-center justify-center shrink-0 z-10">
+    <div className="w-10 h-10 rounded-full bg-card border-2 border-muted-foreground/20 flex items-center justify-center shrink-0 z-10">
       <Circle className="h-4 w-4 text-muted-foreground/50" />
     </div>
   );
