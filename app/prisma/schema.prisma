@@ -313,6 +313,7 @@ model Box {
   vatVerifiedAt       DateTime?            @map("vat_verified_at")
   vatVerifiedById     String?              @map("vat_verified_by_id")
   whtDocStatus        WhtDocStatus         @default(MISSING) @map("wht_doc_status")
+  paymentProofStatus  PaymentProofStatus   @default(MISSING) @map("payment_proof_status")
   naDocTypes          String[]             @default([]) @map("na_doc_types")
   whtDueDate          DateTime?            @map("wht_due_date")
   whtOverdue          Boolean              @default(false) @map("wht_overdue")
@@ -902,6 +903,12 @@ enum WhtDocStatus {
   REQUEST_SENT
   RECEIVED
   VERIFIED
+  NA
+}
+
+enum PaymentProofStatus {
+  MISSING
+  RECEIVED
   NA
 }
 

@@ -37,7 +37,7 @@ import type { AuditLogEntry } from "@/server/actions/audit";
 
 import { addFileToBox, deleteBoxFile } from "@/server/actions/box/files";
 import { updateBoxStatus } from "@/server/actions/box/update-status";
-import { updateVatDocStatus, updateWhtDocStatus, toggleDocTypeNA } from "@/server/actions/box/update-doc-status";
+import { updateVatDocStatus, updateWhtDocStatus, updatePaymentProofStatus, toggleDocTypeNA } from "@/server/actions/box/update-doc-status";
 
 import type { SerializedBox, DocType, BoxStatus } from "@/types";
 
@@ -328,6 +328,14 @@ export function BoxDetail({
                 const result = await updateWhtDocStatus(box.id, status);
                 if (result.success) {
                   toast.success("อัปเดตสถานะใบหัก ณ ที่จ่ายแล้ว");
+                } else {
+                  toast.error(result.error || "เกิดข้อผิดพลาด");
+                }
+              } : undefined}
+              onUpdatePaymentProofStatus={canEditDetails ? async (status) => {
+                const result = await updatePaymentProofStatus(box.id, status);
+                if (result.success) {
+                  toast.success("อัปเดตสถานะหลักฐานการชำระแล้ว");
                 } else {
                   toast.error(result.error || "เกิดข้อผิดพลาด");
                 }

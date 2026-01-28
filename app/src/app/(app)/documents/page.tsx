@@ -11,6 +11,10 @@ interface SearchParams {
   status?: string;
   type?: string;
   reimburse?: string;
+  vat_missing?: string;
+  wht_missing?: string;
+  payment_proof_missing?: string;
+  doc_incomplete?: string;
 }
 
 async function getFilteredBoxes(
@@ -48,6 +52,28 @@ async function getFilteredBoxes(
   if (filters.reimburse === "pending") {
     where.paymentMode = "EMPLOYEE_ADVANCE";
     where.reimbursementStatus = "PENDING";
+  }
+
+  // Apply VAT missing filter
+  if (filters.vat_missing === "true") {
+    where.hasVat = true;
+    where.vatDocStatus = "MISSING";
+  }
+
+  // Apply WHT missing filter
+  if (filters.wht_missing === "true") {
+    where.hasWht = true;
+    where.whtDocStatus = { in: ["MISSING", "REQUEST_SENT"] };
+  }
+
+  // Apply Payment Proof missing filter
+  if (filters.payment_proof_missing === "true") {
+    where.paymentProofStatus = "MISSING";
+  }
+
+  // Apply document incomplete filter (any missing documents)
+  if (filters.doc_incomplete === "true") {
+    where.docStatus = "INCOMPLETE";
   }
 
   // For staff, only show their own boxes
@@ -176,7 +202,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     getStatusCounts(session.currentOrganization.id, session.id),
   ]);
 
-  const hasActiveFilters = !!(params.search || params.status || params.type || params.reimburse);
+  const hasActiveFilters = !!(params.search || params.status || params.type || params.reimburse || params.vat_missing || params.wht_missing || params.payment_proof_missing || params.doc_incomplete);
 
   return (
     <>

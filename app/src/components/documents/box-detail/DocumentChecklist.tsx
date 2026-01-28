@@ -62,6 +62,7 @@ interface DocumentChecklistProps {
   onDeleteFile?: (fileId: string) => Promise<void>;
   onUpdateVatStatus?: (status: "MISSING" | "NA") => Promise<void>;
   onUpdateWhtStatus?: (status: "MISSING" | "NA") => Promise<void>;
+  onUpdatePaymentProofStatus?: (status: "MISSING" | "NA") => Promise<void>;
   onToggleDocTypeNA?: (docTypeId: string, isNA: boolean) => Promise<void>;
 }
 
@@ -164,6 +165,7 @@ export function DocumentChecklist({
   onDeleteFile,
   onUpdateVatStatus,
   onUpdateWhtStatus,
+  onUpdatePaymentProofStatus,
   onToggleDocTypeNA,
 }: DocumentChecklistProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -204,10 +206,12 @@ export function DocumentChecklist({
     // Check if marked as NA
     const isWhtType = (req.id === "wht" || req.id === "wht_incoming") && box.hasWht;
     const isVatType = req.id === "tax_invoice" && box.hasVat;
+    const isPaymentProofType = req.id === "payment_proof";
     const isWhtNA = isWhtType && box.whtDocStatus === "NA";
     const isVatNA = isVatType && box.vatDocStatus === "NA";
-    const isGeneralNA = !isWhtType && !isVatType && (box.naDocTypes || []).includes(req.id);
-    const isNA = isWhtNA || isVatNA || isGeneralNA;
+    const isPaymentProofNA = isPaymentProofType && (box as any).paymentProofStatus === "NA";
+    const isGeneralNA = !isWhtType && !isVatType && !isPaymentProofType && (box.naDocTypes || []).includes(req.id);
+    const isNA = isWhtNA || isVatNA || isPaymentProofNA || isGeneralNA;
     
     return {
       ...req,
@@ -306,16 +310,18 @@ export function DocumentChecklist({
         {stats.map((item) => {
           const isExpanded = expandedSections.has(item.id) || item.files.length > 0;
           
-          // Check if this is a WHT/VAT item (uses separate status fields)
+          // Check if this is a WHT/VAT/PaymentProof item (uses separate status fields)
           const isWhtType = (item.id === "wht" || item.id === "wht_incoming") && box.hasWht;
           const isVatType = item.id === "tax_invoice" && box.hasVat;
+          const isPaymentProofType = item.id === "payment_proof";
           
           // Check if marked as NA (no document)
           const isWhtNA = isWhtType && box.whtDocStatus === "NA";
           const isVatNA = isVatType && box.vatDocStatus === "NA";
-          // For non-WHT/VAT items, check naDocTypes array
-          const isGeneralNA = !isWhtType && !isVatType && (box.naDocTypes || []).includes(item.id);
-          const isNA = isWhtNA || isVatNA || isGeneralNA;
+          const isPaymentProofNA = isPaymentProofType && (box as any).paymentProofStatus === "NA";
+          // For other items, check naDocTypes array
+          const isGeneralNA = !isWhtType && !isVatType && !isPaymentProofType && (box.naDocTypes || []).includes(item.id);
+          const isNA = isWhtNA || isVatNA || isPaymentProofNA || isGeneralNA;
 
           return (
             <Collapsible
@@ -406,6 +412,20 @@ export function DocumentChecklist({
                       ยกเลิก
                     </ActionButton>
                   )}
+                  {/* Undo NA button for Payment Proof */}
+                  {isPaymentProofNA && onUpdatePaymentProofStatus && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onUpdatePaymentProofStatus("MISSING")}
+                      disabled={isPending}
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground px-2"
+                    >
+                      <Undo2 className="h-3 w-3 mr-1" />
+                      ยกเลิก
+                    </ActionButton>
+                  )}
                   {/* Undo NA button for general documents */}
                   {isGeneralNA && onToggleDocTypeNA && (
                     <ActionButton
@@ -447,8 +467,21 @@ export function DocumentChecklist({
                       ไม่มี
                     </ActionButton>
                   )}
+                  {/* "ไม่มี" button for Payment Proof */}
+                  {isPaymentProofType && !item.isComplete && !isNA && onUpdatePaymentProofStatus && (
+                    <ActionButton
+                      canEdit={canEdit}
+                      status={status}
+                      onClick={() => onUpdatePaymentProofStatus("NA")}
+                      disabled={isPending}
+                      variant="outline"
+                      className="h-7 text-xs w-[52px]"
+                    >
+                      ไม่มี
+                    </ActionButton>
+                  )}
                   {/* "ไม่มี" button for general documents */}
-                  {!isWhtType && !isVatType && !item.isComplete && !isNA && onToggleDocTypeNA && (
+                  {!isWhtType && !isVatType && !isPaymentProofType && !item.isComplete && !isNA && onToggleDocTypeNA && (
                     <ActionButton
                       canEdit={canEdit}
                       status={status}

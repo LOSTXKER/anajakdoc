@@ -236,6 +236,10 @@ export function UnifiedDocumentView({ boxes, counts, userRole, userId }: Unified
             hasWht={box.hasWht}
             whtDocStatus={box.whtDocStatus}
             documentsCount={box._count?.documents || 0}
+            naDocTypes={(box as any).naDocTypes || []}
+            boxType={box.boxType}
+            expenseType={box.expenseType}
+            files={box.documents.map(d => ({ docType: d.docType }))}
           />
         </TableCell>
         

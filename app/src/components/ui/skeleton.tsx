@@ -47,25 +47,61 @@ function ListSkeleton({ count = 5 }: { count?: number }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stats Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-4 w-4" />
+          <div key={i} className="rounded-xl border bg-card p-5 space-y-3">
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+              <Skeleton className="h-10 w-10 rounded-lg" />
             </div>
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-3 w-24" />
           </div>
         ))}
       </div>
       
-      {/* Content */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <CardSkeleton />
-        <div className="lg:col-span-2">
-          <CardSkeleton />
+      {/* Two-column layout: To-Do & Recent */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* To-Do Section */}
+        <div className="rounded-xl border bg-card">
+          <div className="p-4 border-b">
+            <Skeleton className="h-5 w-32" />
+          </div>
+          <div className="divide-y">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-5 w-8 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Boxes */}
+        <div className="rounded-xl border bg-card">
+          <div className="p-4 border-b flex justify-between">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+          <div className="divide-y">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <div className="text-right space-y-1">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-3 w-12" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

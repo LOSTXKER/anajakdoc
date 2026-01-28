@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { requireOrganization } from "@/server/auth";
 import { sendDocumentRequestNotification } from "@/lib/external-notifications";
-import type { VatDocStatus, WhtDocStatus, ApiResponse, DocType } from "@/types";
+import type { VatDocStatus, WhtDocStatus, PaymentProofStatus, ApiResponse, DocType } from "@/types";
 
 // ==================== VAT Document Status ====================
 
@@ -109,6 +109,58 @@ export async function updateWhtDocStatus(
     return { success: true };
   } catch (error) {
     console.error("Error updating WHT doc status:", error);
+    return { success: false, error: "เกิดข้อผิดพลาดในการอัปเดตสถานะ" };
+  }
+}
+
+// ==================== Payment Proof Status ====================
+
+export async function updatePaymentProofStatus(
+  boxId: string,
+  status: PaymentProofStatus
+): Promise<ApiResponse<void>> {
+  try {
+    const session = await requireOrganization();
+
+    // Check if user has access to this box
+    const box = await prisma.box.findFirst({
+      where: {
+        id: boxId,
+        organizationId: session.currentOrganization.id,
+      },
+    });
+
+    if (!box) {
+      return { success: false, error: "ไม่พบกล่องเอกสาร" };
+    }
+
+    // Update Payment Proof status
+    await prisma.box.update({
+      where: { id: boxId },
+      data: {
+        paymentProofStatus: status,
+      },
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        boxId,
+        userId: session.id,
+        action: "PAYMENT_PROOF_STATUS_UPDATE",
+        details: {
+          oldValue: box.paymentProofStatus,
+          newValue: status,
+        },
+      },
+    });
+
+    revalidatePath(`/documents/${boxId}`);
+    revalidatePath("/documents");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating payment proof status:", error);
     return { success: false, error: "เกิดข้อผิดพลาดในการอัปเดตสถานะ" };
   }
 }

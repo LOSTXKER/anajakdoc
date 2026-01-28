@@ -1,11 +1,12 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { requireOrganization } from "@/server/auth";
 import { AppHeader } from "@/components/layout/app-header";
+import { Button } from "@/components/ui/button";
 import prisma from "@/lib/prisma";
 import {
-  OwnerStats,
-  AccountantStats,
-  MonthlySummary,
-  QuickActions,
+  StatsCards,
+  TodoSection,
   RecentBoxes,
 } from "./_components";
 
@@ -227,11 +228,7 @@ export default async function DashboardPage() {
   const session = await requireOrganization();
   const stats = await getDashboardStats(session.currentOrganization.id);
 
-  const isAccounting = ["ACCOUNTING", "ADMIN", "OWNER"].includes(session.currentOrganization.role);
   const isOwner = ["ADMIN", "OWNER"].includes(session.currentOrganization.role);
-
-  const formatMoney = (amount: number) => 
-    amount.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 
   return (
     <>
@@ -239,29 +236,38 @@ export default async function DashboardPage() {
         title="Dashboard" 
         description={`ยินดีต้อนรับ ${session.name || "ผู้ใช้"}`}
         showCreateButton={false}
+        action={
+          <Button asChild>
+            <Link href="/documents/new">
+              <Plus className="mr-2 h-4 w-4" />
+              สร้างกล่อง
+            </Link>
+          </Button>
+        }
       />
       
       <div className="p-6 space-y-6">
-        {/* Owner Dashboard (Section 14) */}
-        {isOwner && (
-          <OwnerStats stats={stats.owner} formatMoney={formatMoney} />
-        )}
-
-        {/* Accountant Dashboard (Section 14) */}
-        {isAccounting && (
-          <AccountantStats stats={stats.accountant} />
-        )}
-
-        {/* Monthly Summary */}
-        <MonthlySummary 
-          monthlyExpense={stats.monthlyExpense}
+        {/* Stats Cards - Overview at a glance */}
+        <StatsCards
+          pendingCount={stats.owner.pendingBoxes}
+          pendingAmount={stats.owner.pendingAmount}
+          needDocsCount={stats.accountant.needDocs}
           monthlyIncome={stats.monthlyIncome}
-          formatMoney={formatMoney}
+          monthlyExpense={stats.monthlyExpense}
         />
 
-        {/* Quick Actions & Recent */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          <QuickActions />
+        {/* Main Content - To-Do & Recent Boxes */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* To-Do Section */}
+          <TodoSection 
+            stats={stats.accountant}
+            ownerStats={isOwner ? {
+              whtOverdueCount: stats.owner.whtOverdueCount,
+              duplicateCount: stats.owner.duplicateCount,
+            } : undefined}
+          />
+
+          {/* Recent Boxes */}
           <RecentBoxes boxes={stats.recentBoxes} />
         </div>
       </div>

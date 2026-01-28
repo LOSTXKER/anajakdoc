@@ -15,6 +15,7 @@ import {
 import { formatDate, formatMoney } from "@/lib/formatters";
 import { canReviewBox, getBoxTypeConfig, getBoxStatusConfig, getDocStatusConfig, getExpenseTypeLabel } from "@/lib/document-config";
 import { cn } from "@/lib/utils";
+import { DocumentStatusBadges } from "./StatusLegend";
 import type { SerializedBoxListItem } from "@/types";
 
 interface DocumentBoxCardProps {
@@ -47,38 +48,6 @@ export const DocumentBoxCard = memo(function DocumentBoxCard({
   const boxStatusConfig = getBoxStatusConfig(box.status);
   const BoxTypeIcon = boxTypeConfig.icon;
 
-  // Helper to get VAT badge info
-  const getVatBadgeInfo = () => {
-    if (!box.hasVat) return null;
-    switch (box.vatDocStatus) {
-      case "RECEIVED":
-      case "VERIFIED":
-        return { label: "ใบกำกับ ✓", className: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" };
-      case "MISSING":
-        return { label: "ใบกำกับ ขาด", className: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800" };
-      default:
-        return { label: "ใบกำกับ รอ", className: "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" };
-    }
-  };
-
-  // Helper to get WHT badge info
-  const getWhtBadgeInfo = () => {
-    if (!box.hasWht) return null;
-    switch (box.whtDocStatus) {
-      case "RECEIVED":
-      case "VERIFIED":
-        return { label: "หัก ณ ที่จ่าย ✓", className: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" };
-      case "REQUEST_SENT":
-        return { label: "หัก ณ ที่จ่าย รอ", className: "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" };
-      case "MISSING":
-        return { label: "หัก ณ ที่จ่าย ขาด", className: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800" };
-      default:
-        return { label: "หัก ณ ที่จ่าย รอ", className: "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" };
-    }
-  };
-
-  const vatBadge = getVatBadgeInfo();
-  const whtBadge = getWhtBadgeInfo();
 
   return (
     <div className={cn(
@@ -153,19 +122,17 @@ export const DocumentBoxCard = memo(function DocumentBoxCard({
               </Badge>
             )}
             
-            {/* VAT Badge */}
-            {vatBadge && (
-              <Badge variant="secondary" className={cn("text-xs", vatBadge.className)}>
-                {vatBadge.label}
-              </Badge>
-            )}
-            
-            {/* WHT Badge */}
-            {whtBadge && (
-              <Badge variant="secondary" className={cn("text-xs", whtBadge.className)}>
-                {whtBadge.label}
-              </Badge>
-            )}
+            {/* Document Status - Compact progress with popover */}
+            <DocumentStatusBadges
+              hasVat={box.hasVat}
+              vatDocStatus={box.vatDocStatus}
+              hasWht={box.hasWht}
+              whtDocStatus={box.whtDocStatus}
+              naDocTypes={(box as any).naDocTypes || []}
+              boxType={box.boxType}
+              expenseType={box.expenseType}
+              files={box.documents.map(d => ({ docType: d.docType }))}
+            />
           </div>
           
           <p className="text-muted-foreground truncate mt-1">
