@@ -52,6 +52,7 @@ import {
 
 // Action types for filtering (includes historical actions and new status system)
 const ACTION_TYPES = [
+  // Box actions
   { value: "CREATED", label: "สร้างกล่อง" },
   { value: "UPDATED", label: "แก้ไขข้อมูล" },
   { value: "STATUS_CHANGED", label: "เปลี่ยนสถานะ" },
@@ -59,12 +60,22 @@ const ACTION_TYPES = [
   { value: "APPROVED", label: "อนุมัติ" },
   { value: "REJECTED", label: "ปฏิเสธ" },
   { value: "NEED_DOCS", label: "ขาดเอกสาร" },
-  { value: "NEED_MORE_DOCS", label: "ขอเอกสารเพิ่ม" }, // Historical
+  { value: "NEED_MORE_DOCS", label: "ขอเอกสารเพิ่ม" },
   { value: "COMPLETED", label: "เสร็จสิ้น" },
-  { value: "BOOKED", label: "ลงบัญชี" }, // Historical
-  { value: "ARCHIVED", label: "เก็บถาวร" }, // Historical
+  { value: "BOOKED", label: "ลงบัญชี" },
+  { value: "ARCHIVED", label: "เก็บถาวร" },
+  // File actions
   { value: "FILE_UPLOADED", label: "อัปโหลดไฟล์" },
+  { value: "FILE_ADDED", label: "เพิ่มไฟล์" },
   { value: "FILE_DELETED", label: "ลบไฟล์" },
+  { value: "FILE_TYPE_CHANGED", label: "เปลี่ยนประเภทไฟล์" },
+  // Document status actions
+  { value: "VAT_STATUS_UPDATE", label: "อัปเดทสถานะ VAT" },
+  { value: "WHT_STATUS_UPDATE", label: "อัปเดทสถานะหัก ณ ที่จ่าย" },
+  { value: "PAYMENT_PROOF_STATUS_UPDATE", label: "อัปเดทหลักฐานการชำระ" },
+  { value: "DOC_MARKED_NA", label: "ทำเครื่องหมายไม่มีเอกสาร" },
+  { value: "DOC_UNMARKED_NA", label: "ยกเลิกเครื่องหมายไม่มีเอกสาร" },
+  // Comment & task actions
   { value: "COMMENT_ADDED", label: "เพิ่มความคิดเห็น" },
   { value: "TASK_CREATED", label: "สร้าง Task" },
   { value: "TASK_COMPLETED", label: "Task เสร็จสิ้น" },
@@ -73,9 +84,10 @@ const ACTION_TYPES = [
 
 // Get action badge color
 function getActionColor(action: string): "default" | "secondary" | "destructive" | "outline" {
-  if (["APPROVED", "BOOKED", "COMPLETED", "TASK_COMPLETED"].includes(action)) return "default";
-  if (["REJECTED", "FILE_DELETED"].includes(action)) return "destructive";
-  if (["CREATED", "FILE_UPLOADED", "PAYMENT_ADDED"].includes(action)) return "secondary";
+  if (["APPROVED", "BOOKED", "COMPLETED", "TASK_COMPLETED", "DOC_UNMARKED_NA"].includes(action)) return "default";
+  if (["REJECTED", "FILE_DELETED", "DOC_MARKED_NA"].includes(action)) return "destructive";
+  if (["CREATED", "FILE_UPLOADED", "FILE_ADDED", "PAYMENT_ADDED"].includes(action)) return "secondary";
+  if (["VAT_STATUS_UPDATE", "WHT_STATUS_UPDATE", "PAYMENT_PROOF_STATUS_UPDATE"].includes(action)) return "outline";
   return "outline";
 }
 

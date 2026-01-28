@@ -484,6 +484,7 @@ export async function verifyEvidencePackage(packageContent: string): Promise<Api
 
 function translateAction(action: string): string {
   const translations: Record<string, string> = {
+    // Box actions
     CREATED: "สร้างกล่อง",
     UPDATED: "แก้ไขข้อมูล",
     STATUS_CHANGED: "เปลี่ยนสถานะ",
@@ -491,14 +492,31 @@ function translateAction(action: string): string {
     APPROVED: "อนุมัติ",
     REJECTED: "ปฏิเสธ",
     NEED_MORE_DOCS: "ขอเอกสารเพิ่ม",
+    NEED_DOCS: "ขาดเอกสาร",
     BOOKED: "ลงบัญชี",
+    COMPLETED: "เสร็จสิ้น",
     ARCHIVED: "เก็บถาวร",
+    
+    // File actions
     FILE_UPLOADED: "อัปโหลดไฟล์",
+    FILE_ADDED: "เพิ่มไฟล์",
     FILE_DELETED: "ลบไฟล์",
+    FILE_TYPE_CHANGED: "เปลี่ยนประเภทไฟล์",
+    
+    // Document status actions
+    VAT_STATUS_UPDATE: "อัปเดทสถานะ VAT",
+    WHT_STATUS_UPDATE: "อัปเดทสถานะหัก ณ ที่จ่าย",
+    PAYMENT_PROOF_STATUS_UPDATE: "อัปเดทหลักฐานการชำระ",
+    DOC_MARKED_NA: "ทำเครื่องหมายไม่มีเอกสาร",
+    DOC_UNMARKED_NA: "ยกเลิกเครื่องหมายไม่มีเอกสาร",
+    
+    // Comment & task actions
     COMMENT_ADDED: "เพิ่มความคิดเห็น",
     TASK_CREATED: "สร้าง Task",
     TASK_COMPLETED: "Task เสร็จสิ้น",
     PAYMENT_ADDED: "บันทึกการชำระ",
+    
+    // Bulk actions
     BULK_APPROVED: "อนุมัติ (Bulk)",
     BULK_REJECTED: "ปฏิเสธ (Bulk)",
     BULK_REQUESTED_DOCS: "ขอเอกสาร (Bulk)",
